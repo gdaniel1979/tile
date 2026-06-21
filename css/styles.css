@@ -1,0 +1,574 @@
+:root {
+  --bg: #0f1419;
+  --panel: #1a212b;
+  --panel-2: #222c38;
+  --border: #2f3b4a;
+  --text: #e6edf3;
+  --muted: #9aa7b5;
+  --accent: #4c9aff;
+  --accent-dark: #2f6fd6;
+  --danger: #e5534b;
+  --ok: #3fb950;
+  --radius: 8px;
+  --shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-header {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 12px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.app-header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+.phase-badge {
+  font-size: 12px;
+  color: var(--accent);
+  background: rgba(76, 154, 255, 0.12);
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.app-main {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 300px;
+  flex: 0 0 300px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Mintázat-választó */
+.full-select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 13px;
+  outline: none;
+  min-width: 150px;
+}
+#offsetQuick { gap: 8px; }
+#offsetQuick .btn { flex: 1; padding: 5px; }
+
+/* Undo/redo sáv */
+.undo-bar { display: flex; gap: 8px; }
+.undo-bar .btn { flex: 1; }
+.undo-bar .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Bal oldali cím (a fejléc helyett) */
+.side-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 2px 2px 0;
+}
+
+/* Projekt–felület fa-lista */
+.proj-tree-wrap {
+  flex: 0 0 auto;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.proj-tree-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.proj-tree-head span {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 600;
+}
+.proj-tree-head button {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.proj-tree { max-height: 220px; overflow-y: auto; padding: 6px; }
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+  padding: 5px 6px;
+  cursor: pointer;
+}
+.tree-row:hover { background: var(--bg); }
+.tree-row .tree-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: var(--text);
+}
+.tree-row .tree-btn {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  visibility: hidden;
+}
+.tree-row:hover .tree-btn { visibility: visible; }
+.tree-btn:hover { color: var(--text); background: var(--panel); }
+.tree-btn.del:hover { color: var(--danger); }
+.tree-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+.tree-proj { font-weight: 600; }
+.tree-proj.active { background: rgba(76,154,255,0.12); }
+.tree-proj .caret { width: 14px; color: var(--muted); font-size: 10px; flex: 0 0 auto; }
+
+.tree-surf { padding-left: 22px; font-weight: 400; }
+.tree-surf.active .tree-name { color: var(--accent); font-weight: 600; }
+.tree-surf .micon { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
+
+.tree-add {
+  margin: 2px 0 4px 22px;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.tree-add:hover { background: var(--bg); }
+
+/* Fal–padló figyelmeztető sáv */
+.wall-warn {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #4a2f12;
+  color: #ffd9a0;
+  border-bottom: 1px solid #b5731f;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  box-shadow: var(--shadow);
+}
+.wall-warn[hidden] { display: none; }
+.wall-warn .ww-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.wall-warn .btn { padding: 5px 10px; font-size: 12px; background: #5e3c17; border-color: #b5731f; color: #ffe9cc; }
+.wall-warn .btn:hover { border-color: #ffd9a0; }
+
+/* Fülek */
+.tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+.tabs button {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 6px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.tabs button.active { background: var(--accent); color: #fff; }
+
+.tab-panel { display: flex; flex-direction: column; gap: 14px; }
+.tab-panel[hidden] { display: none; }
+
+input[type="color"] {
+  width: 42px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  padding: 2px;
+  cursor: pointer;
+}
+
+/* Laptípus kártyák */
+.tile-list { display: flex; flex-direction: column; gap: 10px; }
+.tile-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+.tile-card.is-base { border-color: var(--accent); }
+.tile-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.tile-name {
+  flex: 1;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 13px;
+  outline: none;
+}
+.tile-name:focus { border-color: var(--accent); }
+.base-radio { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); cursor: pointer; }
+.base-radio input { accent-color: var(--accent); }
+.tile-del {
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; font-size: 14px; padding: 2px 4px;
+}
+.tile-del:hover { color: var(--danger); }
+.tile-del:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.tile-card-body { display: flex; gap: 10px; }
+.tile-swatch {
+  flex: 0 0 auto;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background-color: #888;
+  background-position: center;
+  align-self: flex-start;
+}
+.tile-fields { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.dim-row { display: flex; align-items: center; gap: 6px; }
+.dim-row input {
+  width: 56px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 12px;
+  outline: none;
+}
+.dim-row .x { color: var(--muted); }
+.dim-row .u { color: var(--muted); font-size: 11px; }
+.fill-row { display: flex; align-items: center; gap: 6px; }
+.fill-row select, .image-row select {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 12px;
+  outline: none;
+}
+.image-row { display: flex; flex-direction: column; gap: 6px; }
+.image-row input[type="file"] { font-size: 11px; color: var(--muted); max-width: 100%; }
+.image-row[hidden], .fill-color-wrap[hidden] { display: none; }
+
+/* Nyomtatás / PDF nézet */
+#printArea { display: none; }
+@media print {
+  body { background: #fff; color: #000; height: auto; overflow: visible; display: block; }
+  .app-header, .app-main { display: none !important; }
+  #printArea { display: block; padding: 10px 16px; color: #000; font-family: system-ui, sans-serif; }
+  #printArea h1 { font-size: 18px; margin: 0 0 12px; }
+  #printArea h2 { font-size: 14px; margin: 16px 0 6px; }
+  #printArea img { max-width: 100%; height: auto; border: 1px solid #999; }
+  #printArea table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  #printArea th, #printArea td { border: 1px solid #bbb; padding: 4px 8px; text-align: left; }
+  #printArea .pa-grid { display: flex; gap: 32px; flex-wrap: wrap; }
+  #printArea .pa-col { flex: 1; min-width: 240px; }
+}
+
+/* Kivágások lista */
+.cutout-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.cutout-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px;
+}
+.cutout-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.cutout-head .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); flex: 0 0 auto; }
+.cutout-head select {
+  flex: 1; min-width: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  outline: none;
+}
+.cutout-head .del { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 13px; }
+.cutout-head .del:hover { color: var(--danger); }
+.cutout-dims { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.cutout-dims label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cutout-dims label span { font-size: 9px; color: var(--muted); }
+.cutout-dims input {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 3px 4px;
+  font-size: 11px;
+  outline: none;
+}
+.cutout-dims input:focus { border-color: var(--accent); }
+.btn.active-mode { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Egyedi lapok – festő paletta */
+.paint-palette { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.paint-swatch {
+  width: 48px;
+  cursor: pointer;
+  text-align: center;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  padding: 2px;
+}
+.paint-swatch.sel { border-color: var(--accent); }
+.paint-swatch .sw {
+  width: 100%;
+  height: 30px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background-size: cover;
+  background-position: center;
+}
+.paint-swatch.erase .sw {
+  background-image: linear-gradient(45deg, #444 25%, transparent 25%, transparent 75%, #444 75%),
+                    linear-gradient(45deg, #444 25%, #2a2a2a 25%, #2a2a2a 75%, #444 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+}
+.paint-swatch .nm {
+  font-size: 10px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.panel {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.panel h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+.panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.panel-head h2 { margin: 0; }
+
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.control-row:last-child { margin-bottom: 0; }
+.control-row > label { color: var(--muted); font-size: 13px; }
+.checkbox-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+
+.two-cols { justify-content: flex-start; }
+.times { color: var(--muted); }
+
+.segmented {
+  display: inline-flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.segmented button {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.segmented button.active { background: var(--accent); color: #fff; }
+
+.input-with-unit {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.input-with-unit input {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 5px 8px;
+  width: 70px;
+  font-size: 13px;
+  outline: none;
+}
+.unit-suffix { color: var(--muted); padding-right: 8px; font-size: 12px; }
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { opacity: 0.5; }
+
+.hint { font-size: 12px; color: var(--muted); line-height: 1.45; margin: 8px 0 0; }
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.full { width: 100%; }
+.btn-secondary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-secondary:hover { background: var(--accent-dark); }
+.btn-ghost { background: transparent; }
+.btn-danger { color: var(--danger); }
+.btn-danger:hover { border-color: var(--danger); background: rgba(229, 83, 75, 0.1); }
+
+.actions { display: flex; flex-direction: column; gap: 8px; }
+
+/* Edge list */
+.edge-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+.empty-note, .hint.small { color: var(--muted); font-size: 12px; margin: 0; }
+.edge-item {
+  display: grid;
+  grid-template-columns: 24px 1fr 1fr;
+  gap: 6px;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px;
+}
+.edge-item.closing { opacity: 0.7; }
+.edge-idx {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--panel-2); border-radius: 50%;
+  font-size: 11px; color: var(--muted);
+}
+.edge-field { display: flex; flex-direction: column; gap: 2px; }
+.edge-field span { font-size: 10px; color: var(--muted); }
+.edge-field input {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 6px;
+  width: 100%;
+  font-size: 12px;
+  outline: none;
+}
+.edge-field input:focus { border-color: var(--accent); }
+.edge-field input:disabled { opacity: 0.5; cursor: not-allowed; }
+.edge-name-field { grid-column: 1 / -1; }
+.edge-name-field input { font-size: 12px; }
+
+.summary .summary-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0;
+}
+.summary .summary-row span { color: var(--muted); }
+.readout { font-size: 12px; color: var(--muted); }
+
+/* Canvas */
+.canvas-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  background:
+    radial-gradient(circle at 50% 40%, #141b24, #0d1217);
+  overflow: hidden;
+}
+#board { display: block; width: 100%; height: 100%; cursor: crosshair; }
+/* A rajzon megjelenő él-felirat szerkesztő mező */
+.label-editor {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 70px;
+  padding: 3px 4px;
+  font: 12px system-ui, sans-serif;
+  text-align: center;
+  background: #11161c;
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  outline: none;
+  z-index: 5;
+  box-shadow: var(--shadow);
+}
+
+.canvas-help {
+  position: absolute;
+  bottom: 12px; left: 12px;
+  display: flex; gap: 14px; flex-wrap: wrap;
+  font-size: 11px; color: var(--muted);
+  background: rgba(15, 20, 25, 0.7);
+  padding: 6px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+}

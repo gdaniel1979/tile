@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lapkiosztás tervező</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <main class="app-main">
+    <!-- Bal oldali vezérlőpanel -->
+    <aside class="sidebar">
+      <div class="side-title">Lapkiosztás tervező</div>
+
+      <button class="btn btn-secondary full" id="genLayoutBtn">Burkolatkiosztás generálása</button>
+
+      <div class="undo-bar">
+        <button class="btn btn-ghost" id="histUndo" title="Visszavonás (Ctrl+Z)" disabled>↶ Vissza</button>
+        <button class="btn btn-ghost" id="histRedo" title="Újra (Ctrl+Y)" disabled>↷ Újra</button>
+      </div>
+
+      <div class="proj-tree-wrap">
+        <div class="proj-tree-head">
+          <span>Projektek</span>
+          <button id="addProject" title="Új projekt">+ Projekt</button>
+        </div>
+        <div class="proj-tree" id="projTree"></div>
+      </div>
+
+      <div class="tabs" id="tabs">
+        <button data-tab="plan" class="active">Alaprajz</button>
+        <button data-tab="tiles">Burkolat</button>
+        <button data-tab="layout">Kiosztás</button>
+        <button data-tab="export">Export</button>
+      </div>
+
+      <!-- ALAPRAJZ FÜL -->
+      <div class="tab-panel" data-tabpanel="plan">
+      <section class="panel">
+        <h2>Felület</h2>
+        <div class="control-row">
+          <label>Típus</label>
+          <div class="segmented" id="modeSegmented">
+            <button data-mode="floor" class="active">Padló</button>
+            <button data-mode="wall">Fal</button>
+          </div>
+        </div>
+        <div class="control-row">
+          <label>Mértékegység</label>
+          <div class="segmented" id="unitSegmented">
+            <button data-unit="cm" class="active">cm</button>
+            <button data-unit="mm">mm</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Rajzolás</h2>
+        <div class="control-row checkbox-row">
+          <label for="snapToggle">Rácsra illesztés</label>
+          <input type="checkbox" id="snapToggle" checked />
+        </div>
+        <div class="control-row" id="gridSizeRow">
+          <label for="gridSize">Rácsméret</label>
+          <div class="input-with-unit">
+            <input type="number" id="gridSize" min="1" step="1" value="10" />
+            <span class="unit-suffix" id="gridUnit">cm</span>
+          </div>
+        </div>
+        <div class="control-row checkbox-row">
+          <label for="orthoToggle">Csak vízsz./függ. élek</label>
+          <input type="checkbox" id="orthoToggle" />
+        </div>
+        <p class="hint" id="drawHint">Kattints a vászonra a sarokpontok lehelyezéséhez. A kör alakú kezdőpontra kattintva zárhatod a sokszöget. A rajzon megjelenő élhossz-feliratra kattintva közvetlenül átírhatod az adott él hosszát.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Gyors téglalap</h2>
+        <div class="control-row two-cols">
+          <div class="input-with-unit">
+            <input type="number" id="rectW" min="1" step="1" value="400" />
+            <span class="unit-suffix rect-unit">cm</span>
+          </div>
+          <span class="times">×</span>
+          <div class="input-with-unit">
+            <input type="number" id="rectH" min="1" step="1" value="300" />
+            <span class="unit-suffix rect-unit">cm</span>
+          </div>
+        </div>
+        <button class="btn btn-secondary full" id="makeRectBtn">Téglalap létrehozása</button>
+      </section>
+
+      <section class="panel">
+        <h2>Falak generálása</h2>
+        <div class="control-row">
+          <label for="wallHeight">Falmagasság</label>
+          <div class="input-with-unit">
+            <input type="number" id="wallHeight" min="1" step="1" value="270" />
+            <span class="unit-suffix rect-unit">cm</span>
+          </div>
+        </div>
+        <button class="btn btn-ghost full" id="genWalls">Falak generálása ebből a padlóból</button>
+        <p class="hint">Az aktív <strong>padló</strong> minden éléhez egy fal-felület készül (szélesség = élhossz, a megadott magassággal). Csak zárt padló-alaprajzra.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Kivágások (nem burkolt részek)</h2>
+        <div class="control-row">
+          <label>Típus</label>
+          <div class="segmented" id="cutoutKindSeg">
+            <button data-kind="opening" class="active">Nyílás</button>
+            <button data-kind="untiled">Nem burkolt</button>
+          </div>
+        </div>
+        <div class="control-row">
+          <label for="untiledColor">„Nem burkolt" szín</label>
+          <input type="color" id="untiledColor" value="#8a8f98" />
+        </div>
+        <button class="btn btn-ghost full" id="cutoutDraw">+ Kivágás rajzolása</button>
+        <div id="cutoutList" class="cutout-list"></div>
+        <p class="hint">Válaszd a típust, kapcsold be a rajzolást, majd húzz egy téglalapot a vásznon. A kivágás oldalán a méretre kattintva pontosíthatod (mint az éleknél). A felső, nem burkolt sávot is így add meg — több téglalappal egy falon belül eltérő burkolási magasság is kialakítható.</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Élek</h2>
+          <span class="readout" id="closedState">nyitott</span>
+        </div>
+        <div id="edgeList" class="edge-list">
+          <p class="empty-note">Még nincs él. Kezdj el rajzolni a vásznon.</p>
+        </div>
+      </section>
+
+      <section class="panel summary">
+        <div class="summary-row"><span>Terület</span><strong id="areaOut">– m²</strong></div>
+        <div class="summary-row"><span>Kerület</span><strong id="perimOut">–</strong></div>
+      </section>
+
+      <section class="panel actions">
+        <button class="btn btn-ghost full" id="fitBtn">Nézet igazítása</button>
+        <button class="btn btn-ghost full" id="delSelBtn" disabled>Kijelölt pont törlése</button>
+        <button class="btn btn-ghost full" id="undoBtn">Utolsó pont vissza</button>
+        <button class="btn btn-danger full" id="clearBtn">Törlés / újrakezdés</button>
+      </section>
+      </div><!-- /plan -->
+
+      <!-- BURKOLAT FÜL -->
+      <div class="tab-panel" data-tabpanel="tiles" hidden>
+      <section class="panel">
+        <h2>Fuga</h2>
+        <div class="control-row">
+          <label for="groutW">Vastagság</label>
+          <div class="input-with-unit">
+            <input type="number" id="groutW" min="0" step="0.5" value="3" />
+            <span class="unit-suffix">mm</span>
+          </div>
+        </div>
+        <div class="control-row">
+          <label for="groutColor">Fuga színe</label>
+          <input type="color" id="groutColor" value="#cfcfcf" />
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Laptípusok</h2>
+          <button class="btn btn-secondary" id="addTileBtn">+ Új</button>
+        </div>
+        <div id="tileList" class="tile-list"></div>
+        <p class="hint">Az „alap" típus mérete határozza meg a kiosztás rácsát (3. fázis). A többi típust a későbbi egyedi lapokhoz használhatod.</p>
+      </section>
+      </div><!-- /tiles -->
+
+      <!-- KIOSZTÁS FÜL -->
+      <div class="tab-panel" data-tabpanel="layout" hidden>
+      <section class="panel">
+        <div class="control-row checkbox-row">
+          <label for="layoutShow">Kiosztás megjelenítése</label>
+          <input type="checkbox" id="layoutShow" checked />
+        </div>
+        <div class="control-row checkbox-row">
+          <label for="tileRotate">Lap elforgatása 90°</label>
+          <input type="checkbox" id="tileRotate" />
+        </div>
+        <p class="hint" id="layoutHint">Az „alap" laptípus mérete + a fuga adja a rácsot. A felület szélén a lapok valósághűen levágva jelennek meg.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Mintázat (kötés)</h2>
+        <div class="control-row">
+          <label for="patternSel">Minta</label>
+          <select id="patternSel" class="full-select">
+            <option value="straight">Egyenes (hálós)</option>
+            <option value="offset">Eltolt / téglakötés</option>
+          </select>
+        </div>
+        <div class="control-row" id="offsetRow">
+          <label for="offsetPct">Sor-eltolás</label>
+          <div class="input-with-unit">
+            <input type="number" id="offsetPct" min="0" max="100" step="1" value="50" />
+            <span class="unit-suffix">%</span>
+          </div>
+        </div>
+        <div class="control-row" id="offsetQuick">
+          <button class="btn btn-ghost" data-off="50">½ (50%)</button>
+          <button class="btn btn-ghost" data-off="33.33">⅓ (33%)</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Szél-igazítás (esztétikus szélek)</h2>
+        <div class="control-row">
+          <label>Mód</label>
+          <div class="segmented" id="alignSeg">
+            <button data-align="none" class="active">Nincs</button>
+            <button data-align="center">Középre</button>
+            <button data-align="min">Min. csík</button>
+          </div>
+        </div>
+        <div class="control-row" id="thrRow">
+          <label for="thr">Min. szélső csík</label>
+          <div class="input-with-unit">
+            <input type="number" id="thr" min="0" step="1" value="10" />
+            <span class="unit-suffix off-unit">cm</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Rács eltolása</h2>
+        <div class="control-row">
+          <label for="offX">Vízszintes (X)</label>
+          <div class="input-with-unit">
+            <input type="number" id="offX" step="1" value="0" />
+            <span class="unit-suffix off-unit">cm</span>
+          </div>
+        </div>
+        <div class="control-row">
+          <label for="offY">Függőleges (Y)</label>
+          <div class="input-with-unit">
+            <input type="number" id="offY" step="1" value="0" />
+            <span class="unit-suffix off-unit">cm</span>
+          </div>
+        </div>
+        <p class="hint" id="offHint">Aktív szél-igazításnál a rácsot a program állítja; a kézi eltolás ilyenkor letiltva.</p>
+      </section>
+
+      <section class="panel summary">
+        <div class="summary-row"><span>Lapok összesen</span><strong id="tileTotal">–</strong></div>
+        <div class="summary-row"><span>Egész lap</span><strong id="tileWhole">–</strong></div>
+        <div class="summary-row"><span>Vágott lap</span><strong id="tileCut">–</strong></div>
+      </section>
+
+      <section class="panel">
+        <h2>Anyagkimutatás</h2>
+        <div class="control-row">
+          <label for="overage">Tartalék</label>
+          <div class="input-with-unit">
+            <input type="number" id="overage" min="0" step="1" value="10" />
+            <span class="unit-suffix">%</span>
+          </div>
+        </div>
+        <div class="summary-row"><span>Burkolt terület</span><strong id="matArea">–</strong></div>
+        <div class="summary-row"><span>Szükséges lap (újrahaszn.)</span><strong id="matTiles">–</strong></div>
+        <div class="summary-row"><span>Hulladék</span><strong id="matWaste">–</strong></div>
+        <div class="summary-row"><span>Lap tartalékkal</span><strong id="matFinal">–</strong></div>
+        <p class="hint">A „reális" újrahasznosítás feltételezi, hogy egy lapból a levágott darab mellett a maradék egy másik szélső helyre felhasználható, ha elég nagy.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Egyedi lapok</h2>
+        <div class="control-row checkbox-row">
+          <label for="paintMode">Festés mód</label>
+          <input type="checkbox" id="paintMode" />
+        </div>
+        <div id="paintPalette" class="paint-palette"></div>
+        <button class="btn btn-ghost full" id="clearOverrides">Összes egyedi törlése</button>
+        <p class="hint">Kapcsold be a festés módot, válassz egy típust (vagy „Alap" = visszaállítás), majd kattints vagy húzz a lapokon. Új típusokat a Burkolat fülön vehetsz fel.</p>
+      </section>
+      </div><!-- /layout -->
+
+      <!-- EXPORT FÜL -->
+      <div class="tab-panel" data-tabpanel="export" hidden>
+      <section class="panel">
+        <h2>Projekt</h2>
+        <div class="control-row">
+          <label for="projName">Név</label>
+          <input type="text" id="projName" class="tile-name" value="Projekt" />
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Kép & PDF</h2>
+        <button class="btn btn-secondary full" id="exportPng">PNG (aktív felület)</button>
+        <button class="btn btn-ghost full" id="exportPdf" style="margin-top:8px">PDF / nyomtatás (egész projekt)</button>
+        <p class="hint">A PNG az aktív felületet menti. A PDF az egész projektet tartalmazza: felületenként egy szakasz + összesítő oldal. A böngésző nyomtatási ablakából menthető („Cél: Mentés PDF-ként").</p>
+      </section>
+      <section class="panel">
+        <h2>Mentés fájlba</h2>
+        <button class="btn btn-ghost full" id="saveProjJson">Aktív projekt mentése (JSON)</button>
+        <button class="btn btn-ghost full" id="saveStoreJson" style="margin-top:8px">Összes projekt mentése (JSON)</button>
+        <button class="btn btn-ghost full" id="loadJsonBtn" style="margin-top:8px">Betöltés (JSON)</button>
+        <input type="file" id="loadJsonInput" accept="application/json,.json" hidden />
+        <p class="hint">Egy projekt fájlja megosztáshoz/folytatáshoz; az „összes" egy teljes biztonsági mentés. Betöltéskor a program felismeri, hogy egy projektet (hozzáadja) vagy a teljes tárat (visszaállítja) töltöd be.</p>
+      </section>
+      </div><!-- /export -->
+    </aside>
+
+    <!-- Vászon -->
+    <div class="canvas-wrap" id="canvasWrap">
+      <div id="wallWarn" class="wall-warn" hidden>
+        <span id="wallWarnText"></span>
+        <span class="ww-actions">
+          <button class="btn" id="wallWarnRegen">Falak újragenerálása</button>
+          <button class="btn" id="wallWarnHide">Elrejtés</button>
+        </span>
+      </div>
+      <canvas id="board"></canvas>
+      <div class="canvas-help">
+        <span>Görgő: nagyítás</span>
+        <span>Jobb gomb + húzás: nézet mozgatás</span>
+        <span>Pont húzása: áthelyezés</span>
+        <span>Él húzása: eltolás</span>
+        <span>Élhossz-feliratra katt.: átírás</span>
+        <span>Dupla katt. pontra / Delete: törlés</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- Nyomtatási/PDF nézet (csak nyomtatáskor látszik) -->
+  <div id="printArea" hidden>
+    <h1>Lapkiosztási terv</h1>
+    <img id="printImg" alt="" />
+    <div id="printInfo"></div>
+  </div>
+
+  <script src="js/editor.js"></script>
+</body>
+</html>
