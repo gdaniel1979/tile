@@ -12,9 +12,8 @@
     <aside class="sidebar">
       <div class="side-title">Lapkiosztás tervező</div>
 
-      <button class="btn btn-secondary full" id="genLayoutBtn">Burkolatkiosztás generálása</button>
-
-      <div class="undo-bar">
+      <div class="top-actions">
+        <button class="btn btn-secondary" id="genLayoutBtn" title="Burkolatkiosztás generálása">Kiosztás generálása</button>
         <button class="btn btn-ghost" id="histUndo" title="Visszavonás (Ctrl+Z)" disabled>↶ Vissza</button>
         <button class="btn btn-ghost" id="histRedo" title="Újra (Ctrl+Y)" disabled>↷ Újra</button>
       </div>
@@ -229,6 +228,7 @@
 
       <section class="panel">
         <h2>Rács eltolása</h2>
+        <p class="hint">A teljes laprácsot tologatja vízszintesen/függőlegesen. Ezzel állítod, hova essenek a fugavonalak, és mekkorák legyenek a szélső (vágott) lapok — pl. ha a szélen csúnya, túl keskeny csík maradna, eltolással szélesebbé teheted. (A „Szél-igazítás" ezt automatikusan is be tudja állítani.)</p>
         <div class="control-row">
           <label for="offX">Vízszintes (X)</label>
           <div class="input-with-unit">

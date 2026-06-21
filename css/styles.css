@@ -83,10 +83,11 @@ body {
 #offsetQuick { gap: 8px; }
 #offsetQuick .btn { flex: 1; padding: 5px; }
 
-/* Undo/redo sáv */
-.undo-bar { display: flex; gap: 8px; }
-.undo-bar .btn { flex: 1; }
-.undo-bar .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* Felső gombsor (generálás + undo/redo egy sorban) */
+.top-actions { display: flex; gap: 6px; align-items: stretch; }
+.top-actions .btn { font-size: 11px; padding: 6px 6px; white-space: nowrap; line-height: 1.2; }
+.top-actions #genLayoutBtn { flex: 1; min-width: 0; }
+.top-actions .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Bal oldali cím (a fejléc helyett) */
 .side-title {
@@ -99,17 +100,19 @@ body {
 /* Projekt–felület fa-lista */
 .proj-tree-wrap {
   flex: 0 0 auto;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
+  background: var(--bg);
+  border: 1px solid var(--accent-dark);
   border-radius: var(--radius);
   overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(76, 154, 255, 0.08);
 }
 .proj-tree-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
+  background: rgba(76, 154, 255, 0.12);
+  border-bottom: 1px solid var(--accent-dark);
 }
 .proj-tree-head span {
   font-size: 12px;
