@@ -1190,12 +1190,15 @@
       if (!f) return;
       const r = new FileReader();
       r.onload = () => {
-        type.imageUrl = r.result;
-        type.fillKind = "image";
-        kind.value = "image";
-        updateFillVisibility();
-        applyFill(sw, type);
-        tilesSave();
+        // a textúrát lekicsinyítjük, hogy ne teljen meg a böngésző tárolója (localStorage)
+        downscaleImage(r.result, 700, (small) => {
+          type.imageUrl = small;
+          type.fillKind = "image";
+          kind.value = "image";
+          updateFillVisibility();
+          applyFill(sw, type);
+          tilesSave();
+        });
       };
       r.readAsDataURL(f);
     });
@@ -1274,6 +1277,24 @@
     img.onload = () => { e.loaded = true; render(); };
     img.src = url;
     return null;
+  }
+
+  // Feltöltött kép lekicsinyítése (max. méret px), hogy elférjen a localStorage-ban
+  function downscaleImage(dataUrl, maxDim, cb) {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      const scale = Math.min(1, maxDim / Math.max(w, h, 1));
+      if (scale >= 1) { cb(dataUrl); return; } // már elég kicsi
+      const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+      const cv = document.createElement("canvas");
+      cv.width = cw; cv.height = ch;
+      cv.getContext("2d").drawImage(img, 0, 0, cw, ch);
+      try { cb(cv.toDataURL("image/jpeg", 0.82)); }
+      catch (_) { cb(dataUrl); }
+    };
+    img.onerror = () => cb(dataUrl);
+    img.src = dataUrl;
   }
 
   function pointInPolygon(x, y, pts) {
@@ -2339,9 +2360,24 @@
   }
   function pushHistory() { pushHistoryWith(JSON.stringify(serializeStore())); }
 
+  let saveFailed = false;
   function save() {
     const snap = JSON.stringify(serializeStore());
-    try { localStorage.setItem(STORE_KEY, snap); } catch (_) {}
+    try {
+      localStorage.setItem(STORE_KEY, snap);
+      saveFailed = false;
+    } catch (e) {
+      // a böngésző tárolója megtelt (jellemzően nagy feltöltött képek miatt)
+      if (!saveFailed) {
+        saveFailed = true;
+        setTimeout(() => alert(
+          "A terv nem mentődött el: betelt a böngésző tárolója (valószínűleg a feltöltött kép-textúrák miatt).\n\n" +
+          "Emiatt a módosítások (pl. új falak) reload után elveszhetnek. Megoldás:\n" +
+          "• Töltsd fel újra a textúrát (az új feltöltések már automatikusan lekicsinyítve mentődnek), vagy\n" +
+          "• mentsd a projektet fájlba az Export fülön (Terv mentése JSON)."
+        ), 0);
+      }
+    }
     if (!suppressHistory && !inDrag) pushHistoryWith(snap);
   }
 

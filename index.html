@@ -66,6 +66,7 @@
             <span class="unit-suffix" id="gridUnit">cm</span>
           </div>
         </div>
+        <p class="hint">A rajzoló segédrács lépésköze: a sarokpontok, élek és kivágások ehhez „pattannak". <strong>Nincs köze a lapmérethez</strong> (a lapkiosztás rácsát a lapméret + fuga adja). Tipp: a méreteid pontosságához igazítsd — pl. 10 cm általános, 1–5 cm a finomabb rajzhoz.</p>
         <div class="control-row checkbox-row">
           <label for="orthoToggle">Csak vízsz./függ. élek</label>
           <input type="checkbox" id="orthoToggle" />
@@ -87,19 +88,6 @@
           </div>
         </div>
         <button class="btn btn-secondary full" id="makeRectBtn">Téglalap létrehozása</button>
-      </section>
-
-      <section class="panel">
-        <h2>Falak generálása</h2>
-        <div class="control-row">
-          <label for="wallHeight">Falmagasság</label>
-          <div class="input-with-unit">
-            <input type="number" id="wallHeight" min="1" step="1" value="270" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
-        </div>
-        <button class="btn btn-ghost full" id="genWalls">Falak generálása ebből a padlóból</button>
-        <p class="hint">Az aktív <strong>padló</strong> minden éléhez egy fal-felület készül (szélesség = élhossz, a megadott magassággal). Csak zárt padló-alaprajzra.</p>
       </section>
 
       <section class="panel">
@@ -128,6 +116,19 @@
         <div id="edgeList" class="edge-list">
           <p class="empty-note">Még nincs él. Kezdj el rajzolni a vásznon.</p>
         </div>
+      </section>
+
+      <section class="panel">
+        <h2>Falak generálása</h2>
+        <div class="control-row">
+          <label for="wallHeight">Falmagasság</label>
+          <div class="input-with-unit">
+            <input type="number" id="wallHeight" min="1" step="1" value="270" />
+            <span class="unit-suffix rect-unit">cm</span>
+          </div>
+        </div>
+        <button class="btn btn-ghost full" id="genWalls">Falak generálása ebből a padlóból</button>
+        <p class="hint">Az aktív <strong>padló</strong> minden éléhez egy fal-felület készül (szélesség = élhossz, a megadott magassággal). Csak zárt padló-alaprajzra; a falak az „Élek" neveit kapják.</p>
       </section>
 
       <section class="panel summary">
@@ -261,10 +262,10 @@
             <span class="unit-suffix">%</span>
           </div>
         </div>
-        <div class="summary-row"><span>Burkolt terület</span><strong id="matArea">–</strong></div>
-        <div class="summary-row"><span>Szükséges lap (újrahaszn.)</span><strong id="matTiles">–</strong></div>
-        <div class="summary-row"><span>Hulladék</span><strong id="matWaste">–</strong></div>
-        <div class="summary-row"><span>Lap tartalékkal</span><strong id="matFinal">–</strong></div>
+        <div class="mat-row"><span>Burkolt terület:</span> <strong id="matArea">–</strong></div>
+        <div class="mat-row"><span>Szükséges lap (újrahaszn.):</span> <strong id="matTiles">–</strong></div>
+        <div class="mat-row"><span>Hulladék:</span> <strong id="matWaste">–</strong></div>
+        <div class="mat-row"><span>Lap tartalékkal:</span> <strong id="matFinal">–</strong></div>
         <p class="hint">A „reális" újrahasznosítás feltételezi, hogy egy lapból a levágott darab mellett a maradék egy másik szélső helyre felhasználható, ha elég nagy.</p>
       </section>
 
