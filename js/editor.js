@@ -1692,8 +1692,76 @@
     ctx.fillRect(sx, sy, sw, sh);
   }
 
+  // Sokszög (subject) vágása egy KONVEX sokszöggel (clip) – Sutherland–Hodgman.
+  function clipPolygonByConvex(subject, clip) {
+    let ccx = 0, ccy = 0;
+    clip.forEach((c) => { ccx += c.x; ccy += c.y; });
+    ccx /= clip.length; ccy /= clip.length;
+    let out = subject;
+    for (let k = 0; k < clip.length && out.length >= 3; k++) {
+      const a = clip[k], b = clip[(k + 1) % clip.length];
+      const ex = b.x - a.x, ey = b.y - a.y;
+      const side = (px, py) => ex * (py - a.y) - ey * (px - a.x);
+      const insideSign = side(ccx, ccy) >= 0 ? 1 : -1;
+      const inside = (pt) => side(pt.x, pt.y) * insideSign >= -1e-6;
+      const inter = (s, e) => {
+        const d1 = side(s.x, s.y), d2 = side(e.x, e.y);
+        const t = d1 / (d1 - d2);
+        return { x: s.x + t * (e.x - s.x), y: s.y + t * (e.y - s.y) };
+      };
+      const res = [];
+      const m = out.length;
+      for (let q = 0; q < m; q++) {
+        const cur = out[q], prev = out[(q + m - 1) % m];
+        const ci = inside(cur), pi = inside(prev);
+        if (ci) { if (!pi) res.push(inter(prev, cur)); res.push(cur); }
+        else if (pi) { res.push(inter(prev, cur)); }
+      }
+      out = res;
+    }
+    return out;
+  }
+
+  // Egy laptípus megjelenése egy (elforgatott) négyszögbe – szín vagy kép
+  function drawQuadFill(type, quad) {
+    const s = quad.map(worldToScreen);
+    ctx.beginPath();
+    ctx.moveTo(s[0].x, s[0].y);
+    ctx.lineTo(s[1].x, s[1].y);
+    ctx.lineTo(s[2].x, s[2].y);
+    ctx.lineTo(s[3].x, s[3].y);
+    ctx.closePath();
+    if (type.fillKind === "image" && type.imageUrl) {
+      const img = getImage(type.imageUrl);
+      if (img) {
+        ctx.save();
+        ctx.clip();
+        const ax = s[0].x, ay = s[0].y;
+        const uX = s[1].x - s[0].x, uY = s[1].y - s[0].y;
+        const vX = s[3].x - s[0].x, vY = s[3].y - s[0].y;
+        ctx.transform(uX / img.width, uY / img.width, vX / img.height, vY / img.height, ax, ay);
+        ctx.drawImage(img, 0, 0);
+        ctx.restore();
+        return;
+      }
+    }
+    ctx.fillStyle = type.color || "#cccccc";
+    ctx.fill();
+  }
+
   // Melyik rács-cellára esik egy világkoordináta (festéshez); null ha fuga/kívül
   function tileIndexAt(wx, wy, g) {
+    if (g && state.layout.pattern === "diagonal") {
+      const th = Math.PI / 4, ux = Math.cos(th), uy = Math.sin(th), vx = -uy, vy = ux;
+      const pU = g.tileW + g.grout, pV = g.tileH + g.grout;
+      const cx = (g.minX + g.maxX) / 2, cy = (g.minY + g.maxY) / 2;
+      const dx = wx - cx, dy = wy - cy;
+      const lu = dx * ux + dy * uy, lv = dx * vx + dy * vy;
+      const i = Math.floor(lu / pU), j = Math.floor(lv / pV);
+      if (lu - i * pU > g.tileW || lv - j * pV > g.tileH) return null; // fugahézag
+      if (!pointInPolygon(wx, wy, state.points)) return null;
+      return { i, j, key: i + "_" + j };
+    }
     if (!g) return null;
     const j = Math.floor((wy - g.originY) / g.pitchY);
     const offFrac = state.layout.pattern === "offset" ? (state.layout.offsetPct || 0) / 100 : 0;
@@ -1735,6 +1803,9 @@
       if (el.offX.disabled) el.offX.value = fromMm(offX).toFixed(state.unit === "cm" ? 1 : 0);
       if (el.offY.disabled) el.offY.value = fromMm(offY).toFixed(state.unit === "cm" ? 1 : 0);
     }
+
+    // átlós minta: külön (elforgatott) renderelő ág
+    if (state.layout.pattern === "diagonal") { drawDiagonalLayout(g); return; }
 
     // kötésminta: eltolt (téglakötés) soronkénti x-eltolás
     const offFrac = state.layout.pattern === "offset" ? (state.layout.offsetPct || 0) / 100 : 0;
@@ -1830,6 +1901,107 @@
     updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH });
 
     // statisztikák megőrzése export/nyomtatáshoz
+    lastStats = { whole, cut, tilesNeeded, areaMm2, tileAreaMm2: tileW * tileH };
+    lastCutPieces = cutLabels.map((c) => ({ w: c.w, h: c.h }));
+  }
+
+  // ÁTLÓS (45°) kiosztás – elforgatott rács. A vágási méret a lap saját
+  // tengelye mentén (közelítő a kivágásoknál és a kontúr ferde éleinél).
+  function drawDiagonalLayout(g) {
+    const { base, minX, minY, maxX, maxY, tileW, tileH, grout } = g;
+    const p = state.points;
+    const scale = state.view.scale;
+    const th = Math.PI / 4;
+    const ux = Math.cos(th), uy = Math.sin(th);   // lap-szélesség tengely
+    const vx = -Math.sin(th), vy = Math.cos(th);  // lap-magasság tengely
+    const pU = tileW + grout, pV = tileH + grout;
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const cutouts = state.cutouts || [];
+    const types = state.tiles.types, overrides = state.layout.overrides;
+    const inCutPt = (px, py) => { for (const c of cutouts) if (px > c.x && px < c.x + c.w && py > c.y && py < c.y + c.h) return true; return false; };
+
+    // i,j tartomány a bbox lefedéséhez
+    let iMin = Infinity, iMax = -Infinity, jMin = Infinity, jMax = -Infinity;
+    [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]].forEach(([px, py]) => {
+      const dx = px - cx, dy = py - cy;
+      const ci = (dx * ux + dy * uy) / pU, cj = (dx * vx + dy * vy) / pV;
+      iMin = Math.min(iMin, ci); iMax = Math.max(iMax, ci);
+      jMin = Math.min(jMin, cj); jMax = Math.max(jMax, cj);
+    });
+    iMin = Math.floor(iMin) - 1; iMax = Math.ceil(iMax) + 1;
+    jMin = Math.floor(jMin) - 1; jMax = Math.ceil(jMax) + 1;
+
+    ctx.save();
+    polygonScreenPath();
+    cutouts.forEach((c) => { const a = worldToScreen({ x: c.x, y: c.y }), b = worldToScreen({ x: c.x + c.w, y: c.y + c.h }); ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y); });
+    ctx.clip("evenodd");
+    const tl = worldToScreen({ x: minX, y: minY }), br = worldToScreen({ x: maxX, y: maxY });
+    ctx.fillStyle = state.tiles.groutColor;
+    ctx.fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+
+    let total = 0, whole = 0, cut = 0;
+    const cutLabels = [];
+
+    for (let j = jMin; j <= jMax; j++) {
+      for (let i = iMin; i <= iMax; i++) {
+        const Ax = cx + i * pU * ux + j * pV * vx;
+        const Ay = cy + i * pU * uy + j * pV * vy;
+        const c0 = { x: Ax, y: Ay };
+        const c1 = { x: Ax + tileW * ux, y: Ay + tileW * uy };
+        const c2 = { x: Ax + tileW * ux + tileH * vx, y: Ay + tileW * uy + tileH * vy };
+        const c3 = { x: Ax + tileH * vx, y: Ay + tileH * vy };
+        const quad = [c0, c1, c2, c3];
+        const qminX = Math.min(c0.x, c1.x, c2.x, c3.x), qmaxX = Math.max(c0.x, c1.x, c2.x, c3.x);
+        const qminY = Math.min(c0.y, c1.y, c2.y, c3.y), qmaxY = Math.max(c0.y, c1.y, c2.y, c3.y);
+        if (qmaxX < minX || qminX > maxX || qmaxY < minY || qminY > maxY) continue;
+
+        const cenx = (c0.x + c2.x) / 2, ceny = (c0.y + c2.y) / 2;
+        let cornersInCut = 0, anyInside = false;
+        quad.forEach((q) => { const inP = pointInPolygon(q.x, q.y, p); if (inP) anyInside = true; if (inCutPt(q.x, q.y)) cornersInCut++; });
+        const centerIn = pointInPolygon(cenx, ceny, p), centerCut = inCutPt(cenx, ceny);
+        if (!anyInside && !centerIn) continue;
+        if (centerCut && cornersInCut === 4) continue; // gyakorlatilag kivágásban
+
+        // a lap sokszögbe eső része (a kivágásokat itt nem vonjuk le – közelítés)
+        const piece = clipPolygonByConvex(p, quad);
+        if (piece.length < 3) continue;
+        let pieceArea = 0;
+        for (let k = 0; k < piece.length; k++) { const a = piece[k], b = piece[(k + 1) % piece.length]; pieceArea += a.x * b.y - b.x * a.y; }
+        pieceArea = Math.abs(pieceArea) / 2;
+        if (pieceArea < tileW * tileH * 0.004) continue;
+
+        const touchesCut = centerCut || cornersInCut > 0;
+        const isWhole = pieceArea >= tileW * tileH * 0.985 && !touchesCut;
+        let label = null;
+        if (!isWhole) {
+          let lu0 = Infinity, lu1 = -Infinity, lv0 = Infinity, lv1 = -Infinity, pcx = 0, pcy = 0;
+          piece.forEach((q) => {
+            const rx = q.x - Ax, ry = q.y - Ay;
+            const lu = rx * ux + ry * uy, lv = rx * vx + ry * vy;
+            lu0 = Math.min(lu0, lu); lu1 = Math.max(lu1, lu); lv0 = Math.min(lv0, lv); lv1 = Math.max(lv1, lv);
+            pcx += q.x; pcy += q.y;
+          });
+          pcx /= piece.length; pcy /= piece.length;
+          const pw = Math.max(0, lu1 - lu0), ph = Math.max(0, lv1 - lv0);
+          label = { x: pcx, y: pcy, w: pw, h: ph, text: "~" + fmtDim(pw, ph) };
+        }
+
+        total++;
+        if (isWhole) whole++; else { cut++; cutLabels.push(label); }
+
+        const ovId = overrides[i + "_" + j];
+        const type = ovId ? (types.find((t) => t.id === ovId) || base) : base;
+        drawQuadFill(type, quad);
+      }
+    }
+    ctx.restore();
+
+    cutLabels.forEach((c) => { const s = worldToScreen({ x: c.x, y: c.y }); drawCutLabel(c.text, s.x, s.y); });
+    setLayoutCounts({ total, whole, cut });
+    const cutTilesNeeded = tilesNeededForCuts(cutLabels.map((c) => ({ w: c.w, h: c.h })), tileW, tileH);
+    const areaMm2 = Math.max(0, shoelaceAreaMm2() - cutoutsAreaMm2());
+    const tilesNeeded = whole + cutTilesNeeded;
+    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH });
     lastStats = { whole, cut, tilesNeeded, areaMm2, tileAreaMm2: tileW * tileH };
     lastCutPieces = cutLabels.map((c) => ({ w: c.w, h: c.h }));
   }
