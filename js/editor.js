@@ -3048,14 +3048,27 @@
     return b;
   }
 
+  // melyik projektek vannak kibontva (session-szintű állapot, nem perzisztens).
+  // Default: az aktív projekt kibontva; a caret-tel a felhasználó bármelyiket
+  // be- vagy kicsukhatja, az aktívat is.
+  const expandedProjects = new Set();
+  function toggleProjectExpanded(id) {
+    if (expandedProjects.has(id)) expandedProjects.delete(id);
+    else expandedProjects.add(id);
+    renderProjectTree();
+  }
+
   function renderProjectTree() {
     const root = el.projTree;
     root.innerHTML = "";
     store.projects.forEach((p) => {
       const isActive = p.id === store.activeProjectId;
+      const isOpen = expandedProjects.has(p.id);
       const prow = treeRow("tree-proj" + (isActive ? " active" : ""));
       const caret = document.createElement("span");
-      caret.className = "caret"; caret.textContent = isActive ? "▾" : "▸";
+      caret.className = "caret"; caret.textContent = isOpen ? "▾" : "▸";
+      caret.title = isOpen ? "Összecsukás" : "Kinyitás";
+      caret.addEventListener("click", (e) => { e.stopPropagation(); toggleProjectExpanded(p.id); });
       const nm = document.createElement("span");
       nm.className = "tree-name"; nm.textContent = p.name;
       prow.append(caret, nm);
@@ -3068,36 +3081,45 @@
       prow.append(edit, del);
       root.appendChild(prow);
 
-      if (isActive) {
+      if (isOpen) {
         p.surfaces.forEach((s, i) => {
-          const srow = treeRow("tree-surf" + (i === p.activeIndex ? " active" : ""));
+          const isSurfActive = isActive && i === p.activeIndex;
+          const srow = treeRow("tree-surf" + (isSurfActive ? " active" : ""));
           const ic = document.createElement("span");
           ic.className = "micon"; ic.textContent = s.mode === "floor" ? "▭" : "▯";
           const sn = document.createElement("span");
           sn.className = "tree-name"; sn.textContent = s.name;
           srow.append(ic, sn);
-          srow.addEventListener("click", (e) => { if (e.target.closest(".tree-btn")) return; switchSurface(i); });
+          srow.addEventListener("click", (e) => {
+            if (e.target.closest(".tree-btn")) return;
+            // ha más projekt, először váltunk projektet, aztán erre a felületre
+            if (!isActive) { switchProject(p.id); switchSurface(i); }
+            else switchSurface(i);
+          });
           const se = treeBtn("✎", "", "Felület átnevezése");
-          se.addEventListener("click", (e) => { e.stopPropagation(); renameSurfaceFn(i); });
+          se.addEventListener("click", (e) => { e.stopPropagation(); if (!isActive) switchProject(p.id); renameSurfaceFn(i); });
           const sd = treeBtn("✕", "del", "Felület törlése");
           sd.disabled = p.surfaces.length <= 1;
-          sd.addEventListener("click", (e) => { e.stopPropagation(); deleteSurfaceFn(i); });
+          sd.addEventListener("click", (e) => { e.stopPropagation(); if (!isActive) switchProject(p.id); deleteSurfaceFn(i); });
           srow.append(se, sd);
           root.appendChild(srow);
         });
-        const add = document.createElement("div");
-        add.className = "tree-add"; add.textContent = "+ Felület";
-        add.addEventListener("click", addSurface);
-        root.appendChild(add);
+        if (isActive) {
+          const add = document.createElement("div");
+          add.className = "tree-add"; add.textContent = "+ Felület";
+          add.addEventListener("click", addSurface);
+          root.appendChild(add);
+        }
       }
     });
   }
 
   // ---- Projekt-műveletek -----------------------------------------------
   function switchProject(id) {
-    if (id === store.activeProjectId) { renderProjectTree(); return; }
+    if (id === store.activeProjectId) { expandedProjects.add(id); renderProjectTree(); return; }
     saveActiveSurface();
     store.activeProjectId = id;
+    expandedProjects.add(id); // az új aktív projekt automatikusan kinyitva
     project = activeProject();
     loadActiveSurface();
     refreshAll();
@@ -3624,6 +3646,7 @@
   async function init() {
     await loadStoreAsync();
     project = activeProject();
+    expandedProjects.add(store.activeProjectId); // induláskor az aktív projekt kinyitva
     loadActiveSurface();
     el.projName.value = project.name;
     syncControlsFromState();

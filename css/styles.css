@@ -191,7 +191,8 @@ body {
 
 .tree-proj { font-weight: 600; }
 .tree-proj.active { background: rgba(76,154,255,0.12); }
-.tree-proj .caret { width: 14px; color: var(--muted); font-size: 10px; flex: 0 0 auto; }
+.tree-proj .caret { width: 14px; color: var(--muted); font-size: 10px; flex: 0 0 auto; cursor: pointer; text-align: center; }
+.tree-proj .caret:hover { color: var(--text); }
 
 .tree-surf { padding-left: 22px; font-weight: 400; }
 .tree-surf.active .tree-name { color: var(--accent); font-weight: 600; }
