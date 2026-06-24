@@ -3678,6 +3678,7 @@
     renderEdgeList();
     updateSummary();
     checkWallSync();
+    updateCanvasTitle();
     fitView();
     pushHistory(); // kezdő állapot az előzménytárban
   }
