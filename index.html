@@ -250,25 +250,15 @@
       </section>
 
       <section class="panel summary">
-        <div class="summary-row"><span>Lapok összesen</span><strong id="tileTotal">–</strong></div>
-        <div class="summary-row"><span>Egész lap</span><strong id="tileWhole">–</strong></div>
-        <div class="summary-row"><span>Vágott lap</span><strong id="tileCut">–</strong></div>
-      </section>
-
-      <section class="panel">
-        <h2>Anyagkimutatás</h2>
-        <div class="control-row">
-          <label for="overage">Tartalék</label>
-          <div class="input-with-unit">
-            <input type="number" id="overage" min="0" step="1" value="10" />
-            <span class="unit-suffix">%</span>
-          </div>
-        </div>
+        <h2>Burkolat — aktív felület</h2>
         <div class="mat-row"><span>Burkolt terület:</span> <strong id="matArea">–</strong></div>
+        <div class="mat-row"><span>Lapok összesen:</span> <strong id="tileTotal">–</strong></div>
+        <div class="mat-row"><span>Egész lap:</span> <strong id="tileWhole">–</strong></div>
+        <div class="mat-row"><span>Vágott helyek:</span> <strong id="tileCut">–</strong></div>
         <div class="mat-row"><span>Szükséges lap (újrahaszn.):</span> <strong id="matTiles">–</strong></div>
         <div class="mat-row"><span>Hulladék:</span> <strong id="matWaste">–</strong></div>
-        <div class="mat-row"><span>Lap tartalékkal:</span> <strong id="matFinal">–</strong></div>
-        <p class="hint">A „reális" újrahasznosítás feltételezi, hogy egy lapból a levágott darab mellett a maradék egy másik szélső helyre felhasználható, ha elég nagy.</p>
+        <div class="mat-row"><span><strong>Lap tartalékkal:</strong></span> <strong id="matFinal">–</strong></div>
+        <p class="hint">Csak ezen a felületen szükséges burkolat. Tartalék % beállítása az Anyag fülön; ott a projekt összes felületére vonatkozó összesítést is megtalálod.</p>
       </section>
 
       <section class="panel">
@@ -285,8 +275,34 @@
 
       <!-- ANYAG FÜL -->
       <div class="tab-panel" data-tabpanel="material" hidden>
+
+      <!-- BURKOLAT (lap) -->
       <section class="panel">
-        <h2>Fuga</h2>
+        <h2>Burkolat — beállítások</h2>
+        <div class="control-row">
+          <label for="overage">Tartalék</label>
+          <div class="input-with-unit">
+            <input type="number" id="overage" min="0" step="1" value="10" />
+            <span class="unit-suffix">%</span>
+          </div>
+        </div>
+        <p class="hint">A tartalék a lapok és a fuga mennyiségéhez hozzáadódik (törésre, vágási hibára). A lap mérete és vastagsága a Burkolat fülön; kötésminta a Kiosztás fülön.</p>
+      </section>
+
+      <section class="panel summary">
+        <h2>Burkolat — egész projekt</h2>
+        <div class="mat-row"><span>Burkolt terület (összes felület):</span> <strong id="prArea">–</strong></div>
+        <div class="mat-row"><span>Lapok összesen:</span> <strong id="prTileTotal">–</strong></div>
+        <div class="mat-row"><span>Egész lap:</span> <strong id="prTileWhole">–</strong></div>
+        <div class="mat-row"><span>Vágott helyek:</span> <strong id="prTileCut">–</strong></div>
+        <div class="mat-row"><span>Szükséges lap (újrahaszn.):</span> <strong id="prTilesNeeded">–</strong></div>
+        <div class="mat-row"><span><strong>Lap tartalékkal:</strong></span> <strong id="prTilesFinal">–</strong></div>
+        <p class="hint">Az összes felület (padló + falak) burkolatszükséglete együtt. A felületek értéke akkor frissül, amikor rákattintasz / kiosztást készítesz hozzá, vagy PDF-be exportálsz (az exportkor minden felület újraszámítódik). A „reális" újrahasznosítás feltételezi, hogy egy lapból a levágott darab mellett a maradék egy másik szélső helyre felhasználható, ha elég nagy.</p>
+      </section>
+
+      <!-- FUGA -->
+      <section class="panel">
+        <h2>Fuga — beállítások</h2>
         <div class="control-row">
           <label for="groutPreset">Típus</label>
           <select id="groutPreset" class="full-select">
@@ -298,8 +314,16 @@
         <p class="hint">A sűrűség a fugatérfogat → tömeg átszámításához kell. A vastagság laptípusonként a Burkolat fülön állítható.</p>
       </section>
 
+      <section class="panel summary">
+        <h2>Fuga — egész projekt</h2>
+        <div class="mat-row"><span>Fuga által lefedett terület (összes):</span> <strong id="prGroutArea">–</strong></div>
+        <div class="mat-row"><span><strong>Fuga tömege (összes):</strong></span> <strong id="prMass">–</strong></div>
+        <p class="hint">Minden felület (padló + falak) fugájának összege. A felületek értéke akkor frissül, amikor rákattintasz / kiosztást készítesz hozzá, vagy PDF-be exportálsz.</p>
+      </section>
+
+      <!-- SZILIKON -->
       <section class="panel">
-        <h2>Szilikon (sarkokba)</h2>
+        <h2>Szilikon — beállítások</h2>
         <div class="control-row">
           <label for="silWidth">Hézag szélesség</label>
           <div class="input-with-unit">
@@ -329,19 +353,6 @@
           </div>
         </div>
         <p class="hint">A negatív sarkokba (padló-fal találkozás, fal-fal függőleges él) szilikon kerül, nem fuga. A számítás projekt-szintű: minden generált fal alja + a fallal érintett padló-csúcsoknál függőleges sarkok × falmagasság.</p>
-      </section>
-
-      <section class="panel summary">
-        <h2>Fuga — aktív felület</h2>
-        <div class="mat-row"><span>Fuga által lefedett terület:</span> <strong id="grArea">–</strong></div>
-        <div class="mat-row"><span>Fuga tömege:</span> <strong id="grMass">–</strong></div>
-        <p class="hint">Csak a most látható felület (pl. padló <em>vagy</em> egy adott fal) fuga-szükséglete, geometriailag, a vágott lapokat is figyelembe véve.</p>
-      </section>
-
-      <section class="panel summary">
-        <h2>Fuga — egész projekt</h2>
-        <div class="mat-row"><span>Az összes felület együtt:</span> <strong id="prMass">–</strong></div>
-        <p class="hint">Minden felület (padló + falak) fugájának összege. A többi felület értéke akkor frissül, amikor rákattintasz / kiosztást készítesz hozzá, vagy PDF-be exportálsz (az exportkor minden felület újraszámítódik).</p>
       </section>
 
       <section class="panel summary">

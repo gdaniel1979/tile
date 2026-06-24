@@ -7,6 +7,8 @@
   --muted: #9aa7b5;
   --accent: #4c9aff;
   --accent-dark: #2f6fd6;
+  --accent-warm: #f59e0b;       /* meleg kiemelő (akció-gomb + navigátor keret) */
+  --accent-warm-dark: #c97d04;
   --danger: #e5534b;
   --ok: #3fb950;
   --radius: 8px;
@@ -86,7 +88,15 @@ body {
 /* Felső gombsor (generálás + undo/redo egy sorban) */
 .top-actions { display: flex; gap: 6px; align-items: stretch; }
 .top-actions .btn { font-size: 11px; padding: 6px 6px; white-space: nowrap; line-height: 1.2; }
-.top-actions #genLayoutBtn { flex: 1; min-width: 0; }
+.top-actions #genLayoutBtn {
+  flex: 1; min-width: 0;
+  background: var(--accent-warm);
+  border-color: var(--accent-warm);
+  color: #1a1100;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
+}
+.top-actions #genLayoutBtn:hover { background: var(--accent-warm-dark); border-color: var(--accent-warm-dark); color: #fff; }
 .top-actions .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Bal oldali cím (a fejléc helyett) */
@@ -102,18 +112,18 @@ body {
   flex: 0 0 auto;
   margin-bottom: 4px;
   background: var(--bg);
-  border: 2px solid var(--accent);
+  border: 2px solid var(--accent-warm);
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 0 0 3px rgba(76, 154, 255, 0.14), var(--shadow);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16), var(--shadow);
 }
 .proj-tree-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 6px 9px;
-  background: var(--accent);
-  border-bottom: 1px solid var(--accent);
+  background: var(--accent-warm);
+  border-bottom: 1px solid var(--accent-warm);
 }
 .proj-tree-head span {
   font-size: 11px;
@@ -389,6 +399,20 @@ input[type="color"] {
 .cutout-img-row .cutout-thumb { width: 36px; height: 36px; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 3px; }
 .cutout-img-row .img-rm { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 4px; padding: 3px 6px; font-size: 11px; cursor: pointer; }
 .cutout-img-row .img-rm:hover { color: var(--danger); border-color: var(--danger); }
+
+/* + Kivágás rajzolása: halvány, de a panel-háttértől elkülönülő ghost-gomb */
+#cutoutDraw {
+  background: var(--panel-2);
+  border-style: dashed;
+  color: var(--text);
+}
+#cutoutDraw:hover { background: var(--bg); border-color: var(--accent); }
+#cutoutDraw.active-mode {
+  background: var(--accent);
+  border-style: solid;
+  border-color: var(--accent);
+  color: #fff;
+}
 .cutout-dims { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .cutout-dims label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cutout-dims label span { font-size: 9px; color: var(--muted); }

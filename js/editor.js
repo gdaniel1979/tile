@@ -103,14 +103,19 @@
     paintMode: document.getElementById("paintMode"),
     paintPalette: document.getElementById("paintPalette"),
     clearOverrides: document.getElementById("clearOverrides"),
-    // Anyag fül
+    // Anyag fül (csak projekt-szintű)
     groutPreset: document.getElementById("groutPreset"),
     silWidth: document.getElementById("silWidth"),
     silDepth: document.getElementById("silDepth"),
     silTube: document.getElementById("silTube"),
     silWaste: document.getElementById("silWaste"),
-    grArea: document.getElementById("grArea"),
-    grMass: document.getElementById("grMass"),
+    prArea: document.getElementById("prArea"),
+    prTileTotal: document.getElementById("prTileTotal"),
+    prTileWhole: document.getElementById("prTileWhole"),
+    prTileCut: document.getElementById("prTileCut"),
+    prTilesNeeded: document.getElementById("prTilesNeeded"),
+    prTilesFinal: document.getElementById("prTilesFinal"),
+    prGroutArea: document.getElementById("prGroutArea"),
     prMass: document.getElementById("prMass"),
     prSilH: document.getElementById("prSilH"),
     prSilV: document.getElementById("prSilV"),
@@ -1292,6 +1297,9 @@
       document.querySelectorAll("[data-tabpanel]").forEach((p) => {
         p.hidden = p.dataset.tabpanel !== tab;
       });
+      // Anyag fülre váltáskor minden felület cache-ét frissítjük (offscreen),
+      // hogy a projekt-összesítés ne csak az aktív felületet mutassa.
+      if (tab === "material") recomputeAllSurfacesMaterial();
     });
 
     el.addTile.addEventListener("click", addTileType);
@@ -1466,46 +1474,72 @@
     return tilesUsed;
   }
 
+  // A kiosztó hívja: az aktív felület számait megjeleníti a Kiosztás fülön
+  // (felület-szintű burkolat), cache-be tárolja, majd frissíti az Anyag fülön
+  // a projekt-szintű mutatókat.
   function updateMaterialReport(data) {
-    if (!el.matArea) return;
-    if (!data) {
-      el.matArea.textContent = "–";
-      el.matTiles.textContent = "–";
-      el.matWaste.textContent = "–";
-      el.matFinal.textContent = "–";
-      if (el.grArea) el.grArea.textContent = "–";
-      if (el.grMass) el.grMass.textContent = "–";
-      updateProjectMaterialReport();
-      return;
+    cacheActiveSurfaceMaterial(data);
+    // felület-szintű kiírás a Kiosztás fülre
+    if (el.matArea) {
+      if (!data) {
+        el.matArea.textContent = "–";
+        el.matTiles.textContent = "–";
+        el.matWaste.textContent = "–";
+        el.matFinal.textContent = "–";
+      } else {
+        const { areaMm2, tilesNeeded, tileAreaMm2 } = data;
+        const usedAreaMm2 = tilesNeeded * tileAreaMm2;
+        const wastePct = usedAreaMm2 > 0 ? (1 - areaMm2 / usedAreaMm2) * 100 : 0;
+        const pct = Math.max(0, state.layout.overagePct || 0);
+        const finalTiles = Math.ceil(tilesNeeded * (1 + pct / 100));
+        el.matArea.textContent = (areaMm2 / 1e6).toFixed(2) + " m²";
+        el.matTiles.textContent = tilesNeeded + " db";
+        el.matWaste.textContent = wastePct.toFixed(0) + " %";
+        el.matFinal.textContent = finalTiles + " db (+" + pct + "%)";
+      }
     }
-    const { areaMm2, tilesNeeded, tileAreaMm2 } = data;
-    const usedAreaMm2 = tilesNeeded * tileAreaMm2;
-    const wastePct = usedAreaMm2 > 0 ? (1 - areaMm2 / usedAreaMm2) * 100 : 0;
-    const pct = Math.max(0, state.layout.overagePct || 0);
-    const finalTiles = Math.ceil(tilesNeeded * (1 + pct / 100));
-    el.matArea.textContent = (areaMm2 / 1e6).toFixed(2) + " m²";
-    el.matTiles.textContent = tilesNeeded + " db";
-    el.matWaste.textContent = wastePct.toFixed(0) + " %";
-    el.matFinal.textContent = finalTiles + " db (+" + pct + "%)";
-    // aktív felület fuga-mutatói
-    const ga = data.groutAreaMm2 || 0;
-    const base = baseTile();
-    const thickMm = base ? (base.thicknessMm || 8) : 8;
-    cacheActiveSurfaceMaterial(ga);
-    const g = computeGroutMass(ga, thickMm, pct);
-    if (el.grArea) el.grArea.textContent = (ga / 1e6).toFixed(2) + " m²";
-    if (el.grMass) el.grMass.textContent = g.finalKg.toFixed(2) + " kg (+" + pct + "% tartalék)";
     updateProjectMaterialReport();
   }
 
-  // A friss aktív-felület fuga-területe a kiosztásból (a felület objektumra is mentjük,
-  // hogy a projekt-összesítő a többi felület utolsó ismert értékét is használhassa).
-  function cacheActiveSurfaceMaterial(groutAreaMm2) {
+  // Az aktív felület utolsó ismert kiosztás-számai a project-tree-be mentve,
+  // hogy a projekt-szintű összesítő végig tudja járni az összes felületet.
+  function cacheActiveSurfaceMaterial(data) {
     const s = project && project.surfaces ? project.surfaces[project.activeIndex] : null;
     if (!s) return;
-    s.lastGroutAreaMm2 = groutAreaMm2;
+    if (!data) {
+      s.lastGroutAreaMm2 = 0;
+      s.lastAreaMm2 = 0;
+      s.lastTileAreaMm2 = 0;
+      s.lastTilesNeeded = 0;
+      s.lastWhole = 0;
+      s.lastCut = 0;
+      return;
+    }
+    s.lastGroutAreaMm2 = data.groutAreaMm2 || 0;
+    s.lastAreaMm2 = data.areaMm2 || 0;
+    s.lastTileAreaMm2 = data.tileAreaMm2 || 0;
+    s.lastTilesNeeded = data.tilesNeeded || 0;
+    s.lastWhole = data.whole || 0;
+    s.lastCut = data.cut || 0;
     const base = baseTile();
     s.lastTileThicknessMm = base ? (base.thicknessMm || 8) : 8;
+  }
+
+  // Projekt-szintű burkolat-összesítés (az összes felület cache-elt adataiból).
+  function computeProjectTileNumbers(p) {
+    let area = 0, total = 0, whole = 0, cut = 0, needed = 0, usedArea = 0;
+    p.surfaces.forEach((s) => {
+      const sNeeded = s.lastTilesNeeded || 0;
+      if (sNeeded <= 0) return;
+      area += s.lastAreaMm2 || 0;
+      whole += s.lastWhole || 0;
+      cut += s.lastCut || 0;
+      total += (s.lastWhole || 0) + (s.lastCut || 0);
+      needed += sNeeded;
+      usedArea += sNeeded * (s.lastTileAreaMm2 || 0);
+    });
+    const wastePct = usedArea > 0 ? (1 - area / usedArea) * 100 : 0;
+    return { area, total, whole, cut, needed, wastePct };
   }
 
   // Projekt-szintű szilikon (mm-ben adott hosszak).
@@ -1570,14 +1604,73 @@
     return totalMassKg;
   }
 
+  // Minden felület kiosztásának újraszámolása offscreen vászonra, hogy
+  // a projekt-szintű anyagösszesítés ne csak az aktív felületet mutassa.
+  // Hívás: Anyag fülre váltáskor (gyors: pár felület, csak cache-elés).
+  function recomputeAllSurfacesMaterial() {
+    if (!project || !Array.isArray(project.surfaces)) return;
+    saveActiveSurface(); // a jelenlegi felület mentése
+    const savedIndex = project.activeIndex;
+    const savedCtx = ctx;
+    const savedView = state.view;
+    const off = document.createElement("canvas");
+    off.width = 100; off.height = 100;
+    const wasSuppress = suppressHistory, wasInDrag = inDrag;
+    suppressHistory = true; inDrag = true; // ne pusholjon history-t / ne ment-tárazzon
+    ctx = off.getContext("2d");
+    state.view = { scale: 1, ox: 0, oy: 0 }; // a koord-rendszer a cache-elt mm-értékeket nem érinti
+    try {
+      for (let i = 0; i < project.surfaces.length; i++) {
+        project.activeIndex = i;
+        loadActiveSurface();
+        if (shouldDrawLayout()) drawLayout();
+        else cacheActiveSurfaceMaterial(null);
+      }
+    } catch (_) { /* swallow */ }
+    project.activeIndex = savedIndex;
+    loadActiveSurface();
+    ctx = savedCtx;
+    state.view = savedView;
+    render(); // a látható vászon visszaáll (ezalatt is suppressHistory aktív)
+    updateProjectMaterialReport();
+    // a frissített cache-t mentjük (history nélkül), hogy reload után is megmaradjon
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(serializeStore())); } catch (_) {}
+    suppressHistory = wasSuppress; inDrag = wasInDrag;
+  }
+
   function updateProjectMaterialReport() {
     if (!el.prMass || !project) return;
     const m = project.material || defaultMaterial();
+    const overage = Math.max(0, state.layout && state.layout.overagePct || 0);
+
+    // Burkolat — projekt-szint
+    const tn = computeProjectTileNumbers(project);
+    if (tn.needed > 0) {
+      const finalTiles = Math.ceil(tn.needed * (1 + overage / 100));
+      el.prArea.textContent = (tn.area / 1e6).toFixed(2) + " m²";
+      el.prTileTotal.textContent = tn.total + " db";
+      el.prTileWhole.textContent = tn.whole + " db";
+      el.prTileCut.textContent = tn.cut + " db";
+      el.prTilesNeeded.textContent = tn.needed + " db (hulladék: " + tn.wastePct.toFixed(0) + " %)";
+      el.prTilesFinal.textContent = finalTiles + " db (+" + overage + "%)";
+    } else {
+      el.prArea.textContent = "–";
+      el.prTileTotal.textContent = "–";
+      el.prTileWhole.textContent = "–";
+      el.prTileCut.textContent = "–";
+      el.prTilesNeeded.textContent = "–";
+      el.prTilesFinal.textContent = "–";
+    }
+
+    // Fuga — projekt-szint
+    const gArea = project.surfaces.reduce((acc, s) => acc + (s.lastGroutAreaMm2 || 0), 0);
+    const massKg = computeProjectGroutMass(project) * (1 + overage / 100);
+    el.prGroutArea.textContent = gArea > 0 ? (gArea / 1e6).toFixed(2) + " m²" : "–";
+    el.prMass.textContent = massKg > 0 ? massKg.toFixed(2) + " kg (+" + overage + "%)" : "–";
+
+    // Szilikon — projekt-szint
     const sil = computeSiliconeForProject(project);
     const totLen = sil.horizMm + sil.vertMm;
-    const overage = Math.max(0, state.layout && state.layout.overagePct || 0);
-    const massKg = computeProjectGroutMass(project) * (1 + overage / 100);
-    el.prMass.textContent = massKg > 0 ? massKg.toFixed(2) + " kg (+" + overage + "%)" : "–";
     const fmtLen = (mm) => (mm / 1000).toFixed(2) + " m";
     el.prSilH.textContent = sil.horizN ? fmtLen(sil.horizMm) + " (" + sil.horizN + " fal)" : "–";
     el.prSilV.textContent = sil.vertN ? fmtLen(sil.vertMm) + " (" + sil.vertN + " sarok)" : "–";
@@ -2155,7 +2248,7 @@
     const tilesNeeded = whole + cutTilesNeeded;
     // fuga geometriailag: a burkolt területből levonjuk a lerakott lap-darabok összesített területét
     const groutAreaMm2 = Math.max(0, areaMm2 - tilesAreaSumMm2);
-    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH, groutAreaMm2 });
+    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH, groutAreaMm2, whole, cut });
 
     // statisztikák megőrzése export/nyomtatáshoz
     lastStats = { whole, cut, tilesNeeded, areaMm2, tileAreaMm2: tileW * tileH, groutAreaMm2 };
@@ -2261,7 +2354,7 @@
     const areaMm2 = Math.max(0, shoelaceAreaMm2() - cutoutsAreaMm2());
     const tilesNeeded = whole + cutTilesNeeded;
     const groutAreaMm2 = Math.max(0, areaMm2 - tilesAreaSumMm2);
-    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH, groutAreaMm2 });
+    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH, groutAreaMm2, whole, cut });
     lastStats = { whole, cut, tilesNeeded, areaMm2, tileAreaMm2: tileW * tileH, groutAreaMm2 };
     lastCutPieces = cutLabels.map((c) => ({ w: c.w, h: c.h }));
   }
@@ -2549,6 +2642,11 @@
       warnDismissedSignature: d.warnDismissedSignature || null,
       lastGroutAreaMm2: typeof d.lastGroutAreaMm2 === "number" ? d.lastGroutAreaMm2 : 0,
       lastTileThicknessMm: typeof d.lastTileThicknessMm === "number" ? d.lastTileThicknessMm : 8,
+      lastAreaMm2: typeof d.lastAreaMm2 === "number" ? d.lastAreaMm2 : 0,
+      lastTileAreaMm2: typeof d.lastTileAreaMm2 === "number" ? d.lastTileAreaMm2 : 0,
+      lastTilesNeeded: typeof d.lastTilesNeeded === "number" ? d.lastTilesNeeded : 0,
+      lastWhole: typeof d.lastWhole === "number" ? d.lastWhole : 0,
+      lastCut: typeof d.lastCut === "number" ? d.lastCut : 0,
     };
   }
 
