@@ -10,12 +10,11 @@
   <main class="app-main">
     <!-- Bal oldali vezérlőpanel -->
     <aside class="sidebar">
-      <div class="side-title">Lapkiosztás tervező</div>
-
-      <div class="top-actions">
-        <button class="btn btn-secondary" id="genLayoutBtn" title="Burkolatkiosztás generálása">Kiosztás generálása</button>
-        <button class="btn btn-ghost" id="histUndo" title="Visszavonás (Ctrl+Z)" disabled>↶ Vissza</button>
-        <button class="btn btn-ghost" id="histRedo" title="Újra (Ctrl+Y)" disabled>↷ Újra</button>
+      <div class="side-title-row">
+        <div class="side-title">Lapkiosztás tervező</div>
+        <button class="title-btn" id="fitBtn" title="Nézet igazítása az alaprajzhoz" aria-label="Nézet igazítása">⛶</button>
+        <button class="title-btn" id="histUndo" title="Visszavonás (Ctrl+Z)" aria-label="Visszavonás" disabled>↶</button>
+        <button class="title-btn" id="histRedo" title="Újra (Ctrl+Y)" aria-label="Újra" disabled>↷</button>
       </div>
 
       <div class="proj-tree-wrap">
@@ -139,9 +138,6 @@
       </section>
 
       <section class="panel actions">
-        <button class="btn btn-ghost full" id="fitBtn">Nézet igazítása</button>
-        <button class="btn btn-ghost full" id="delSelBtn" disabled>Kijelölt pont törlése</button>
-        <button class="btn btn-ghost full" id="undoBtn">Utolsó pont vissza</button>
         <button class="btn btn-danger full" id="clearBtn">Törlés / újrakezdés</button>
       </section>
       </div><!-- /plan -->

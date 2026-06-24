@@ -66,8 +66,6 @@
     area: document.getElementById("areaOut"),
     perim: document.getElementById("perimOut"),
     fit: document.getElementById("fitBtn"),
-    delSel: document.getElementById("delSelBtn"),
-    undo: document.getElementById("undoBtn"),
     clear: document.getElementById("clearBtn"),
     drawHint: document.getElementById("drawHint"),
     // 2. fázis
@@ -140,7 +138,6 @@
     cutoutList: document.getElementById("cutoutList"),
     cutoutKindSeg: document.getElementById("cutoutKindSeg"),
     untiledColor: document.getElementById("untiledColor"),
-    genLayoutBtn: document.getElementById("genLayoutBtn"),
     histUndo: document.getElementById("histUndo"),
     histRedo: document.getElementById("histRedo"),
     wallWarn: document.getElementById("wallWarn"),
@@ -954,14 +951,9 @@
     el.closedState.textContent = state.closed ? "zárt" : "nyitott";
   }
 
-  function updateDeleteBtn() {
-    el.delSel.disabled = state.selected === null;
-  }
-
-  // Csak a kijelölés változott (geometria nem): elég a vászon + gomb frissítése
+  // Csak a kijelölés változott (geometria nem): elég a vászon frissítése
   function afterSelectionChange() {
     render();
-    updateDeleteBtn();
   }
 
   function afterGeometryChange() {
@@ -1030,17 +1022,6 @@
   });
 
   el.fit.addEventListener("click", fitView);
-
-  el.delSel.addEventListener("click", () => {
-    if (state.selected !== null) deleteVertex(state.selected);
-  });
-
-  el.undo.addEventListener("click", () => {
-    if (state.closed) { state.closed = false; }
-    else if (state.points.length > 0) { state.points.pop(); }
-    state.selected = null;
-    afterGeometryChange();
-  });
 
   el.clear.addEventListener("click", () => {
     if (state.points.length && !confirm("Biztosan törlöd az alaprajzot?")) return;
@@ -3437,18 +3418,6 @@
     el.histUndo.addEventListener("click", undo);
     el.histRedo.addEventListener("click", redo);
     el.genWalls.addEventListener("click", generateWallsFromActive);
-    el.genLayoutBtn.addEventListener("click", () => {
-      // a kiosztás (újra)generálása a kivágások/nyílások kihagyásával
-      state.layout.show = true;
-      if (el.layoutShow) el.layoutShow.checked = true;
-      cutoutMode = false; paintMode = false; pendingCutout = null;
-      selectedCutout = -1;
-      el.paintMode.checked = false;
-      el.cutoutDraw.classList.remove("active-mode");
-      el.cutoutDraw.textContent = "+ Kivágás rajzolása";
-      render();
-      save();
-    });
     el.wallWarnRegen.addEventListener("click", () => {
       if (staleFloorRef) generateWalls(staleFloorRef, staleFloorRef.wallHeightMm || toMm(parseFloat(el.wallHeight.value)) || 2700);
     });
