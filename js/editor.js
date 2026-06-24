@@ -3034,9 +3034,21 @@
     updateSummary();
     renderProjectTree();
     if (el.projName) el.projName.value = project.name;
+    updateCanvasTitle();
     checkWallSync();
     fitView();
     save();
+  }
+
+  // A vászon-fejléc frissítése: "Projekt — Felület"
+  function updateCanvasTitle() {
+    const t = document.getElementById("canvasTitle");
+    if (!t || !project) return;
+    const s = project.surfaces[project.activeIndex];
+    if (!s) { t.innerHTML = ""; return; }
+    const pn = escapeHtml(project.name || "Projekt");
+    const sn = escapeHtml(s.name || "Felület");
+    t.innerHTML = pn + '<span class="sep">—</span><span class="surf">' + sn + '</span>';
   }
 
   // ---- Fa-lista (projektek + felületek) --------------------------------
@@ -3145,6 +3157,7 @@
     p.name = name.trim() || p.name;
     renderProjectTree();
     if (p === project && el.projName) el.projName.value = project.name;
+    updateCanvasTitle();
     save();
   }
 
@@ -3197,6 +3210,7 @@
     if (name === null) return;
     s.name = name.trim() || s.name;
     renderProjectTree();
+    updateCanvasTitle();
     save();
   }
 
@@ -3581,6 +3595,7 @@
     el.projName.addEventListener("change", () => {
       project.name = el.projName.value.trim() || "Projekt";
       renderProjectTree();
+      updateCanvasTitle();
       save();
     });
   }
