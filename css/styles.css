@@ -212,7 +212,7 @@ body {
 /* Fülek */
 .tabs {
   display: flex;
-  gap: 2px;
+  gap: 0;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -225,12 +225,28 @@ body {
   background: transparent;
   border: none;
   color: var(--muted);
-  padding: 6px 4px;
+  padding: 5px 3px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  position: relative;
 }
+/* Vékony elválasztó vonal a szomszédos gombok közé (kivéve aktív/aktív szomszéd) */
+.tabs button + button::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+}
+.tabs button.active + button::before,
+.tabs button.active::before { display: none; }
+.tabs button:hover { color: var(--text); }
 .tabs button.active { background: var(--accent); color: #fff; }
 
 .tab-panel { display: flex; flex-direction: column; gap: 8px; }
@@ -304,6 +320,18 @@ input[type="color"] {
 }
 .dim-row .x { color: var(--muted); }
 .dim-row .u { color: var(--muted); font-size: 11px; }
+.thick-row { display: flex; align-items: center; gap: 6px; }
+.thick-row input {
+  width: 56px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 12px;
+  outline: none;
+}
+.thick-row .u { color: var(--muted); font-size: 11px; }
 .fill-row { display: flex; align-items: center; gap: 6px; }
 .fill-row select, .image-row select {
   background: var(--panel-2);

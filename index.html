@@ -30,6 +30,7 @@
         <button data-tab="plan" class="active">Alaprajz</button>
         <button data-tab="tiles">Burkolat</button>
         <button data-tab="layout">Kiosztás</button>
+        <button data-tab="material">Anyag</button>
         <button data-tab="export">Export</button>
       </div>
 
@@ -280,6 +281,77 @@
         <p class="hint">Kapcsold be a festés módot, válassz egy típust (vagy „Alap" = visszaállítás), majd kattints vagy húzz a lapokon. Új típusokat a Burkolat fülön vehetsz fel.</p>
       </section>
       </div><!-- /layout -->
+
+      <!-- ANYAG FÜL -->
+      <div class="tab-panel" data-tabpanel="material" hidden>
+      <section class="panel">
+        <h2>Fuga</h2>
+        <div class="control-row">
+          <label for="groutPreset">Típus</label>
+          <select id="groutPreset" class="full-select">
+            <option value="cg1">Cementes CG1 (~1,5 g/cm³)</option>
+            <option value="cg2">Cementes CG2 (~1,7 g/cm³)</option>
+            <option value="epoxy">Epoxi RG (~1,55 g/cm³)</option>
+          </select>
+        </div>
+        <p class="hint">A sűrűség a fugatérfogat → tömeg átszámításához kell. A vastagság laptípusonként a Burkolat fülön állítható.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Szilikon (sarkokba)</h2>
+        <div class="control-row">
+          <label for="silWidth">Hézag szélesség</label>
+          <div class="input-with-unit">
+            <input type="number" id="silWidth" min="1" step="0.5" value="5" />
+            <span class="unit-suffix">mm</span>
+          </div>
+        </div>
+        <div class="control-row">
+          <label for="silDepth">Hézag mélység</label>
+          <div class="input-with-unit">
+            <input type="number" id="silDepth" min="1" step="0.5" value="5" />
+            <span class="unit-suffix">mm</span>
+          </div>
+        </div>
+        <div class="control-row">
+          <label for="silTube">Kartus térfogat</label>
+          <div class="input-with-unit">
+            <input type="number" id="silTube" min="50" step="10" value="310" />
+            <span class="unit-suffix">ml</span>
+          </div>
+        </div>
+        <div class="control-row">
+          <label for="silWaste">Szilikon tartalék</label>
+          <div class="input-with-unit">
+            <input type="number" id="silWaste" min="0" step="1" value="15" />
+            <span class="unit-suffix">%</span>
+          </div>
+        </div>
+        <p class="hint">A negatív sarkokba (padló-fal találkozás, fal-fal függőleges él) szilikon kerül, nem fuga. A számítás projekt-szintű: minden generált fal alja + a fallal érintett padló-csúcsoknál függőleges sarkok × falmagasság.</p>
+      </section>
+
+      <section class="panel summary">
+        <h2>Fuga — aktív felület</h2>
+        <div class="mat-row"><span>Fuga által lefedett terület:</span> <strong id="grArea">–</strong></div>
+        <div class="mat-row"><span>Fuga tömege:</span> <strong id="grMass">–</strong></div>
+        <p class="hint">Csak a most látható felület (pl. padló <em>vagy</em> egy adott fal) fuga-szükséglete, geometriailag, a vágott lapokat is figyelembe véve.</p>
+      </section>
+
+      <section class="panel summary">
+        <h2>Fuga — egész projekt</h2>
+        <div class="mat-row"><span>Az összes felület együtt:</span> <strong id="prMass">–</strong></div>
+        <p class="hint">Minden felület (padló + falak) fugájának összege. A többi felület értéke akkor frissül, amikor rákattintasz / kiosztást készítesz hozzá, vagy PDF-be exportálsz (az exportkor minden felület újraszámítódik).</p>
+      </section>
+
+      <section class="panel summary">
+        <h2>Szilikon — egész projekt</h2>
+        <div class="mat-row"><span>Padló–fal sarok hossza:</span> <strong id="prSilH">–</strong></div>
+        <div class="mat-row"><span>Fal–fal sarok hossza:</span> <strong id="prSilV">–</strong></div>
+        <div class="mat-row"><span><strong>Szilikon összesen:</strong></span> <strong id="prSilTot">–</strong></div>
+        <div class="mat-row"><span><strong>Kartus szükséglet:</strong></span> <strong id="prTubes">–</strong></div>
+        <p class="hint">Csak akkor van értéke, ha a projektben padlóból generált falak vannak (az Alaprajz fülön a „Falak generálása ebből a padlóból" gombbal). Üres projekten „–" jelenik meg.</p>
+      </section>
+      </div><!-- /material -->
 
       <!-- EXPORT FÜL -->
       <div class="tab-panel" data-tabpanel="export" hidden>
