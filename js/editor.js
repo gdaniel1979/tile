@@ -108,11 +108,7 @@
     silTube: document.getElementById("silTube"),
     silWaste: document.getElementById("silWaste"),
     prArea: document.getElementById("prArea"),
-    prTileTotal: document.getElementById("prTileTotal"),
-    prTileWhole: document.getElementById("prTileWhole"),
-    prTileCut: document.getElementById("prTileCut"),
-    prTilesNeeded: document.getElementById("prTilesNeeded"),
-    prTilesFinal: document.getElementById("prTilesFinal"),
+    prTilesByType: document.getElementById("prTilesByType"),
     prGroutArea: document.getElementById("prGroutArea"),
     prMass: document.getElementById("prMass"),
     prGroutPacks: document.getElementById("prGroutPacks"),
@@ -1495,6 +1491,7 @@
       s.lastTilesNeeded = 0;
       s.lastWhole = 0;
       s.lastCut = 0;
+      s.lastTilesByType = null;
       return;
     }
     s.lastGroutAreaMm2 = data.groutAreaMm2 || 0;
@@ -1503,6 +1500,7 @@
     s.lastTilesNeeded = data.tilesNeeded || 0;
     s.lastWhole = data.whole || 0;
     s.lastCut = data.cut || 0;
+    s.lastTilesByType = data.byType || null;
     const base = baseTile();
     s.lastTileThicknessMm = base ? (base.thicknessMm || 8) : 8;
   }
@@ -1522,6 +1520,48 @@
     });
     const wastePct = usedArea > 0 ? (1 - area / usedArea) * 100 : 0;
     return { area, total, whole, cut, needed, wastePct };
+  }
+
+  // Ugyanaz, csak laptípusonként csoportosítva. ELSŐDLEGESEN a felület
+  // lastTilesByType cache-ét használja (ami a tényleges típust mutatja, beleértve
+  // az egyedi-lap override-okat is). Fallback: ha az új cache nincs, baseId alapján.
+  // Visszaad egy tömböt: [{ id, name, area, whole, cut, needed, usedArea, surfaceNames[] }, ...]
+  function computeProjectTileNumbersByType(p) {
+    const groups = {};
+    const ensure = (id, name) => {
+      if (!groups[id]) {
+        const t = (p.tileTypes || []).find((x) => x.id === id);
+        groups[id] = { id, name: name || (t ? t.name : "ismeretlen lap"), area: 0, whole: 0, cut: 0, needed: 0, usedArea: 0, surfaceNames: new Set() };
+      }
+      return groups[id];
+    };
+    p.surfaces.forEach((s) => {
+      const bt = s.lastTilesByType;
+      if (bt && typeof bt === "object" && Object.keys(bt).length) {
+        Object.keys(bt).forEach((tid) => {
+          const stats = bt[tid];
+          if (!stats || (stats.needed || 0) <= 0 && (stats.whole || 0) <= 0 && (stats.cut || 0) <= 0) return;
+          const g = ensure(tid, stats.name);
+          g.area += stats.area || 0;
+          g.whole += stats.whole || 0;
+          g.cut += stats.cut || 0;
+          g.needed += stats.needed || 0;
+          g.usedArea += (stats.needed || 0) * (stats.tileAreaMm2 || 0);
+          g.surfaceNames.add(s.name);
+        });
+      } else {
+        const sNeeded = s.lastTilesNeeded || 0;
+        if (sNeeded <= 0) return;
+        const g = ensure(s.baseId);
+        g.area += s.lastAreaMm2 || 0;
+        g.whole += s.lastWhole || 0;
+        g.cut += s.lastCut || 0;
+        g.needed += sNeeded;
+        g.usedArea += sNeeded * (s.lastTileAreaMm2 || 0);
+        g.surfaceNames.add(s.name);
+      }
+    });
+    return Object.values(groups).map((g) => ({ ...g, surfaceNames: [...g.surfaceNames] }));
   }
 
   // Projekt-szintű szilikon (mm-ben adott hosszak).
@@ -1625,23 +1665,29 @@
     const m = project.material || defaultMaterial();
     const overage = Math.max(0, state.layout && state.layout.overagePct || 0);
 
-    // Burkolat — projekt-szint
+    // Burkolat — projekt-szint, laptípusonként bontva
     const tn = computeProjectTileNumbers(project);
-    if (tn.needed > 0) {
-      const finalTiles = Math.ceil(tn.needed * (1 + overage / 100));
-      el.prArea.textContent = (tn.area / 1e6).toFixed(2) + " m²";
-      el.prTileTotal.textContent = tn.total + " db";
-      el.prTileWhole.textContent = tn.whole + " db";
-      el.prTileCut.textContent = tn.cut + " db";
-      el.prTilesNeeded.textContent = tn.needed + " db (hulladék: " + tn.wastePct.toFixed(0) + " %)";
-      el.prTilesFinal.textContent = finalTiles + " db (+" + overage + "%)";
-    } else {
-      el.prArea.textContent = "–";
-      el.prTileTotal.textContent = "–";
-      el.prTileWhole.textContent = "–";
-      el.prTileCut.textContent = "–";
-      el.prTilesNeeded.textContent = "–";
-      el.prTilesFinal.textContent = "–";
+    el.prArea.textContent = tn.area > 0 ? (tn.area / 1e6).toFixed(2) + " m²" : "–";
+    if (el.prTilesByType) {
+      const groups = computeProjectTileNumbersByType(project);
+      if (!groups.length) {
+        el.prTilesByType.innerHTML = '<div class="mat-row"><span>Lap szükséglet:</span> <strong>–</strong></div>';
+      } else {
+        const parts = groups.map((g) => {
+          const finalTiles = Math.ceil(g.needed * (1 + overage / 100));
+          const wastePct = g.usedArea > 0 ? (1 - g.area / g.usedArea) * 100 : 0;
+          const surfList = g.surfaceNames.length ? g.surfaceNames.join(", ") : "";
+          return '<div class="tile-group">'
+            + '<div class="tile-group-h">' + escapeHtml(g.name) + (surfList ? ' <span class="tg-sub">(' + escapeHtml(surfList) + ')</span>' : '') + '</div>'
+            + '<div class="mat-row"><span>Burkolt terület:</span> <strong>' + (g.area / 1e6).toFixed(2) + ' m²</strong></div>'
+            + '<div class="mat-row"><span>Egész lap:</span> <strong>' + g.whole + ' db</strong></div>'
+            + '<div class="mat-row"><span>Vágott helyek:</span> <strong>' + g.cut + ' db</strong></div>'
+            + '<div class="mat-row"><span>Szükséges lap (újrahaszn.):</span> <strong>' + g.needed + ' db (hulladék: ' + wastePct.toFixed(0) + ' %)</strong></div>'
+            + '<div class="mat-row"><span><strong>Lap tartalékkal:</strong></span> <strong>' + finalTiles + ' db (+' + overage + '%)</strong></div>'
+            + '</div>';
+        });
+        el.prTilesByType.innerHTML = parts.join("");
+      }
     }
 
     // Fuga — projekt-szint
@@ -2175,6 +2221,15 @@
     const cutLabels = []; // { x, y, w, h } – világkoordinátában, a vágott darabokhoz
     const types = state.tiles.types;
     const overrides = state.layout.overrides;
+    const byType = {}; // typeId -> { id, name, area, whole, cut, cutLabels[] }
+    const bumpType = (typeObj, isWhole, areaMm2, labelDims) => {
+      const id = typeObj.id;
+      if (!byType[id]) byType[id] = { id, name: typeObj.name || "lap", area: 0, whole: 0, cut: 0, cutLabels: [] };
+      const g = byType[id];
+      g.area += areaMm2;
+      if (isWhole) g.whole++; else g.cut++;
+      if (labelDims) g.cutLabels.push(labelDims);
+    };
 
     for (let j = j0; j <= j1; j++) {
       const rowShift = offFrac ? (((j * offFrac) % 1) * pitchX) : 0;
@@ -2192,8 +2247,13 @@
         if (area < tileW * tileH * 0.004) continue; // gyakorlatilag nincs burkolható rész → kihagyjuk
         tilesAreaSumMm2 += area;
 
+        // egyedi felülírás: a cellához rendelt típus megjelenése, ha van
+        const ovId = overrides[i + "_" + j];
+        const type = ovId ? (types.find((t) => t.id === ovId) || base) : base;
+
         total++;
         const isWhole = subs.length === 1 && subs[0].w >= tileW - 0.5 && subs[0].h >= tileH - 0.5;
+        const typeCutDims = []; // ehhez a laphoz tartozó cut-darabok (újrahaszn. szám.)
         if (isWhole) {
           whole++;
         } else {
@@ -2212,14 +2272,15 @@
             const rectangular = cArea >= cbw * cbh - Math.max(1, cbw * cbh * 0.002);
             const text = rectangular ? fmtDim(cbw, cbh) : ("L " + fmtDim(cbw, cbh) + " / " + fmtDim(big.w, big.h));
             cutLabels.push({ x: big.x + big.w / 2, y: big.y + big.h / 2, w: cbw, h: cbh, text });
+            typeCutDims.push({ w: cbw, h: cbh });
           }
         }
+        // típusonkénti aggregáció (vízszintes/függőleges base, override-olt is)
+        if (isWhole) bumpType(type, true, area, null);
+        else typeCutDims.forEach((d, idx) => bumpType(type, false, idx === 0 ? area : 0, d));
 
         const s0 = worldToScreen({ x: x0, y: y0 });
         const sw = tileW * scale, sh = tileH * scale;
-        // egyedi felülírás: a cellához rendelt típus megjelenése, ha van
-        const ovId = overrides[i + "_" + j];
-        const type = ovId ? (types.find((t) => t.id === ovId) || base) : base;
         drawTileFill(type, s0.x, s0.y, sw, sh);
       }
     }
@@ -2238,9 +2299,16 @@
     const cutTilesNeeded = tilesNeededForCuts(cutLabels, tileW, tileH);
     const areaMm2 = Math.max(0, shoelaceAreaMm2() - cutoutsAreaMm2());
     const tilesNeeded = whole + cutTilesNeeded;
+    // típusonkénti szükséges lap-számok (újrahaszn. a típus saját cut-darabjaira)
+    const byTypeOut = {};
+    Object.keys(byType).forEach((id) => {
+      const g = byType[id];
+      const needed = g.whole + tilesNeededForCuts(g.cutLabels, tileW, tileH);
+      byTypeOut[id] = { id: g.id, name: g.name, area: g.area, whole: g.whole, cut: g.cut, needed, tileAreaMm2: tileW * tileH };
+    });
     // fuga geometriailag: a burkolt területből levonjuk a lerakott lap-darabok összesített területét
     const groutAreaMm2 = Math.max(0, areaMm2 - tilesAreaSumMm2);
-    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH, groutAreaMm2, whole, cut });
+    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH, groutAreaMm2, whole, cut, byType: byTypeOut });
 
     // statisztikák megőrzése export/nyomtatáshoz
     lastStats = { whole, cut, tilesNeeded, areaMm2, tileAreaMm2: tileW * tileH, groutAreaMm2 };
@@ -2284,6 +2352,15 @@
     let total = 0, whole = 0, cut = 0;
     let tilesAreaSumMm2 = 0;
     const cutLabels = [];
+    const byType = {};
+    const bumpType = (typeObj, isWhole, areaMm2, labelDims) => {
+      const id = typeObj.id;
+      if (!byType[id]) byType[id] = { id, name: typeObj.name || "lap", area: 0, whole: 0, cut: 0, cutLabels: [] };
+      const g = byType[id];
+      g.area += areaMm2;
+      if (isWhole) g.whole++; else g.cut++;
+      if (labelDims) g.cutLabels.push(labelDims);
+    };
 
     for (let j = jMin; j <= jMax; j++) {
       for (let i = iMin; i <= iMax; i++) {
@@ -2335,6 +2412,8 @@
 
         const ovId = overrides[i + "_" + j];
         const type = ovId ? (types.find((t) => t.id === ovId) || base) : base;
+        if (isWhole) bumpType(type, true, pieceArea, null);
+        else bumpType(type, false, pieceArea, label ? { w: label.w, h: label.h } : null);
         drawQuadFill(type, quad);
       }
     }
@@ -2345,8 +2424,14 @@
     const cutTilesNeeded = tilesNeededForCuts(cutLabels.map((c) => ({ w: c.w, h: c.h })), tileW, tileH);
     const areaMm2 = Math.max(0, shoelaceAreaMm2() - cutoutsAreaMm2());
     const tilesNeeded = whole + cutTilesNeeded;
+    const byTypeOut = {};
+    Object.keys(byType).forEach((id) => {
+      const g = byType[id];
+      const needed = g.whole + tilesNeededForCuts(g.cutLabels, tileW, tileH);
+      byTypeOut[id] = { id: g.id, name: g.name, area: g.area, whole: g.whole, cut: g.cut, needed, tileAreaMm2: tileW * tileH };
+    });
     const groutAreaMm2 = Math.max(0, areaMm2 - tilesAreaSumMm2);
-    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH, groutAreaMm2, whole, cut });
+    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH, groutAreaMm2, whole, cut, byType: byTypeOut });
     lastStats = { whole, cut, tilesNeeded, areaMm2, tileAreaMm2: tileW * tileH, groutAreaMm2 };
     lastCutPieces = cutLabels.map((c) => ({ w: c.w, h: c.h }));
   }
@@ -2639,6 +2724,7 @@
       lastTilesNeeded: typeof d.lastTilesNeeded === "number" ? d.lastTilesNeeded : 0,
       lastWhole: typeof d.lastWhole === "number" ? d.lastWhole : 0,
       lastCut: typeof d.lastCut === "number" ? d.lastCut : 0,
+      lastTilesByType: (d.lastTilesByType && typeof d.lastTilesByType === "object") ? d.lastTilesByType : null,
     };
   }
 

@@ -288,12 +288,8 @@
       <section class="panel summary">
         <h2>Burkolat — egész projekt</h2>
         <div class="mat-row"><span>Burkolt terület (összes felület):</span> <strong id="prArea">–</strong></div>
-        <div class="mat-row"><span>Lapok összesen:</span> <strong id="prTileTotal">–</strong></div>
-        <div class="mat-row"><span>Egész lap:</span> <strong id="prTileWhole">–</strong></div>
-        <div class="mat-row"><span>Vágott helyek:</span> <strong id="prTileCut">–</strong></div>
-        <div class="mat-row"><span>Szükséges lap (újrahaszn.):</span> <strong id="prTilesNeeded">–</strong></div>
-        <div class="mat-row"><span><strong>Lap tartalékkal:</strong></span> <strong id="prTilesFinal">–</strong></div>
-        <p class="hint">Az összes felület (padló + falak) burkolatszükséglete együtt. A felületek értéke akkor frissül, amikor rákattintasz / kiosztást készítesz hozzá, vagy PDF-be exportálsz (az exportkor minden felület újraszámítódik). A „reális" újrahasznosítás feltételezi, hogy egy lapból a levágott darab mellett a maradék egy másik szélső helyre felhasználható, ha elég nagy.</p>
+        <div id="prTilesByType"></div>
+        <p class="hint">Laptípusonként külön bontva (a felületek a saját „alap" típusukkal számolódnak). A többi felület értéke akkor frissül, amikor rákattintasz / kiosztást készítesz hozzá, vagy PDF-be exportálsz. A „reális" újrahasznosítás feltételezi, hogy egy lapból a levágott darab mellett a maradék egy másik szélső helyre felhasználható, ha elég nagy.</p>
       </section>
 
       <!-- FUGA -->
