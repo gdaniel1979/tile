@@ -1616,7 +1616,7 @@
     render(); // a látható vászon visszaáll (ezalatt is suppressHistory aktív)
     updateProjectMaterialReport();
     // a frissített cache-t mentjük (history nélkül), hogy reload után is megmaradjon
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(serializeStore())); } catch (_) {}
+    try { idbSet(STORE_KEY, JSON.stringify(serializeStore())); } catch (_) {}
     suppressHistory = wasSuppress; inDrag = wasInDrag;
   }
 
@@ -2784,6 +2784,43 @@
   let store = null;
   const STORE_KEY = "tile-planner-store";
 
+  // ---- IndexedDB tároló (a localStorage 5-10 MB-os limitje helyett) ----
+  // Egyetlen "kv" object store, key-value (key="tile-planner-store",
+  // value = JSON-stringre szerializált store snapshot).
+  const IDB_NAME = "tile-planner-db";
+  const IDB_STORE = "kv";
+  let idbConnPromise = null;
+  function idbOpen() {
+    if (idbConnPromise) return idbConnPromise;
+    idbConnPromise = new Promise((resolve, reject) => {
+      if (!window.indexedDB) { reject(new Error("Az IndexedDB nem elérhető")); return; }
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return idbConnPromise;
+  }
+  function idbGet(key) {
+    return idbOpen().then((db) => new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readonly");
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    }));
+  }
+  function idbSet(key, value) {
+    return idbOpen().then((db) => new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    }));
+  }
+
   function activeProject() {
     return store.projects.find((p) => p.id === store.activeProjectId) || store.projects[0];
   }
@@ -2809,22 +2846,34 @@
   function pushHistory() { pushHistoryWith(JSON.stringify(serializeStore())); }
 
   let saveFailed = false;
-  function save() {
-    const snap = JSON.stringify(serializeStore());
-    try {
-      localStorage.setItem(STORE_KEY, snap);
-      saveFailed = false;
-    } catch (e) {
-      // a böngésző tárolója megtelt (jellemzően nagy feltöltött képek miatt)
+  let pendingSnap = null;     // utoljára kért snapshot, ami még nincs IDB-be írva
+  let flushScheduled = false; // throttle: egy timer várja a flush-t
+  function flushToIDB() {
+    flushScheduled = false;
+    const snap = pendingSnap;
+    if (snap == null) return;
+    pendingSnap = null;
+    idbSet(STORE_KEY, snap).then(() => { saveFailed = false; }).catch((e) => {
       if (!saveFailed) {
         saveFailed = true;
         setTimeout(() => alert(
-          "A terv nem mentődött el: betelt a böngésző tárolója (valószínűleg a feltöltött kép-textúrák miatt).\n\n" +
-          "Emiatt a módosítások (pl. új falak) reload után elveszhetnek. Megoldás:\n" +
-          "• Töltsd fel újra a textúrát (az új feltöltések már automatikusan lekicsinyítve mentődnek), vagy\n" +
-          "• mentsd a projektet fájlba az Export fülön (Terv mentése JSON)."
+          "A terv nem mentődött el (IndexedDB hiba): " + (e && e.message || e) + "\n\n" +
+          "Mentsd a projektet fájlba az Export fülön (Összes projekt mentése JSON)."
         ), 0);
       }
+    });
+  }
+  // Az utolsó pending snap-et a tab bezárása előtt is megpróbáljuk lemezre menteni.
+  window.addEventListener("beforeunload", () => {
+    if (pendingSnap != null) { try { idbSet(STORE_KEY, pendingSnap); } catch (_) {} }
+  });
+
+  function save() {
+    const snap = JSON.stringify(serializeStore());
+    pendingSnap = snap; // mindig a legfrissebb snap, a flush csak ezt írja ki
+    if (!flushScheduled) {
+      flushScheduled = true;
+      setTimeout(flushToIDB, 60); // ~60 ms throttle, hogy sűrű save-eknél ne fojtsunk meg minden frame-et
     }
     if (!suppressHistory && !inDrag) pushHistoryWith(snap);
   }
@@ -2866,9 +2915,24 @@
     return { projects, activeProjectId: aid };
   }
 
-  function loadStore() {
-    try { const raw = localStorage.getItem(STORE_KEY); if (raw) { store = normalizeStore(JSON.parse(raw)); return; } } catch (_) {}
-    // migráció: egyetlen korábbi projekt / régi terv -> tár
+  async function loadStoreAsync() {
+    // 1. Friss adat IndexedDB-ből (új tárolás 2026-06-24 óta).
+    try {
+      const raw = await idbGet(STORE_KEY);
+      if (raw) { store = normalizeStore(JSON.parse(raw)); return; }
+    } catch (_) {}
+    // 2. Migráció: ha még csak localStorage-ban van adat, beemeljük IDB-be.
+    //    A localStorage-t MEGTARTJUK biztonsági mentésnek (a következő save() már
+    //    nem írja át, mert IDB-be megy).
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        store = normalizeStore(JSON.parse(raw));
+        try { await idbSet(STORE_KEY, raw); } catch (_) {}
+        return;
+      }
+    } catch (_) {}
+    // 3. Régebbi formátum migráció (egyetlen projekt vagy az ősi terv).
     let p = null;
     try { const r = localStorage.getItem(PROJECT_KEY); if (r) p = normalizeProject(JSON.parse(r)); } catch (_) {}
     if (!p) { try { const o = localStorage.getItem(STORAGE_KEY); if (o) p = projectFromLegacy(JSON.parse(o)); } catch (_) {} }
@@ -3471,8 +3535,8 @@
   }
 
   // ---- Indítás -----------------------------------------------------------
-  function init() {
-    loadStore();
+  async function init() {
+    await loadStoreAsync();
     project = activeProject();
     loadActiveSurface();
     el.projName.value = project.name;
