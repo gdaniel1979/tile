@@ -306,18 +306,19 @@
         <div class="control-row">
           <label for="groutPreset">Típus</label>
           <select id="groutPreset" class="full-select">
-            <option value="cg1">Cementes CG1 (~1,5 g/cm³)</option>
-            <option value="cg2">Cementes CG2 (~1,7 g/cm³)</option>
-            <option value="epoxy">Epoxi RG (~1,55 g/cm³)</option>
+            <option value="cg1">Cementes CG1 (~1,5 g/cm³, 5 kg/zsák)</option>
+            <option value="cg2">Cementes CG2 (~1,7 g/cm³, 5 kg/zsák)</option>
+            <option value="epoxy">Mapei Kerapoxy Easy Design (1,55 g/cm³, 3 kg/vödör)</option>
           </select>
         </div>
-        <p class="hint">A sűrűség a fugatérfogat → tömeg átszámításához kell. A vastagság laptípusonként a Burkolat fülön állítható.</p>
+        <p class="hint">A sűrűség a fugatérfogat → tömeg átszámításához kell; az epoxi adatok a <em>Mapei Kerapoxy Easy Design</em> műszaki adatlapja alapján. A vastagság laptípusonként a Burkolat fülön állítható.</p>
       </section>
 
       <section class="panel summary">
         <h2>Fuga — egész projekt</h2>
         <div class="mat-row"><span>Fuga által lefedett terület (összes):</span> <strong id="prGroutArea">–</strong></div>
         <div class="mat-row"><span><strong>Fuga tömege (összes):</strong></span> <strong id="prMass">–</strong></div>
+        <div class="mat-row"><span><strong>Csomag szükséglet:</strong></span> <strong id="prGroutPacks">–</strong></div>
         <p class="hint">Minden felület (padló + falak) fugájának összege. A felületek értéke akkor frissül, amikor rákattintasz / kiosztást készítesz hozzá, vagy PDF-be exportálsz.</p>
       </section>
 

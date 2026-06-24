@@ -7,8 +7,8 @@
   --muted: #9aa7b5;
   --accent: #4c9aff;
   --accent-dark: #2f6fd6;
-  --accent-warm: #f59e0b;       /* meleg kiemelő (akció-gomb + navigátor keret) */
-  --accent-warm-dark: #c97d04;
+  --accent-warm: #f0b27a;       /* pasztell narancs kiemelő (akció-gomb + navigátor keret) */
+  --accent-warm-dark: #d99662;
   --danger: #e5534b;
   --ok: #3fb950;
   --radius: 8px;
@@ -94,7 +94,7 @@ body {
   border-color: var(--accent-warm);
   color: #1a1100;
   font-weight: 700;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.18);
+  box-shadow: 0 0 0 2px rgba(240, 178, 122, 0.22);
 }
 .top-actions #genLayoutBtn:hover { background: var(--accent-warm-dark); border-color: var(--accent-warm-dark); color: #fff; }
 .top-actions .btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -115,7 +115,7 @@ body {
   border: 2px solid var(--accent-warm);
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16), var(--shadow);
+  box-shadow: 0 0 0 3px rgba(240, 178, 122, 0.20), var(--shadow);
 }
 .proj-tree-head {
   display: flex;

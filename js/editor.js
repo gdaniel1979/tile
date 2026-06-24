@@ -117,6 +117,7 @@
     prTilesFinal: document.getElementById("prTilesFinal"),
     prGroutArea: document.getElementById("prGroutArea"),
     prMass: document.getElementById("prMass"),
+    prGroutPacks: document.getElementById("prGroutPacks"),
     prSilH: document.getElementById("prSilH"),
     prSilV: document.getElementById("prSilV"),
     prSilTot: document.getElementById("prSilTot"),
@@ -1667,6 +1668,16 @@
     const massKg = computeProjectGroutMass(project) * (1 + overage / 100);
     el.prGroutArea.textContent = gArea > 0 ? (gArea / 1e6).toFixed(2) + " m²" : "–";
     el.prMass.textContent = massKg > 0 ? massKg.toFixed(2) + " kg (+" + overage + "%)" : "–";
+    if (el.prGroutPacks) {
+      const packKg = GROUT_PACK_KG[m.groutPreset] || 5;
+      const packName = GROUT_PACK_NAME[m.groutPreset] || "csomag";
+      if (massKg > 0 && packKg > 0) {
+        const packs = Math.ceil(massKg / packKg);
+        el.prGroutPacks.textContent = packs + " db " + packName + " (" + packKg + " kg/" + packName + ")";
+      } else {
+        el.prGroutPacks.textContent = "–";
+      }
+    }
 
     // Szilikon — projekt-szint
     const sil = computeSiliconeForProject(project);
@@ -2659,8 +2670,17 @@
       silWastePct: 15,
     };
   }
-  const GROUT_DENSITIES = { cg1: 1.5, cg2: 1.7, epoxy: 1.55 }; // g/cm³
-  const GROUT_LABELS = { cg1: "Cementes CG1", cg2: "Cementes CG2", epoxy: "Epoxi RG" };
+  // g/cm³ — a Mapei Kerapoxy Easy Design adatlapja szerint a kevert epoxi 1,55 g/cm³
+  const GROUT_DENSITIES = { cg1: 1.5, cg2: 1.7, epoxy: 1.55 };
+  const GROUT_LABELS = {
+    cg1: "Cementes CG1",
+    cg2: "Cementes CG2",
+    epoxy: "Mapei Kerapoxy Easy Design (epoxi)",
+  };
+  // standard csomagolási méret (kg/csomag) — cementes átlag 5 kg-os zsák,
+  // a Mapei Kerapoxy Easy Design 3 kg-os vödör (gyári kiszerelés)
+  const GROUT_PACK_KG = { cg1: 5, cg2: 5, epoxy: 3 };
+  const GROUT_PACK_NAME = { cg1: "zsák", cg2: "zsák", epoxy: "vödör" };
 
   function defaultProject(name) {
     const dt = defaultTiles();
@@ -3272,6 +3292,12 @@
       if (groutKg > 0) {
         const lbl = GROUT_LABELS[mat.groutPreset] || "Fuga";
         html += row("Fuga (" + escapeHtml(lbl) + ")", groutKg.toFixed(2) + " kg (+" + overage + "% tartalék)");
+        const packKg = GROUT_PACK_KG[mat.groutPreset] || 5;
+        const packName = GROUT_PACK_NAME[mat.groutPreset] || "csomag";
+        if (packKg > 0) {
+          const packs = Math.ceil(groutKg / packKg);
+          html += row("Fuga csomag szükséglet", packs + " db " + escapeHtml(packName) + " (" + packKg + " kg)");
+        }
       }
       if (totLen > 0) {
         const t = computeSiliconeTubes(totLen, mat);
