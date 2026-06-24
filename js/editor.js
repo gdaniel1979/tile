@@ -524,7 +524,31 @@
       lastCutPieces = [];
     }
     drawCutouts();
+    drawSnapGuides();
     drawPolygon();
+  }
+
+  // Snap-segédvonalak (húzás közben): sárga szaggatott vonal a snap-él mentén.
+  function drawSnapGuides() {
+    if (!snapGuides.length) return;
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "#ffcc4c";
+    snapGuides.forEach((g) => {
+      ctx.beginPath();
+      if (g.axis === "x") {
+        const p1 = worldToScreen({ x: g.v, y: g.a });
+        const p2 = worldToScreen({ x: g.v, y: g.b });
+        ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+      } else {
+        const p1 = worldToScreen({ x: g.a, y: g.v });
+        const p2 = worldToScreen({ x: g.b, y: g.v });
+        ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+      }
+      ctx.stroke();
+    });
+    ctx.restore();
   }
 
   // ---- Nézet: fit & zoom -------------------------------------------------
@@ -572,6 +596,7 @@
   const OPENING_COLOR = "#3f7fe0"; // nyílás (ajtó/ablak) fix színe
   let cutoutLabelRects = []; // a rajzon szerkeszthető kivágás-méretek
   let selectedCutout = -1;   // kijelölt kivágás indexe (méretek + Delete + mozgatás)
+  let snapGuides = [];       // húzás közben látható snap-segédvonalak (world-koord.)
 
   function getMouse(e) {
     const r = canvas.getBoundingClientRect();
@@ -693,16 +718,9 @@
         let dx = cur.x - drag.gx, dy = cur.y - drag.gy;
         if (state.snap) { const gr = state.gridMm; dx = Math.round(dx / gr) * gr; dy = Math.round(dy / gr) * gr; }
         let nx = drag.ox + dx, ny = drag.oy + dy;
-        // él-snap: a kivágás bármely éle a felület határához ragad, ha közel van
-        const b = planBounds();
-        if (b) {
-          const thr = 14 / state.view.scale;
-          if (Math.abs(nx - b.minX) < thr) nx = b.minX;
-          else if (Math.abs((nx + c.w) - b.maxX) < thr) nx = b.maxX - c.w;
-          if (Math.abs(ny - b.minY) < thr) ny = b.minY;
-          else if (Math.abs((ny + c.h) - b.maxY) < thr) ny = b.maxY - c.h;
-        }
-        c.x = nx; c.y = ny;
+        const snapped = snapCutoutDuringDrag(c, nx, ny);
+        c.x = snapped.x; c.y = snapped.y;
+        snapGuides = snapped.guides;
         render();
       }
     }
@@ -724,7 +742,9 @@
       }
     } else if (wasDrag.type === "cutoutMove") {
       inDrag = false;
+      snapGuides = [];
       if (wasDrag.moved) afterGeometryChange(); // áthelyezés után újragenerálás + előzmény
+      else render();
     } else if (wasDrag.type === "paint") {
       save();
     } else if (wasDrag.type === "vertex" || wasDrag.type === "edge") {
@@ -1743,12 +1763,19 @@
       const selected = ci === selectedCutout;
       const a = worldToScreen({ x: c.x, y: c.y });
       const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
+      const sw = b.x - a.x, sh = b.y - a.y;
+      const img = c.imageUrl ? getImage(c.imageUrl) : null;
       ctx.setLineDash(selected ? [] : [6, 4]);
       ctx.lineWidth = selected ? 2.5 : 1.5;
-      ctx.fillStyle = hexAlpha(col, selected ? 0.32 : 0.22);
-      ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
+      if (img) {
+        // kép a teljes nyílást kitölti (a méretek a tényleges ajtó/ablak méretét reprezentálják)
+        ctx.drawImage(img, a.x, a.y, sw, sh);
+      } else {
+        ctx.fillStyle = hexAlpha(col, selected ? 0.32 : 0.22);
+        ctx.fillRect(a.x, a.y, sw, sh);
+      }
       ctx.strokeStyle = selected ? "#ffcc4c" : col;
-      ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
+      ctx.strokeRect(a.x, a.y, sw, sh);
       ctx.setLineDash([]);
       // a méret-feliratok csak a kijelölt (szerkesztett) kivágáson látszanak
       if (selected) {
@@ -1779,16 +1806,76 @@
     return null;
   }
 
-  // Melyik kivágás téglalapjába esik egy képernyő-pont (felülről lefelé)
+  // Melyik kivágás téglalapjába esik egy képernyő-pont (felülről lefelé).
+  // 4 px-es padding-gal: nagyon vékony lelógó/kis kivágást is könnyebb megfogni.
   function cutoutAt(sx, sy) {
     const cuts = state.cutouts || [];
+    const pad = 4;
     for (let i = cuts.length - 1; i >= 0; i--) {
       const c = cuts[i];
       const a = worldToScreen({ x: c.x, y: c.y });
       const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
-      if (sx >= a.x && sx <= b.x && sy >= a.y && sy <= b.y) return i;
+      if (sx >= a.x - pad && sx <= b.x + pad && sy >= a.y - pad && sy <= b.y + pad) return i;
     }
     return -1;
+  }
+
+  // Húzott kivágás snap-elése: a felület-bbox ÉS a többi kivágás 4-4 éléhez.
+  // Bármelyik él (bal/jobb/fent/lent) találkozhat bármelyik kandidátussal.
+  // Visszaadja az új x,y-t + a snap-eléshez tartozó "guide"-vonalakat (vizuális).
+  function snapCutoutDuringDrag(c, nx, ny) {
+    const thr = 14 / state.view.scale;
+    const b = planBounds();
+    const candX = [], candY = [];
+    if (b) {
+      candX.push({ v: b.minX, y0: b.minY, y1: b.maxY });
+      candX.push({ v: b.maxX, y0: b.minY, y1: b.maxY });
+      candY.push({ v: b.minY, x0: b.minX, x1: b.maxX });
+      candY.push({ v: b.maxY, x0: b.minX, x1: b.maxX });
+    }
+    (state.cutouts || []).forEach((o) => {
+      if (o === c) return;
+      candX.push({ v: o.x, y0: o.y, y1: o.y + o.h });
+      candX.push({ v: o.x + o.w, y0: o.y, y1: o.y + o.h });
+      candY.push({ v: o.y, x0: o.x, x1: o.x + o.w });
+      candY.push({ v: o.y + o.h, x0: o.x, x1: o.x + o.w });
+    });
+    const guides = [];
+    // X tengely: a bal vagy a jobb él a legközelebbi kandidátushoz tapad
+    let bestX = { diff: thr, val: nx, guide: null };
+    for (const cand of candX) {
+      // bal él találkozik a kandidátussal
+      const d1 = Math.abs(nx - cand.v);
+      if (d1 < bestX.diff) bestX = { diff: d1, val: cand.v, guide: { axis: "x", v: cand.v, a: cand.y0, b: cand.y1 } };
+      // jobb él találkozik a kandidátussal
+      const d2 = Math.abs((nx + c.w) - cand.v);
+      if (d2 < bestX.diff) bestX = { diff: d2, val: cand.v - c.w, guide: { axis: "x", v: cand.v, a: cand.y0, b: cand.y1 } };
+    }
+    let bestY = { diff: thr, val: ny, guide: null };
+    for (const cand of candY) {
+      const d1 = Math.abs(ny - cand.v);
+      if (d1 < bestY.diff) bestY = { diff: d1, val: cand.v, guide: { axis: "y", v: cand.v, a: cand.x0, b: cand.x1 } };
+      const d2 = Math.abs((ny + c.h) - cand.v);
+      if (d2 < bestY.diff) bestY = { diff: d2, val: cand.v - c.h, guide: { axis: "y", v: cand.v, a: cand.x0, b: cand.x1 } };
+    }
+    if (bestX.guide) guides.push(bestX.guide);
+    if (bestY.guide) guides.push(bestY.guide);
+    return { x: bestX.val, y: bestY.val, guides };
+  }
+
+  // A kivágást a felület-bbox-ra illeszti: ha nagyobb mint a bbox, lekicsinyíti;
+  // majd a bbox-ba clamp-eli a pozíciót. Visszaadja, módosult-e.
+  function fitCutoutToSurface(c) {
+    const b = planBounds();
+    if (!b) return false;
+    const bw = b.maxX - b.minX, bh = b.maxY - b.minY;
+    let changed = false;
+    if (c.w > bw) { c.w = bw; changed = true; }
+    if (c.h > bh) { c.h = bh; changed = true; }
+    const nx = Math.max(b.minX, Math.min(c.x, b.maxX - c.w));
+    const ny = Math.max(b.minY, Math.min(c.y, b.maxY - c.h));
+    if (nx !== c.x || ny !== c.y) { c.x = nx; c.y = ny; changed = true; }
+    return changed;
   }
 
   function setLayoutCounts(c) {
@@ -2230,10 +2317,15 @@
       });
       kindSel.value = c.kind;
       kindSel.addEventListener("change", () => { c.kind = kindSel.value; afterGeometryChange(); });
+      const fit = document.createElement("button");
+      fit.className = "fit"; fit.textContent = "⤧"; fit.title = "Felülethez igazítás (ha lelóg vagy nagyobb mint a felület)";
+      fit.addEventListener("click", () => {
+        if (fitCutoutToSurface(c)) { selectedCutout = idx; afterGeometryChange(); renderCutoutList(); }
+      });
       const del = document.createElement("button");
       del.className = "del"; del.textContent = "✕"; del.title = "Kivágás törlése";
       del.addEventListener("click", () => { state.cutouts.splice(idx, 1); afterGeometryChange(); });
-      head.append(sw, kindSel, del);
+      head.append(sw, kindSel, fit, del);
 
       const dims = document.createElement("div");
       dims.className = "cutout-dims";
@@ -2257,6 +2349,40 @@
         mk("M", () => c.h, (v) => (c.h = Math.max(0, v))),
       );
       item.append(head, dims);
+
+      // Kép-sor: csak nyílásnál (ajtó/ablak rajz). Méretarány-tartó "contain" megjelenítés.
+      if (c.kind === "opening") {
+        const imgRow = document.createElement("div");
+        imgRow.className = "cutout-img-row";
+        const file = document.createElement("input");
+        file.type = "file"; file.accept = "image/*";
+        file.title = "Kép kiválasztása (ajtó/ablak)";
+        file.addEventListener("change", () => {
+          const f = file.files && file.files[0];
+          if (!f) return;
+          const r = new FileReader();
+          r.onload = () => {
+            downscaleImage(r.result, 700, (small) => {
+              c.imageUrl = small;
+              render(); save();
+              renderCutoutList();
+            });
+          };
+          r.readAsDataURL(f);
+        });
+        imgRow.appendChild(file);
+        if (c.imageUrl) {
+          const thumb = document.createElement("img");
+          thumb.src = c.imageUrl; thumb.className = "cutout-thumb";
+          thumb.alt = ""; thumb.title = "Aktuális kép";
+          const rm = document.createElement("button");
+          rm.className = "img-rm"; rm.textContent = "Kép törlése";
+          rm.addEventListener("click", () => { c.imageUrl = null; render(); save(); renderCutoutList(); });
+          imgRow.append(thumb, rm);
+        }
+        item.append(imgRow);
+      }
+
       el.cutoutList.appendChild(item);
     });
   }
@@ -2411,6 +2537,7 @@
         ? d.cutouts.filter((c) => c && typeof c.w === "number").map((c) => ({
             x: c.x || 0, y: c.y || 0, w: c.w, h: c.h,
             kind: c.kind === "untiled" ? "untiled" : "opening",
+            imageUrl: c.imageUrl || null,
           }))
         : [],
       edgeNames: Array.isArray(d.edgeNames) ? d.edgeNames.slice() : [],

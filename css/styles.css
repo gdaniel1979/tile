@@ -381,8 +381,14 @@ input[type="color"] {
   font-size: 12px;
   outline: none;
 }
-.cutout-head .del { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 13px; }
+.cutout-head .fit, .cutout-head .del { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 2px 4px; }
+.cutout-head .fit:hover { color: var(--accent); }
 .cutout-head .del:hover { color: var(--danger); }
+.cutout-img-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.cutout-img-row input[type="file"] { font-size: 11px; color: var(--muted); max-width: 100%; flex: 1 1 auto; }
+.cutout-img-row .cutout-thumb { width: 36px; height: 36px; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 3px; }
+.cutout-img-row .img-rm { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 4px; padding: 3px 6px; font-size: 11px; cursor: pointer; }
+.cutout-img-row .img-rm:hover { color: var(--danger); border-color: var(--danger); }
 .cutout-dims { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .cutout-dims label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cutout-dims label span { font-size: 9px; color: var(--muted); }
