@@ -602,6 +602,15 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.5; }
 .edge-field input:disabled { opacity: 0.5; cursor: not-allowed; }
 .edge-name-field { grid-column: 1 / -1; }
 .edge-name-field input { font-size: 12px; }
+.edge-edging-field {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.edge-edging-field input[type="checkbox"] { accent-color: var(--danger); }
+.edge-edging-field span { font-size: 11px; color: var(--muted); }
 
 .summary .summary-row {
   display: flex; justify-content: space-between; align-items: center;

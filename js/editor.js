@@ -123,6 +123,7 @@
     prSilV: document.getElementById("prSilV"),
     prSilTot: document.getElementById("prSilTot"),
     prTubes: document.getElementById("prTubes"),
+    prEdging: document.getElementById("prEdging"),
     // 6. fázis
     saveLinkedBtn: document.getElementById("saveLinkedBtn"),
     linkJsonBtn: document.getElementById("linkJsonBtn"),
@@ -463,6 +464,24 @@
     });
     if (state.closed) ctx.closePath();
     ctx.stroke();
+
+    // Élvédős élek piros vastag vonallal felülrajzolva (csak zárt padlónál)
+    if (state.mode === "floor" && state.closed && Array.isArray(state.edgeEdgings)) {
+      ctx.save();
+      ctx.lineWidth = 5;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#e5534b"; // var(--danger)
+      for (let i = 0; i < edgeCount(); i++) {
+        if (!state.edgeEdgings[i]) continue;
+        const [a, b] = edgeEndpoints(i);
+        const sa = worldToScreen(a), sb = worldToScreen(b);
+        ctx.beginPath();
+        ctx.moveTo(sa.x, sa.y);
+        ctx.lineTo(sb.x, sb.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     // Élhossz-címkék (kattintással szerkeszthetők) + padló-élnév
     const showNames = state.mode === "floor" && state.closed;
@@ -908,6 +927,21 @@
         });
         nameField.appendChild(nameInput);
         item.appendChild(nameField);
+
+        // Élvédő jelölőnégyzet — a szilikon-számítás kihagyja az ilyen éleket
+        const edgField = document.createElement("label");
+        edgField.className = "edge-field edge-edging-field";
+        const edgCheck = document.createElement("input");
+        edgCheck.type = "checkbox";
+        edgCheck.checked = !!state.edgeEdgings[i];
+        edgCheck.addEventListener("change", () => {
+          state.edgeEdgings[i] = edgCheck.checked;
+          afterGeometryChange(); // rajz frissítése + projekt-anyag újraszámolás
+        });
+        const edgLabel = document.createElement("span");
+        edgLabel.textContent = "Élvédő profil ezen az élen (szilikon helyett)";
+        edgField.append(edgCheck, edgLabel);
+        item.appendChild(edgField);
       }
 
       const idx = document.createElement("div");
@@ -1581,6 +1615,7 @@
   function computeSiliconeForProject(p) {
     let horizMm = 0, vertMm = 0;
     let horizN = 0, vertN = 0;
+    let edgingMm = 0, edgingN = 0; // élvédő-profil hossza (csak ahol fal is van)
     // padlónként: a hozzá generált falak alja → vízszintes; szomszédos falas él-párok → függőleges
     p.surfaces.forEach((floor) => {
       if (floor.mode !== "floor" || !floor.closed || floor.points.length < 3) return;
@@ -1588,30 +1623,38 @@
       if (!walls.length) return;
       const n = floor.points.length;
       const hasWallOnEdge = new Array(n).fill(false);
+      const edgings = Array.isArray(floor.edgeEdgings) ? floor.edgeEdgings : [];
       walls.forEach((w) => {
         if (typeof w.fromEdgeIndex === "number" && w.fromEdgeIndex >= 0 && w.fromEdgeIndex < n) {
           hasWallOnEdge[w.fromEdgeIndex] = true;
         }
       });
-      // vízszintes hossz = a generált falak alja (élhossz)
+      // vízszintes hossz = a generált falak alja (élhossz), KIVÉVE az élvédős éleket
       walls.forEach((w) => {
         if (typeof w.fromEdgeIndex !== "number") return;
         const i = w.fromEdgeIndex;
         const a = floor.points[i], b = floor.points[(i + 1) % n];
-        horizMm += Math.hypot(b.x - a.x, b.y - a.y);
-        horizN++;
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        if (edgings[i]) {
+          edgingMm += len;
+          edgingN++;
+        } else {
+          horizMm += len;
+          horizN++;
+        }
       });
-      // függőleges sarkok: padló-csúcs k-nál a (k-1) és (k) élek mindkettője falas
+      // függőleges sarkok: csak akkor szilikonos, ha mindkét szomszédos él falas
+      // ÉS egyik sem élvédős (az élvédő-profil eltakarja a sarokrést)
       const hMm = floor.wallHeightMm || 0;
       for (let k = 0; k < n; k++) {
         const prevEdge = (k + n - 1) % n;
-        if (hasWallOnEdge[prevEdge] && hasWallOnEdge[k]) {
+        if (hasWallOnEdge[prevEdge] && hasWallOnEdge[k] && !edgings[prevEdge] && !edgings[k]) {
           vertMm += hMm;
           vertN++;
         }
       }
     });
-    return { horizMm, vertMm, horizN, vertN };
+    return { horizMm, vertMm, horizN, vertN, edgingMm, edgingN };
   }
 
   // Kartus-szám: hossz × szélesség × mélység → ml → tubusok (felfelé).
@@ -1747,6 +1790,11 @@
     } else {
       el.prSilTot.textContent = "–";
       el.prTubes.textContent = "–";
+    }
+    if (el.prEdging) {
+      el.prEdging.textContent = sil.edgingN > 0
+        ? fmtLen(sil.edgingMm) + " (" + sil.edgingN + " él)"
+        : "–";
     }
   }
 
@@ -2924,6 +2972,7 @@
           }))
         : [],
       edgeNames: Array.isArray(d.edgeNames) ? d.edgeNames.slice() : [],
+      edgeEdgings: Array.isArray(d.edgeEdgings) ? d.edgeEdgings.map((x) => !!x) : [],
       layout: normLayout(d.layout),
       fromFloorId: d.fromFloorId || null,
       fromEdgeIndex: typeof d.fromEdgeIndex === "number" ? d.fromEdgeIndex : null,
@@ -3074,6 +3123,7 @@
     s.baseId = state.tiles.baseId; s.groutMm = state.tiles.groutMm; s.groutColor = state.tiles.groutColor;
     s.cutouts = state.cutouts;
     s.edgeNames = state.edgeNames;
+    s.edgeEdgings = state.edgeEdgings;
     s.layout = state.layout;
   }
 
@@ -3090,6 +3140,8 @@
     state.cutouts = s.cutouts;
     if (!Array.isArray(s.edgeNames)) s.edgeNames = [];
     state.edgeNames = s.edgeNames;
+    if (!Array.isArray(s.edgeEdgings)) s.edgeEdgings = [];
+    state.edgeEdgings = s.edgeEdgings;
     state.layout = s.layout;
   }
 
@@ -3711,6 +3763,10 @@
         if (sil.vertN) html += row("Szilikon — fal-fal sarok", fmtLen(sil.vertMm) + " (" + sil.vertN + " sarok)");
         html += row("Szilikon összesen", fmtLen(totLen) + " · " + mat.silWidthMm + "×" + mat.silDepthMm + " mm hézag");
         html += row("Kartus szükséglet", t.tubes + " db (" + mat.silTubeMl + " ml, +" + mat.silWastePct + "% tartalék)");
+      }
+      if (sil.edgingN > 0) {
+        const fmtLen = (mm) => (mm / 1000).toFixed(2) + " m";
+        html += row("Élvédő profil", fmtLen(sil.edgingMm) + " (" + sil.edgingN + " él)");
       }
       html += "</table>";
     }
