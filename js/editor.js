@@ -87,6 +87,8 @@
     offsetRow: document.getElementById("offsetRow"),
     offsetPct: document.getElementById("offsetPct"),
     offsetQuick: document.getElementById("offsetQuick"),
+    herringboneTiltRow: document.getElementById("herringboneTiltRow"),
+    herringboneTilt: document.getElementById("herringboneTilt"),
     // 4. fázis
     alignSeg: document.getElementById("alignSeg"),
     thr: document.getElementById("thr"),
@@ -2190,6 +2192,8 @@
 
     // átlós minta: külön (elforgatott) renderelő ág
     if (state.layout.pattern === "diagonal") { drawDiagonalLayout(g); return; }
+    // halszálka (herringbone): saját elrendezés ferde rácsra L-párokkal
+    if (state.layout.pattern === "herringbone") { drawHerringboneLayout(g); return; }
 
     // kötésminta: eltolt (téglakötés) soronkénti x-eltolás
     const offFrac = state.layout.pattern === "offset" ? (state.layout.offsetPct || 0) / 100 : 0;
@@ -2436,6 +2440,179 @@
     lastCutPieces = cutLabels.map((c) => ({ w: c.w, h: c.h }));
   }
 
+  // HALSZÁLKA (herringbone) — pgg-konstrukció ferde 2D-rácson, cellánként 4 lap.
+  // Cell vektorai (W = w+grout, H = h+grout):
+  //   u1 = (H+W, W-H), u2 = (W-H, H+W)
+  // Cell terület |u1 × u2| = 4WH = pontosan 4 lap-egységnyi → hézagmentes,
+  // átfedés nélküli lefedés a teljes síkon. Lapok cellán belül:
+  //   V1 (sx, sy, w, h), H1 (sx+W, sy, h, w),
+  //   V2 (sx+W, sy+W, w, h), H2 (sx+2W, sy+W, h, w).
+  // 45°-os elforgatás (herringboneTilted): a teljes minta elfordul a felület
+  // középpontja körül; a u1, u2 vektorok és a lap saját tengelyei is rotálva.
+  function drawHerringboneLayout(g) {
+    const { base, minX, minY, maxX, maxY, grout, tileW, tileH } = g;
+    const p = state.points;
+    const scale = state.view.scale;
+    let w = Math.min(tileW, tileH);
+    let h = Math.max(tileW, tileH);
+    if (Math.abs(h - w) < 0.01) {
+      // négyzetes lap → halszálka degenerál; egyszerű rács szebb
+      setLayoutCounts({ total: 0, whole: 0, cut: 0 });
+      updateMaterialReport(null);
+      return;
+    }
+    const W = w + grout;
+    const H = h + grout;
+    // Elforgatás: a teljes minta a felület közepe körül 45°-ban
+    const tilted = !!state.layout.herringboneTilted;
+    const ang = tilted ? Math.PI / 4 : 0;
+    const cosA = Math.cos(ang), sinA = Math.sin(ang);
+    // forgatott lap saját x és y tengelye (lap-szélesség és lap-magasság irány)
+    const ax = cosA, ay = sinA;          // saját x-tengely (lap-szélesség)
+    const bx = -sinA, by = cosA;         // saját y-tengely (lap-magasság)
+    // Cell rács vektorok (forgatva) — a saját tengelyek lineáris kombinációja
+    const u1xWorld = (H + W) * ax + (W - H) * bx;
+    const u1yWorld = (H + W) * ay + (W - H) * by;
+    const u2xWorld = (W - H) * ax + (H + W) * bx;
+    const u2yWorld = (W - H) * ay + (H + W) * by;
+    // Forgatás középpontja: a felület bbox-közepe
+    const ctrX = (minX + maxX) / 2, ctrY = (minY + maxY) / 2;
+    const cutouts = state.cutouts || [];
+    const types = state.tiles.types;
+    const overrides = state.layout.overrides;
+
+    ctx.save();
+    polygonScreenPath();
+    cutouts.forEach((c) => {
+      const a = worldToScreen({ x: c.x, y: c.y });
+      const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
+      ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
+    });
+    ctx.clip("evenodd");
+    const tl = worldToScreen({ x: minX, y: minY }), br = worldToScreen({ x: maxX, y: maxY });
+    ctx.fillStyle = state.tiles.groutColor;
+    ctx.fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+
+    let total = 0, whole = 0, cut = 0;
+    let tilesAreaSumMm2 = 0;
+    const cutLabels = [];
+    const byType = {};
+    const bumpType = (typeObj, isWhole, areaMm2, labelDims) => {
+      const id = typeObj.id;
+      if (!byType[id]) byType[id] = { id, name: typeObj.name || "lap", area: 0, whole: 0, cut: 0, cutLabels: [] };
+      const gr = byType[id];
+      gr.area += areaMm2;
+      if (isWhole) gr.whole++; else gr.cut++;
+      if (labelDims) gr.cutLabels.push(labelDims);
+    };
+    const inCutPt = (px, py) => { for (const c of cutouts) if (px > c.x && px < c.x + c.w && py > c.y && py < c.y + c.h) return true; return false; };
+
+    // Iteráció (i, j) tartománya: invertáljuk az u1World, u2World mátrixot a
+    // bbox sarokpontjaira (centerHoz képest). Det = 4WH (forgatás megőrzi).
+    const det = 4 * W * H;
+    let iMin = Infinity, iMax = -Infinity, jMin = Infinity, jMax = -Infinity;
+    [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]].forEach(([sx, sy]) => {
+      const dx = sx - ctrX, dy = sy - ctrY;
+      const ii = (dx * u2yWorld - dy * u2xWorld) / det;
+      const jj = (-dx * u1yWorld + dy * u1xWorld) / det;
+      iMin = Math.min(iMin, ii); iMax = Math.max(iMax, ii);
+      jMin = Math.min(jMin, jj); jMax = Math.max(jMax, jj);
+    });
+    iMin = Math.floor(iMin) - 2; iMax = Math.ceil(iMax) + 2;
+    jMin = Math.floor(jMin) - 2; jMax = Math.ceil(jMax) + 2;
+
+    // lokális → világ-koord transzformáció (a felület közepe körül forgatva)
+    const toWorld = (lx, ly) => ({ x: ctrX + lx * ax + ly * bx, y: ctrY + lx * ay + ly * by });
+
+    for (let j = jMin; j <= jMax; j++) {
+      for (let i = iMin; i <= iMax; i++) {
+        const slx = i * (H + W) + j * (W - H);
+        const sly = i * (W - H) + j * (H + W);
+        // 4 lap lokális (lx, ly, tw, th) — a forgatott rendszerben ezek lesznek a quad sarkai
+        const cellTiles = [
+          { lx: slx,            ly: sly,            tw: w, th: h },  // V1
+          { lx: slx + W,        ly: sly,            tw: h, th: w },  // H1
+          { lx: slx + W,        ly: sly + W,        tw: w, th: h },  // V2
+          { lx: slx + 2 * W,    ly: sly + W,        tw: h, th: w },  // H2
+        ];
+        cellTiles.forEach((t, idx) => {
+          const quad = [
+            toWorld(t.lx,              t.ly),
+            toWorld(t.lx + t.tw,       t.ly),
+            toWorld(t.lx + t.tw,       t.ly + t.th),
+            toWorld(t.lx,              t.ly + t.th),
+          ];
+          // bbox check world-ben
+          const qminX = Math.min(quad[0].x, quad[1].x, quad[2].x, quad[3].x);
+          const qmaxX = Math.max(quad[0].x, quad[1].x, quad[2].x, quad[3].x);
+          const qminY = Math.min(quad[0].y, quad[1].y, quad[2].y, quad[3].y);
+          const qmaxY = Math.max(quad[0].y, quad[1].y, quad[2].y, quad[3].y);
+          if (qmaxX < minX || qminX > maxX || qmaxY < minY || qminY > maxY) return;
+          // középpont kivágás-check
+          const tcx = (quad[0].x + quad[2].x) / 2, tcy = (quad[0].y + quad[2].y) / 2;
+          if (inCutPt(tcx, tcy)) return;
+          const piece = clipPolygonByConvex(p, quad);
+          if (piece.length < 3) return;
+          let pieceArea = 0;
+          for (let k = 0; k < piece.length; k++) {
+            const a = piece[k], b = piece[(k + 1) % piece.length];
+            pieceArea += a.x * b.y - b.x * a.y;
+          }
+          pieceArea = Math.abs(pieceArea) / 2;
+          if (pieceArea < t.tw * t.th * 0.004) return;
+          tilesAreaSumMm2 += pieceArea;
+
+          const tileArea = t.tw * t.th;
+          const isWhole = pieceArea >= tileArea * 0.985;
+          total++;
+          const ovKey = i + "_" + j + "_" + idx;
+          const ovId = overrides[ovKey];
+          const type = ovId ? (types.find((x) => x.id === ovId) || base) : base;
+
+          if (isWhole) {
+            whole++;
+            bumpType(type, true, pieceArea, null);
+          } else {
+            cut++;
+            // a vágott darab méretét a lap SAJÁT tengelyei mentén mérjük (forgatott rendszerben)
+            // origó: a lap bal-felső sarka (quad[0]) világ-koordinátában.
+            let lu0 = Infinity, lu1 = -Infinity, lv0 = Infinity, lv1 = -Infinity, pcx = 0, pcy = 0;
+            piece.forEach((q) => {
+              const rx = q.x - quad[0].x, ry = q.y - quad[0].y;
+              const lu = rx * ax + ry * ay;
+              const lv = rx * bx + ry * by;
+              lu0 = Math.min(lu0, lu); lu1 = Math.max(lu1, lu);
+              lv0 = Math.min(lv0, lv); lv1 = Math.max(lv1, lv);
+              pcx += q.x; pcy += q.y;
+            });
+            pcx /= piece.length; pcy /= piece.length;
+            const pw = Math.max(0, lu1 - lu0), ph = Math.max(0, lv1 - lv0);
+            cutLabels.push({ x: pcx, y: pcy, w: pw, h: ph, text: (tilted ? "~" : "") + fmtDim(pw, ph) });
+            bumpType(type, false, pieceArea, { w: pw, h: ph });
+          }
+          drawQuadFill(type, quad);
+        });
+      }
+    }
+    ctx.restore();
+
+    cutLabels.forEach((c) => { const s = worldToScreen({ x: c.x, y: c.y }); drawCutLabel(c.text, s.x, s.y); });
+    setLayoutCounts({ total, whole, cut });
+    const cutTilesNeeded = tilesNeededForCuts(cutLabels.map((c) => ({ w: c.w, h: c.h })), h, w);
+    const areaMm2 = Math.max(0, shoelaceAreaMm2() - cutoutsAreaMm2());
+    const tilesNeeded = whole + cutTilesNeeded;
+    const byTypeOut = {};
+    Object.keys(byType).forEach((id) => {
+      const gr = byType[id];
+      const needed = gr.whole + tilesNeededForCuts(gr.cutLabels, h, w);
+      byTypeOut[id] = { id: gr.id, name: gr.name, area: gr.area, whole: gr.whole, cut: gr.cut, needed, tileAreaMm2: w * h };
+    });
+    const groutAreaMm2 = Math.max(0, areaMm2 - tilesAreaSumMm2);
+    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: w * h, groutAreaMm2, whole, cut, byType: byTypeOut });
+    lastStats = { whole, cut, tilesNeeded, areaMm2, tileAreaMm2: w * h, groutAreaMm2 };
+    lastCutPieces = cutLabels.map((c) => ({ w: c.w, h: c.h }));
+  }
+
   // Festő-paletta (egyedi lapok): „Alap" (radír) + a könyvtár típusai
   function renderPaintPalette() {
     if (!el.paintPalette) return;
@@ -2584,6 +2761,9 @@
     const isOffset = state.layout.pattern === "offset";
     el.offsetRow.style.display = isOffset ? "" : "none";
     el.offsetQuick.style.display = isOffset ? "" : "none";
+    const isHerring = state.layout.pattern === "herringbone";
+    if (el.herringboneTiltRow) el.herringboneTiltRow.hidden = !isHerring;
+    if (el.herringboneTilt) el.herringboneTilt.checked = !!state.layout.herringboneTilted;
   }
 
   // A szél-igazítás módja szerint engedélyezi/letiltja a kézi eltolást és a küszöböt
@@ -2603,6 +2783,12 @@
       applyPatternUIState();
       render(); save();
     });
+    if (el.herringboneTilt) {
+      el.herringboneTilt.addEventListener("change", () => {
+        state.layout.herringboneTilted = !!el.herringboneTilt.checked;
+        render(); save();
+      });
+    }
     el.offsetPct.addEventListener("change", () => {
       const v = parseFloat(el.offsetPct.value);
       if (!Number.isNaN(v)) { state.layout.offsetPct = Math.max(0, Math.min(100, v)); render(); save(); }
@@ -2675,12 +2861,13 @@
   function normLayout(d) {
     d = d || {};
     return {
-      pattern: ["straight", "offset", "diagonal"].includes(d.pattern) ? d.pattern : "straight",
+      pattern: ["straight", "offset", "diagonal", "herringbone"].includes(d.pattern) ? d.pattern : "straight",
       offsetPct: typeof d.offsetPct === "number" ? Math.max(0, Math.min(100, d.offsetPct)) : 50,
       show: d.show !== false,
       offXmm: typeof d.offXmm === "number" ? d.offXmm : 0,
       offYmm: typeof d.offYmm === "number" ? d.offYmm : 0,
       rotated: !!d.rotated,
+      herringboneTilted: !!d.herringboneTilted,
       alignMode: ["none", "center", "min"].includes(d.alignMode) ? d.alignMode : "none",
       thresholdMm: typeof d.thresholdMm === "number" ? d.thresholdMm : 100,
       overagePct: typeof d.overagePct === "number" ? d.overagePct : 10,

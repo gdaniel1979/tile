@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lapkiosztás tervező</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -191,6 +192,7 @@
             <option value="straight">Egyenes (hálós)</option>
             <option value="offset">Eltolt / téglakötés</option>
             <option value="diagonal">Átlós (45°)</option>
+            <option value="herringbone">Halszálka</option>
           </select>
         </div>
         <div class="control-row" id="offsetRow">
@@ -203,6 +205,10 @@
         <div class="control-row" id="offsetQuick">
           <button class="btn btn-ghost" data-off="50">½ (50%)</button>
           <button class="btn btn-ghost" data-off="33.33">⅓ (33%)</button>
+        </div>
+        <div class="control-row checkbox-row" id="herringboneTiltRow" hidden>
+          <label for="herringboneTilt">45°-osan elforgatva</label>
+          <input type="checkbox" id="herringboneTilt" />
         </div>
       </section>
 
