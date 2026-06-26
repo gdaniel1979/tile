@@ -16,6 +16,7 @@
         <button class="title-btn" id="fitBtn" title="Nézet igazítása az alaprajzhoz" aria-label="Nézet igazítása">⛶</button>
         <button class="title-btn" id="histUndo" title="Visszavonás (Ctrl+Z)" aria-label="Visszavonás" disabled>↶</button>
         <button class="title-btn" id="histRedo" title="Újra (Ctrl+Y)" aria-label="Újra" disabled>↷</button>
+        <button class="title-btn" id="saveLinkedBtn" title="Mentés a csatolt JSON-fájlba (Export fülön csatolható)" aria-label="Mentés" disabled>💾</button>
       </div>
 
       <div class="proj-tree-wrap">
@@ -386,6 +387,15 @@
         <button class="btn btn-ghost full" id="loadJsonBtn" style="margin-top:8px">Betöltés (JSON)</button>
         <input type="file" id="loadJsonInput" accept="application/json,.json" hidden />
         <p class="hint">Egy projekt fájlja megosztáshoz/folytatáshoz; az „összes" egy teljes biztonsági mentés. Betöltéskor a program felismeri, hogy egy projektet (hozzáadja) vagy a teljes tárat (visszaállítja) töltöd be.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Csatolt fájl (élő mentés)</h2>
+        <button class="btn btn-secondary full" id="linkJsonBtn">Tár megnyitása írhatóan…</button>
+        <div class="mat-row" style="margin-top:8px"><span>Csatolt fájl:</span> <strong id="linkedFileName">—</strong></div>
+        <button class="btn btn-ghost full" id="unlinkJsonBtn" style="margin-top:8px" hidden>Csatolás megszüntetése</button>
+        <p class="hint">Válaszd ki a tár JSON-fájlját (pl. a OneDrive mappádból). Ezután a cím-sori <strong>💾</strong> gombbal vagy <strong>Ctrl+S</strong>-sel közvetlenül felülírható ez a fájl — a OneDrive a saját kliensével automatikusan szinkronizálja a felhőbe. A csatolás reload után is megmarad (a böngésző egyszer engedélyt kér).</p>
+        <p class="hint" id="fsaUnsupported" hidden style="color: var(--danger)">Az élő mentés nem érhető el ezen az URL-en. A funkció csak <strong>HTTPS</strong> vagy <strong>localhost</strong> kontextusban működik, és <strong>Chrome / Edge</strong> böngészőt igényel. Sima HTTP-n (pl. IP-cím:port) a böngésző biztonsági okokból letiltja. Megoldás: nyisd meg az alkalmazást a <a href="https://gdaniel1979.github.io/tile/" target="_blank" rel="noopener">https://gdaniel1979.github.io/tile/</a> címen, vagy futtasd helyben (<code>http://localhost</code>).</p>
       </section>
       </div><!-- /export -->
     </aside>

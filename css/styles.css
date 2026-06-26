@@ -95,7 +95,7 @@ body {
 .side-title {
   flex: 1;
   min-width: 0;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
@@ -103,14 +103,14 @@ body {
   text-overflow: ellipsis;
 }
 .title-btn {
-  width: 24px; height: 24px;
+  width: 22px; height: 22px;
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent;
   border: 1px solid var(--border);
   color: var(--muted);
-  border-radius: 6px;
+  border-radius: 5px;
   padding: 0;
-  font-size: 13px; line-height: 1;
+  font-size: 12px; line-height: 1;
   cursor: pointer;
   flex: 0 0 auto;
 }
