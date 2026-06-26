@@ -1695,6 +1695,21 @@
       }
     });
 
+    // Kivágás-élek (ajtó/ablak/nem-burkolt) — itt van a TÉNYLEGES burkolat-széle.
+    // A felület-élektől függetlenül minden felület kivágásait megnézzük.
+    p.surfaces.forEach((s) => {
+      if (!Array.isArray(s.cutouts)) return;
+      s.cutouts.forEach((c) => {
+        const eEdg = Array.isArray(c.edgeEdgings) ? c.edgeEdgings : [];
+        if (!eEdg.some((x) => x)) return;
+        // [top, right, bottom, left] — hosszak: top/bottom = c.w, left/right = c.h
+        if (eEdg[0]) { edgingMm += c.w || 0; edgingN++; } // fent
+        if (eEdg[1]) { edgingMm += c.h || 0; edgingN++; } // jobb
+        if (eEdg[2]) { edgingMm += c.w || 0; edgingN++; } // lent
+        if (eEdg[3]) { edgingMm += c.h || 0; edgingN++; } // bal
+      });
+    });
+
     return { horizMm, vertMm, horizN, vertN, edgingMm, edgingN };
   }
 
@@ -2025,6 +2040,29 @@
       ctx.strokeStyle = selected ? "#ffcc4c" : col;
       ctx.strokeRect(a.x, a.y, sw, sh);
       ctx.setLineDash([]);
+      // Élvédős kivágás-élek piros vastag vonallal felülrajzolva
+      const eEdg = Array.isArray(c.edgeEdgings) ? c.edgeEdgings : [];
+      if (eEdg.some((x) => x)) {
+        ctx.save();
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#e5534b";
+        // [top, right, bottom, left]
+        const edges = [
+          [a.x, a.y, b.x, a.y],   // top
+          [b.x, a.y, b.x, b.y],   // right
+          [a.x, b.y, b.x, b.y],   // bottom
+          [a.x, a.y, a.x, b.y],   // left
+        ];
+        edges.forEach(([x1, y1, x2, y2], ei) => {
+          if (!eEdg[ei]) return;
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+        });
+        ctx.restore();
+      }
       // a méret-feliratok csak a kijelölt (szerkesztett) kivágáson látszanak
       if (selected) {
         const topMid = worldToScreen({ x: c.x + c.w / 2, y: c.y });
@@ -2812,6 +2850,33 @@
       );
       item.append(head, dims);
 
+      // Élvédő-élek (a kivágás 4 éle: fent, jobb, lent, bal)
+      const edgRow = document.createElement("div");
+      edgRow.className = "cutout-edging-row";
+      const edgTitle = document.createElement("div");
+      edgTitle.className = "cutout-edging-title";
+      edgTitle.textContent = "Élvédő profil ezeken az éleken:";
+      edgRow.appendChild(edgTitle);
+      const edgGrid = document.createElement("div");
+      edgGrid.className = "cutout-edging-grid";
+      if (!Array.isArray(c.edgeEdgings)) c.edgeEdgings = [false, false, false, false];
+      ["fent", "jobb", "lent", "bal"].forEach((label, ei) => {
+        const lab = document.createElement("label");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = !!c.edgeEdgings[ei];
+        cb.addEventListener("change", () => {
+          c.edgeEdgings[ei] = cb.checked;
+          afterGeometryChange();
+        });
+        const sp = document.createElement("span");
+        sp.textContent = label;
+        lab.append(cb, sp);
+        edgGrid.appendChild(lab);
+      });
+      edgRow.appendChild(edgGrid);
+      item.append(edgRow);
+
       // Kép-sor: csak nyílásnál (ajtó/ablak rajz). Méretarány-tartó "contain" megjelenítés.
       if (c.kind === "opening") {
         const imgRow = document.createElement("div");
@@ -3010,6 +3075,8 @@
             x: c.x || 0, y: c.y || 0, w: c.w, h: c.h,
             kind: c.kind === "untiled" ? "untiled" : "opening",
             imageUrl: c.imageUrl || null,
+            // élvédő a kivágás 4 élén: [top, right, bottom, left]
+            edgeEdgings: Array.isArray(c.edgeEdgings) ? c.edgeEdgings.slice(0, 4).map((x) => !!x) : [false, false, false, false],
           }))
         : [],
       edgeNames: Array.isArray(d.edgeNames) ? d.edgeNames.slice() : [],
