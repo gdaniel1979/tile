@@ -299,6 +299,35 @@
         <p class="hint">Laptípusonként külön bontva (a felületek a saját „alap" típusukkal számolódnak). A többi felület értéke akkor frissül, amikor rákattintasz / kiosztást készítesz hozzá, vagy PDF-be exportálsz. A „reális" újrahasznosítás feltételezi, hogy egy lapból a levágott darab mellett a maradék egy másik szélső helyre felhasználható, ha elég nagy.</p>
       </section>
 
+      <!-- RAGASZTÓ -->
+      <section class="panel">
+        <h2>Ragasztó — beállítások</h2>
+        <div class="control-row">
+          <label for="gluePreset">Típus</label>
+          <select id="gluePreset" class="full-select">
+            <option value="c1">C1 cementes (~4 kg/m², 25 kg/zsák)</option>
+            <option value="c2">C2 flexibilis (~5 kg/m², 25 kg/zsák)</option>
+            <option value="c2s1">C2 S1 deformálható (~5 kg/m², 25 kg/zsák)</option>
+          </select>
+        </div>
+        <div class="control-row">
+          <label for="glueWaste">Ragasztó tartalék</label>
+          <div class="input-with-unit">
+            <input type="number" id="glueWaste" min="0" step="1" value="10" />
+            <span class="unit-suffix">%</span>
+          </div>
+        </div>
+        <p class="hint">EN 12004 szerinti osztály-jelölés. A fogyasztás (kg/m²) a fogazatlap-méret függvénye; ezek átlagértékek vékony és közepes ágyazáshoz. Az S1 osztály a deformálható (rugalmas) ragasztókat jelöli — pl. padlófűtéses padlóhoz, vékony nagyméretű lapokhoz.</p>
+      </section>
+
+      <section class="panel summary">
+        <h2>Ragasztó — egész projekt</h2>
+        <div class="mat-row"><span>Burkolt terület (összes):</span> <strong id="prGlueArea">–</strong></div>
+        <div class="mat-row"><span><strong>Ragasztó tömege:</strong></span> <strong id="prGlueMass">–</strong></div>
+        <div class="mat-row"><span><strong>Zsák szükséglet:</strong></span> <strong id="prGluePacks">–</strong></div>
+        <p class="hint">A burkolt terület × kg/m² × (1 + tartalék%). A tartalék a tipikus 5–15% (vágási veszteség, vastagabb ágyazás).</p>
+      </section>
+
       <!-- FUGA -->
       <section class="panel">
         <h2>Fuga — beállítások</h2>

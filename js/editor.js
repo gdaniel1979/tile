@@ -114,6 +114,11 @@
     prGroutArea: document.getElementById("prGroutArea"),
     prMass: document.getElementById("prMass"),
     prGroutPacks: document.getElementById("prGroutPacks"),
+    gluePreset: document.getElementById("gluePreset"),
+    glueWaste: document.getElementById("glueWaste"),
+    prGlueArea: document.getElementById("prGlueArea"),
+    prGlueMass: document.getElementById("prGlueMass"),
+    prGluePacks: document.getElementById("prGluePacks"),
     prSilH: document.getElementById("prSilH"),
     prSilV: document.getElementById("prSilV"),
     prSilTot: document.getElementById("prSilTot"),
@@ -1714,6 +1719,21 @@
       }
     }
 
+    // Ragasztó — projekt-szint (a tn.area-t használjuk, mert ugyanaz a burkolt terület)
+    if (el.prGlueArea) {
+      const glueWaste = Math.max(0, m.glueWastePct || 0);
+      const kgPerM2 = GLUE_KG_PER_M2[m.gluePreset] || 5;
+      const glueKg = (tn.area / 1e6) * kgPerM2 * (1 + glueWaste / 100);
+      el.prGlueArea.textContent = tn.area > 0 ? (tn.area / 1e6).toFixed(2) + " m² × " + kgPerM2 + " kg/m²" : "–";
+      el.prGlueMass.textContent = glueKg > 0 ? glueKg.toFixed(2) + " kg (+" + glueWaste + "% tartalék)" : "–";
+      if (glueKg > 0) {
+        const packs = Math.ceil(glueKg / GLUE_PACK_KG);
+        el.prGluePacks.textContent = packs + " db zsák (" + GLUE_PACK_KG + " kg)";
+      } else {
+        el.prGluePacks.textContent = "–";
+      }
+    }
+
     // Szilikon — projekt-szint
     const sil = computeSiliconeForProject(project);
     const totLen = sil.horizMm + sil.vertMm;
@@ -2928,6 +2948,8 @@
       silDepthMm: 5,
       silTubeMl: 310,
       silWastePct: 15,
+      gluePreset: "c2s1",            // "c1" | "c2" | "c2s1"
+      glueWastePct: 10,
     };
   }
   // g/cm³ — a Mapei Kerapoxy Easy Design adatlapja szerint a kevert epoxi 1,55 g/cm³
@@ -2941,6 +2963,17 @@
   // a Mapei Kerapoxy Easy Design 3 kg-os vödör (gyári kiszerelés)
   const GROUT_PACK_KG = { cg1: 5, cg2: 5, epoxy: 3 };
   const GROUT_PACK_NAME = { cg1: "zsák", cg2: "zsák", epoxy: "vödör" };
+
+  // Ragasztó-fogyasztás (kg/m²) — a fogazatlap-méret függvénye, ez egy átlag.
+  // EN 12004 osztály-jelölések: C1 = sima cementes, C2 = fokozott tapadású,
+  // S1 = deformálható (rugalmas) — pl. Mapei Keraflex Maxi S1, Schönox Q9.
+  const GLUE_KG_PER_M2 = { c1: 4.0, c2: 5.0, c2s1: 5.0 };
+  const GLUE_LABELS = {
+    c1: "C1 cementes",
+    c2: "C2 flexibilis",
+    c2s1: "C2 S1 deformálható",
+  };
+  const GLUE_PACK_KG = 25;
 
   function defaultProject(name) {
     const dt = defaultTiles();
@@ -3023,7 +3056,8 @@
     });
     const mat = Object.assign(defaultMaterial(), (p.material && typeof p.material === "object") ? p.material : {});
     if (!(mat.groutPreset in GROUT_DENSITIES)) mat.groutPreset = "cg1";
-    ["silWidthMm", "silDepthMm", "silTubeMl", "silWastePct"].forEach((k) => {
+    if (!(mat.gluePreset in GLUE_KG_PER_M2)) mat.gluePreset = "c2s1";
+    ["silWidthMm", "silDepthMm", "silTubeMl", "silWastePct", "glueWastePct"].forEach((k) => {
       if (!(typeof mat[k] === "number" && mat[k] >= 0)) mat[k] = defaultMaterial()[k];
     });
     return { id: p.id || newProjectId(), name: p.name || "Projekt", unit: p.unit === "mm" ? "mm" : "cm", untiledColor: p.untiledColor || "#8a8f98", tileTypes: types, surfaces, activeIndex: ai, material: mat };
@@ -3641,14 +3675,25 @@
       html += "</table>";
     }
 
-    // Anyagszükséglet: fuga (összes) + szilikon (sarok-hosszak, kartusok)
+    // Anyagszükséglet: ragasztó + fuga (összes) + szilikon (sarok-hosszak, kartusok)
     const mat = project.material || defaultMaterial();
     const overage = Math.max(0, state.layout && state.layout.overagePct || 0);
     const groutKg = computeProjectGroutMass(project) * (1 + overage / 100);
     const sil = computeSiliconeForProject(project);
     const totLen = sil.horizMm + sil.vertMm;
-    if (groutKg > 0 || totLen > 0) {
+    // Ragasztó: totalAreaMm2 (a felület-cache-ek összege)
+    const totalAreaForGlue = project.surfaces.reduce((acc, s) => acc + (s.lastAreaMm2 || 0), 0);
+    const glueWaste = Math.max(0, mat.glueWastePct || 0);
+    const glueKgPerM2 = GLUE_KG_PER_M2[mat.gluePreset] || 5;
+    const glueKg = (totalAreaForGlue / 1e6) * glueKgPerM2 * (1 + glueWaste / 100);
+    if (groutKg > 0 || totLen > 0 || glueKg > 0) {
       html += "<h2>Anyagszükséglet</h2><table>";
+      if (glueKg > 0) {
+        const glueLbl = GLUE_LABELS[mat.gluePreset] || "Ragasztó";
+        html += row("Ragasztó (" + escapeHtml(glueLbl) + ")", glueKg.toFixed(2) + " kg (+" + glueWaste + "% tartalék)");
+        const gluePacks = Math.ceil(glueKg / GLUE_PACK_KG);
+        html += row("Ragasztó csomag szükséglet", gluePacks + " db zsák (" + GLUE_PACK_KG + " kg)");
+      }
       if (groutKg > 0) {
         const lbl = GROUT_LABELS[mat.groutPreset] || "Fuga";
         html += row("Fuga (" + escapeHtml(lbl) + ")", groutKg.toFixed(2) + " kg (+" + overage + "% tartalék)");
@@ -3762,6 +3807,13 @@
     el.silDepth.addEventListener("change", numHandler(el.silDepth, "silDepthMm", 0.1));
     el.silTube.addEventListener("change", numHandler(el.silTube, "silTubeMl", 50));
     el.silWaste.addEventListener("change", numHandler(el.silWaste, "silWastePct", 0));
+    if (el.gluePreset) {
+      el.gluePreset.addEventListener("change", () => {
+        m().gluePreset = el.gluePreset.value in GLUE_KG_PER_M2 ? el.gluePreset.value : "c2s1";
+        updateProjectMaterialReport(); save();
+      });
+    }
+    if (el.glueWaste) el.glueWaste.addEventListener("change", numHandler(el.glueWaste, "glueWastePct", 0));
   }
 
   function syncMaterialUI() {
@@ -3772,6 +3824,8 @@
     el.silDepth.value = m.silDepthMm;
     el.silTube.value = m.silTubeMl;
     el.silWaste.value = m.silWastePct;
+    if (el.gluePreset) el.gluePreset.value = m.gluePreset || "c2s1";
+    if (el.glueWaste) el.glueWaste.value = m.glueWastePct;
   }
 
   // ---- Csatolt JSON-fájl (File System Access API) ---------------------
