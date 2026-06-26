@@ -465,8 +465,8 @@
     if (state.closed) ctx.closePath();
     ctx.stroke();
 
-    // Élvédős élek piros vastag vonallal felülrajzolva (csak zárt padlónál)
-    if (state.mode === "floor" && state.closed && Array.isArray(state.edgeEdgings)) {
+    // Élvédős élek piros vastag vonallal felülrajzolva (minden zárt felületen)
+    if (state.closed && Array.isArray(state.edgeEdgings)) {
       ctx.save();
       ctx.lineWidth = 5;
       ctx.lineCap = "round";
@@ -927,8 +927,14 @@
         });
         nameField.appendChild(nameInput);
         item.appendChild(nameField);
+      }
 
-        // Élvédő jelölőnégyzet — a szilikon-számítás kihagyja az ilyen éleket
+      // Élvédő jelölőnégyzet — minden ZÁRT felület élein elérhető
+      // (fal-felületeken az alsó él = padló-fal találkozás, az oldal-élek =
+      // fal-fal sarkok, a felső él = a burkolat befejező-profilja). A szilikon-
+      // számítás kihagyja az élvédős éleket, ehelyett az élvédő-aggregátorba
+      // gyűjti a hosszt.
+      if (state.closed) {
         const edgField = document.createElement("label");
         edgField.className = "edge-field edge-edging-field";
         const edgCheck = document.createElement("input");
@@ -936,10 +942,10 @@
         edgCheck.checked = !!state.edgeEdgings[i];
         edgCheck.addEventListener("change", () => {
           state.edgeEdgings[i] = edgCheck.checked;
-          afterGeometryChange(); // rajz frissítése + projekt-anyag újraszámolás
+          afterGeometryChange();
         });
         const edgLabel = document.createElement("span");
-        edgLabel.textContent = "Élvédő profil ezen az élen (szilikon helyett)";
+        edgLabel.textContent = "Élvédő profil ezen az élen";
         edgField.append(edgCheck, edgLabel);
         item.appendChild(edgField);
       }
@@ -1615,45 +1621,80 @@
   function computeSiliconeForProject(p) {
     let horizMm = 0, vertMm = 0;
     let horizN = 0, vertN = 0;
-    let edgingMm = 0, edgingN = 0; // élvédő-profil hossza (csak ahol fal is van)
-    // padlónként: a hozzá generált falak alja → vízszintes; szomszédos falas él-párok → függőleges
+    let edgingMm = 0, edgingN = 0; // élvédő-profil hossza
+    // A fal-felületek edgeEdgings-ét nézzük:
+    //   - él 2 (alja) = padló-fal találkozás → vízszintes szilikon helyett élvédő
+    //   - él 1 (jobb) vagy 3 (bal) = függőleges sarok → vert. szilikon helyett élvédő
+    //   - él 0 (tetje) = befejező profil (ha nem mennyezetig burkolunk)
+    // Plus minden szabadon megjelölt él (pl. előtétfalon) → élvédő-aggregátor.
     p.surfaces.forEach((floor) => {
       if (floor.mode !== "floor" || !floor.closed || floor.points.length < 3) return;
       const walls = p.surfaces.filter((w) => w.fromFloorId === floor.id);
       if (!walls.length) return;
       const n = floor.points.length;
-      const hasWallOnEdge = new Array(n).fill(false);
-      const edgings = Array.isArray(floor.edgeEdgings) ? floor.edgeEdgings : [];
+      // térkép: padló-él index → fal objektum
+      const wallByEdge = new Map();
       walls.forEach((w) => {
         if (typeof w.fromEdgeIndex === "number" && w.fromEdgeIndex >= 0 && w.fromEdgeIndex < n) {
-          hasWallOnEdge[w.fromEdgeIndex] = true;
+          wallByEdge.set(w.fromEdgeIndex, w);
         }
       });
-      // vízszintes hossz = a generált falak alja (élhossz), KIVÉVE az élvédős éleket
+      const wallEdgings = (w) => Array.isArray(w.edgeEdgings) ? w.edgeEdgings : [];
+
+      // Vízszintes hossz (padló-fal találkozás) = a fal alsó éle (él 2)
       walls.forEach((w) => {
         if (typeof w.fromEdgeIndex !== "number") return;
         const i = w.fromEdgeIndex;
         const a = floor.points[i], b = floor.points[(i + 1) % n];
         const len = Math.hypot(b.x - a.x, b.y - a.y);
-        if (edgings[i]) {
-          edgingMm += len;
-          edgingN++;
+        const e = wallEdgings(w);
+        if (e[2]) {                 // fal alja élvédős
+          edgingMm += len; edgingN++;
         } else {
-          horizMm += len;
-          horizN++;
+          horizMm += len; horizN++;
         }
+        // fal teteje (él 0) — befejező profil
+        if (e[0]) { edgingMm += len; edgingN++; }
       });
-      // függőleges sarkok: csak akkor szilikonos, ha mindkét szomszédos él falas
-      // ÉS egyik sem élvédős (az élvédő-profil eltakarja a sarokrést)
+
+      // Függőleges sarkok: a padló-csúcsok, ahol két szomszédos fal van.
+      // A k. csúcsra a wallByEdge[k-1] fal JOBB OLDALA (él 1) ÉS a wallByEdge[k]
+      // fal BAL OLDALA (él 3) találkozik. Ha bármelyik élvédős, élvédő-profil
+      // takar; egyébként szilikon.
       const hMm = floor.wallHeightMm || 0;
       for (let k = 0; k < n; k++) {
         const prevEdge = (k + n - 1) % n;
-        if (hasWallOnEdge[prevEdge] && hasWallOnEdge[k] && !edgings[prevEdge] && !edgings[k]) {
-          vertMm += hMm;
-          vertN++;
+        const wallPrev = wallByEdge.get(prevEdge);
+        const wallCurr = wallByEdge.get(k);
+        if (!wallPrev || !wallCurr) continue;
+        const ep = wallEdgings(wallPrev);
+        const ec = wallEdgings(wallCurr);
+        const cornerEdging = !!ep[1] || !!ec[3];
+        if (cornerEdging) {
+          edgingMm += hMm; edgingN++;
+        } else {
+          vertMm += hMm; vertN++;
         }
       }
     });
+
+    // Önálló (nem-padló-fal) felületek élvédői (pl. előtétfal kézi rajz): minden
+    // zárt felületen az edgeEdgings éleinek hosszait összegezzük az élvédőbe.
+    // A padlót és a fenti fal-feldolgozást már megtörténtnek tekintjük.
+    p.surfaces.forEach((s) => {
+      if (!s.closed || !Array.isArray(s.points) || s.points.length < 3) return;
+      if (s.mode === "floor") return;                  // padló élei nem
+      if (s.mode === "wall" && s.fromFloorId) return;  // generált fal: már fent feldolgozva
+      const edgings = Array.isArray(s.edgeEdgings) ? s.edgeEdgings : [];
+      const sn = s.points.length;
+      for (let i = 0; i < sn; i++) {
+        if (!edgings[i]) continue;
+        const a = s.points[i], b = s.points[(i + 1) % sn];
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        edgingMm += len; edgingN++;
+      }
+    });
+
     return { horizMm, vertMm, horizN, vertN, edgingMm, edgingN };
   }
 
