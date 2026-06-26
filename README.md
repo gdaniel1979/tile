@@ -5,13 +5,11 @@ Szabálytalan alaprajzot rajzolsz, megadod a lapok és a fuga paramétereit, és
 legenerálja az optimális lapkiosztást — a vágott lapok pontos méreteivel, valamint teljes körű
 anyagkimutatással (lap, fuga, szilikon).
 
-Tiszta **HTML + CSS + vanilla JavaScript** (HTML5 Canvas), build lépés és külső függőség nélkül.
+Tiszta **HTML + CSS + vanilla JavaScript** (HTML5 Canvas) külső függőség nélkül.
 
 ## Élő demó
 
 **<https://gdaniel1979.github.io/tile/>**
-
-Minden push után pár percen belül automatikusan frissül.
 
 ## Funkciók
 
@@ -69,15 +67,6 @@ A projekt minden felületét egyszerre összesíti:
 ## Futtatás
 
 Mivel statikus oldal, egy egyszerű HTTP-szerver is elég a futtatáshoz:
-
-```bash
-python3 -m http.server 8000
-```
-
-Majd nyisd meg: `http://localhost:8000`
-
-> Megjegyzés: érdemes HTTP-szerverről megnyitni (nem közvetlenül a fájlrendszerből, `file://`-ról),
-> mert egyébként a böngésző egyes biztonsági szabályok miatt nem futtatja a JavaScriptet.
 
 ## Fájlszerkezet
 
