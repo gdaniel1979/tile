@@ -32,6 +32,7 @@
         <button data-tab="tiles">Burkolat</button>
         <button data-tab="layout">Kiosztás</button>
         <button data-tab="material">Anyag</button>
+        <button data-tab="view3d">3D</button>
         <button data-tab="export">Export</button>
       </div>
 
@@ -531,6 +532,15 @@
       </section>
       </div><!-- /material -->
 
+      <!-- 3D FÜL -->
+      <div class="tab-panel" data-tabpanel="view3d" hidden>
+      <section class="panel">
+        <h2>3D nézet</h2>
+        <button class="btn btn-secondary full" id="view3dReset">Nézet visszaállítása</button>
+        <p class="hint">Húzd a vásznat a forgatáshoz, görgővel nagyíthatsz. A padló és a belőle generált falak a valós elrendezésükben, a saját lapkiosztásukkal jelennek meg. Az előtétfal-csoportok a falukra illesztve, a lépcső-csoportok lépcsőzetesen — ezeket külön, jelölt helyen mutatjuk, mert nincs a padlóhoz rögzített pozíciójuk. A különálló (nem padlóból generált) fal-felületek egy sorban, a padló mellett jelennek meg.</p>
+      </section>
+      </div><!-- /view3d -->
+
       <!-- EXPORT FÜL -->
       <div class="tab-panel" data-tabpanel="export" hidden>
       <section class="panel">
@@ -577,13 +587,18 @@
         </span>
       </div>
       <canvas id="board"></canvas>
-      <div class="canvas-help">
+      <canvas id="board3d" hidden></canvas>
+      <div class="canvas-help" id="canvasHelp2d">
         <span>Görgő: nagyítás</span>
         <span>Jobb gomb + húzás: nézet mozgatás</span>
         <span>Pont húzása: áthelyezés</span>
         <span>Él húzása: eltolás</span>
         <span>Élhossz-feliratra katt.: átírás</span>
         <span>Dupla katt. pontra / Delete: törlés</span>
+      </div>
+      <div class="canvas-help" id="canvasHelp3d" hidden>
+        <span>Húzás: forgatás</span>
+        <span>Görgő: nagyítás</span>
       </div>
     </div>
   </main>
