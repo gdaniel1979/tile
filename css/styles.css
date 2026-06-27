@@ -197,6 +197,10 @@ body {
 .tree-surf { padding-left: 22px; font-weight: 400; }
 .tree-surf.active .tree-name { color: var(--accent); font-weight: 600; }
 .tree-surf .micon { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
+.tree-surf .caret { width: 12px; color: var(--muted); font-size: 10px; flex: 0 0 auto; cursor: pointer; text-align: center; }
+.tree-surf .caret:hover { color: var(--text); }
+.tree-surf.tree-child .tree-name { color: var(--muted); }
+.tree-surf.tree-child.active .tree-name { color: var(--accent); }
 
 .tree-add {
   margin: 2px 0 4px 22px;

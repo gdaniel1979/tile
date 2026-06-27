@@ -157,7 +157,10 @@
     addProject: document.getElementById("addProject"),
     wallHeight: document.getElementById("wallHeight"),
     genWalls: document.getElementById("genWalls"),
+    preWallPanel: document.getElementById("preWallPanel"),
     pwName: document.getElementById("pwName"),
+    pwX: document.getElementById("pwX"),
+    pwBottom: document.getElementById("pwBottom"),
     pwWidth: document.getElementById("pwWidth"),
     pwHeight: document.getElementById("pwHeight"),
     pwDepth: document.getElementById("pwDepth"),
@@ -3234,6 +3237,7 @@
       groupId: d.groupId || null,
       groupKind: d.groupKind || null,         // "preWall" | "stairs"
       groupLabel: d.groupLabel || null,       // ember-olvasható csoport-felirat
+      parentSurfaceId: d.parentSurfaceId || null,  // szülő-felület (pl. fal, amire az előtétfal kerül)
       layout: normLayout(d.layout),
       fromFloorId: d.fromFloorId || null,
       fromEdgeIndex: typeof d.fromEdgeIndex === "number" ? d.fromEdgeIndex : null,
@@ -3613,9 +3617,15 @@
   // Default: az aktív projekt kibontva; a caret-tel a felhasználó bármelyiket
   // be- vagy kicsukhatja, az aktívat is.
   const expandedProjects = new Set();
+  const expandedSurfaces = new Set(); // melyik fal-felület van kinyitva (gyermek-előtétfalakhoz)
   function toggleProjectExpanded(id) {
     if (expandedProjects.has(id)) expandedProjects.delete(id);
     else expandedProjects.add(id);
+    renderProjectTree();
+  }
+  function toggleSurfaceExpanded(id) {
+    if (expandedSurfaces.has(id)) expandedSurfaces.delete(id);
+    else expandedSurfaces.add(id);
     renderProjectTree();
   }
 
@@ -3643,9 +3653,28 @@
       root.appendChild(prow);
 
       if (isOpen) {
-        p.surfaces.forEach((s, i) => {
+        // Csak a "felső szintű" felületeket rendereljük (nincs parentSurfaceId).
+        // A gyermekek (parentSurfaceId === parent.id) a szülő alatt jelennek meg.
+        const renderSurface = (s, i, depth) => {
           const isSurfActive = isActive && i === p.activeIndex;
-          const srow = treeRow("tree-surf" + (isSurfActive ? " active" : ""));
+          const srow = treeRow("tree-surf" + (isSurfActive ? " active" : "") + (depth > 0 ? " tree-child" : ""));
+          if (depth > 0) srow.style.paddingLeft = (12 + depth * 14) + "px";
+          // Gyermek-felületek listája
+          const children = p.surfaces
+            .map((cs, ci) => ({ s: cs, i: ci }))
+            .filter((x) => x.s.parentSurfaceId === s.id);
+          const hasChildren = children.length > 0;
+          const sOpen = expandedSurfaces.has(s.id);
+          if (hasChildren) {
+            const sCaret = document.createElement("span");
+            sCaret.className = "caret"; sCaret.textContent = sOpen ? "▾" : "▸";
+            sCaret.title = sOpen ? "Összecsukás" : "Gyermek-felületek megjelenítése";
+            sCaret.addEventListener("click", (e) => { e.stopPropagation(); toggleSurfaceExpanded(s.id); });
+            srow.appendChild(sCaret);
+          } else {
+            const sp = document.createElement("span"); sp.className = "caret"; sp.textContent = " ";
+            srow.appendChild(sp);
+          }
           const ic = document.createElement("span");
           ic.className = "micon"; ic.textContent = s.mode === "floor" ? "▭" : "▯";
           const sn = document.createElement("span");
@@ -3653,7 +3682,6 @@
           srow.append(ic, sn);
           srow.addEventListener("click", (e) => {
             if (e.target.closest(".tree-btn")) return;
-            // ha más projekt, először váltunk projektet, aztán erre a felületre
             if (!isActive) { switchProject(p.id); switchSurface(i); }
             else switchSurface(i);
           });
@@ -3664,6 +3692,14 @@
           sd.addEventListener("click", (e) => { e.stopPropagation(); if (!isActive) switchProject(p.id); deleteSurfaceFn(i); });
           srow.append(se, sd);
           root.appendChild(srow);
+          // Gyermek-felületek megjelenítése, ha kinyitva
+          if (hasChildren && sOpen) {
+            children.forEach(({ s: cs, i: ci }) => renderSurface(cs, ci, depth + 1));
+          }
+        };
+        p.surfaces.forEach((s, i) => {
+          if (s.parentSurfaceId) return; // gyermekeket a szülőjüknél rendereljük
+          renderSurface(s, i, 0);
         });
         if (isActive) {
           const add = document.createElement("div");
@@ -3749,21 +3785,54 @@
     return s;
   }
 
-  // Előtétfal: 4 felületet hoz létre (eleje, bal oldal, jobb oldal, teteje).
-  function generatePreWall(name, width, height, depth) {
+  // Előtétfal: a kiválasztott fal-felületre helyezve. 4 gyermek-felület
+  // (eleje, bal oldal, jobb oldal, teteje) + a fal-felületen egy "nem-burkolt"
+  // kivágás a helyén (mert ott az előtétfal áll, a hátsó fal síkjában nincs
+  // csempe).
+  function generatePreWallOnActive(name, xMm, bottomMm, widthMm, heightMm, depthMm) {
     saveActiveSurface();
+    const refWall = project.surfaces[project.activeIndex];
+    if (!refWall || refWall.mode !== "wall" || !refWall.closed) {
+      alert("Az előtétfalat fal-felületre kell helyezni — válts egy fal-felületre, majd próbáld újra.");
+      return;
+    }
+    // a fal y-tengelye: a fal points[0]=(0,0) teteje, points[2]=(len,hMm) alja.
+    // a fal magassága = max y. A kivágás y = hMm - (bottomMm + heightMm).
+    let wallLen = 0, wallH = 0;
+    refWall.points.forEach((pt) => { if (pt.x > wallLen) wallLen = pt.x; if (pt.y > wallH) wallH = pt.y; });
+    if (xMm < 0 || xMm + widthMm > wallLen + 0.5) {
+      alert("Az előtétfal kilóg a falon (vízszintesen). A fal szélessége " + (wallLen / 10).toFixed(1) + " cm, a megadott eltolás + szélesség túl nagy.");
+      return;
+    }
+    if (bottomMm + heightMm > wallH + 0.5) {
+      alert("Az előtétfal kilóg a fal teteje fölött. A fal magassága " + (wallH / 10).toFixed(1) + " cm, az alja + magasság túl nagy.");
+      return;
+    }
+    const yCutTop = wallH - (bottomMm + heightMm);
     const id = "pw-" + Date.now().toString(36) + Math.floor(Math.random() * 1000);
     const label = name || "Előtétfal";
-    const front = rectSurface(label + ": eleje",      "wall", width, height, id, "preWall", label);
-    const left  = rectSurface(label + ": bal oldal",  "wall", depth, height, id, "preWall", label);
-    const right = rectSurface(label + ": jobb oldal", "wall", depth, height, id, "preWall", label);
-    const top   = rectSurface(label + ": teteje",     "wall", width, depth,  id, "preWall", label);
+    // 1) Kivágás a fal-felületen (a kibukkanó terület, ahol az előtétfal áll)
+    if (!Array.isArray(refWall.cutouts)) refWall.cutouts = [];
+    refWall.cutouts.push({
+      x: xMm, y: yCutTop, w: widthMm, h: heightMm,
+      kind: "untiled",
+      imageUrl: null,
+      edgeEdgings: [false, false, false, false],
+      groupId: id, // a kivágást is azonosítjuk a csoporthoz
+    });
+    // 2) 4 új gyermek-felület
+    const front = rectSurface(label + ": eleje",      "wall", widthMm, heightMm, id, "preWall", label);
+    const left  = rectSurface(label + ": bal oldal",  "wall", depthMm, heightMm, id, "preWall", label);
+    const right = rectSurface(label + ": jobb oldal", "wall", depthMm, heightMm, id, "preWall", label);
+    const top   = rectSurface(label + ": teteje",     "wall", widthMm, depthMm,  id, "preWall", label);
+    [front, left, right, top].forEach((s) => { s.parentSurfaceId = refWall.id; });
     project.surfaces.push(front, left, right, top);
     project.activeIndex = project.surfaces.indexOf(front);
     expandedProjects.add(store.activeProjectId);
+    expandedSurfaces.add(refWall.id); // a szülő-fal kinyitva
     loadActiveSurface();
     refreshAll();
-    alert("Előtétfal létrehozva: 4 felület (eleje, bal oldal, jobb oldal, teteje).");
+    alert("Előtétfal létrehozva: 4 gyermek-felület + kivágás a „" + refWall.name + "” falon.");
   }
 
   // Lépcső: minden fokhoz 1 homloklap + 1 lépőlap.
@@ -4407,11 +4476,13 @@
     if (el.genPreWall) {
       el.genPreWall.addEventListener("click", () => {
         const name = (el.pwName.value || "Előtétfal").trim();
+        const x = toMm(parseFloat(el.pwX.value)) || 0;
+        const bottom = toMm(parseFloat(el.pwBottom.value)) || 0;
         const w = toMm(parseFloat(el.pwWidth.value));
         const h = toMm(parseFloat(el.pwHeight.value));
         const d = toMm(parseFloat(el.pwDepth.value));
-        if (!(w > 0 && h > 0 && d > 0)) { alert("Add meg az előtétfal mindhárom méretét pozitív értékkel."); return; }
-        generatePreWall(name, w, h, d);
+        if (!(w > 0 && h > 0 && d > 0)) { alert("Add meg az előtétfal szélességét, magasságát és mélységét pozitív értékkel."); return; }
+        generatePreWallOnActive(name, x, bottom, w, h, d);
       });
     }
     if (el.genStairs) {
@@ -4461,6 +4532,11 @@
       el.linkToFloorRow.hidden = !showLink;
       if (el.linkToFloorHint) el.linkToFloorHint.hidden = !showLink;
       el.linkToFloor.checked = !!state.layout.linkToFloor;
+    }
+    // Előtétfal panel csak fal-felületen (zárt fal-mode) látszik
+    if (el.preWallPanel && project) {
+      const s = project.surfaces[project.activeIndex];
+      el.preWallPanel.hidden = !(s && s.mode === "wall" && s.closed);
     }
     document.querySelectorAll(".off-unit").forEach((s) => (s.textContent = state.unit));
     el.offX.value = fromMm(state.layout.offXmm).toFixed(state.unit === "cm" ? 1 : 0);
