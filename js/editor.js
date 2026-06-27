@@ -34,6 +34,7 @@
         id: "t1", name: "Alap lap",
         wMm: 300, hMm: 600,
         thicknessMm: 8,               // lapvastagság mm-ben (fuga- és szilikon-térfogathoz)
+        pricePerTile: 0,              // Ft/db (költségszámításhoz, 0 = nincs ár)
         fillKind: "color",            // "color" | "image"
         color: "#b9c4cf",
         imageUrl: null,
@@ -122,6 +123,16 @@
     prGlueArea: document.getElementById("prGlueArea"),
     prGlueMass: document.getElementById("prGlueMass"),
     prGluePacks: document.getElementById("prGluePacks"),
+    groutPricePack: document.getElementById("groutPricePack"),
+    gluePricePack: document.getElementById("gluePricePack"),
+    silPriceTube: document.getElementById("silPriceTube"),
+    edgingPricePerM: document.getElementById("edgingPricePerM"),
+    prCostTiles: document.getElementById("prCostTiles"),
+    prCostGlue: document.getElementById("prCostGlue"),
+    prCostGrout: document.getElementById("prCostGrout"),
+    prCostSil: document.getElementById("prCostSil"),
+    prCostEdging: document.getElementById("prCostEdging"),
+    prCostTotal: document.getElementById("prCostTotal"),
     prSilH: document.getElementById("prSilH"),
     prSilV: document.getElementById("prSilV"),
     prSilTot: document.getElementById("prSilTot"),
@@ -1128,6 +1139,7 @@
       wMm: base ? base.wMm : 300,
       hMm: base ? base.hMm : 300,
       thicknessMm: base ? (base.thicknessMm || 8) : 8,
+      pricePerTile: 0,
       fillKind: "color",
       color: randomTileColor(),
       imageUrl: null,
@@ -1245,6 +1257,22 @@
     });
     thickRow.append(thLbl, thIn, thU);
 
+    // egységár (Ft/db) — költségszámításhoz
+    const priceRow = document.createElement("div");
+    priceRow.className = "thick-row";
+    const prLbl = document.createElement("span");
+    prLbl.className = "u"; prLbl.textContent = "Ár:";
+    const prIn = document.createElement("input");
+    prIn.type = "number"; prIn.min = "0"; prIn.step = "1";
+    prIn.value = (type.pricePerTile != null ? type.pricePerTile : 0);
+    const prU = document.createElement("span");
+    prU.className = "u"; prU.textContent = "Ft/db";
+    prIn.addEventListener("change", () => {
+      const v = parseFloat(prIn.value);
+      if (v >= 0) { type.pricePerTile = v; tilesSave(); }
+    });
+    priceRow.append(prLbl, prIn, prU);
+
     // kitöltés típusa + szín
     const fill = document.createElement("div");
     fill.className = "fill-row";
@@ -1308,7 +1336,7 @@
     });
     updateFillVisibility();
 
-    fields.append(dim, thickRow, fill, imgRow);
+    fields.append(dim, thickRow, priceRow, fill, imgRow);
     body.append(sw, fields);
     card.appendChild(body);
     return card;
@@ -1854,6 +1882,54 @@
       el.prEdging.textContent = sil.edgingN > 0
         ? fmtLen(sil.edgingMm) + " (" + sil.edgingN + " él)"
         : "–";
+    }
+
+    // Költségszámítás — laptípusonkénti ár × tartalékos db + anyagok ár × szám
+    if (el.prCostTotal) {
+      const fmtFt = (v) => (Math.round(v)).toLocaleString("hu-HU") + " Ft";
+      // Lapok típusonként
+      let tilesCost = 0, tilesHasPrice = false;
+      const groupsForCost = computeProjectTileNumbersByType(project);
+      groupsForCost.forEach((g) => {
+        const t = (project.tileTypes || []).find((x) => x.id === g.id);
+        const price = t && typeof t.pricePerTile === "number" ? t.pricePerTile : 0;
+        if (price > 0) {
+          tilesHasPrice = true;
+          const final = Math.ceil(g.needed * (1 + overage / 100));
+          tilesCost += final * price;
+        }
+      });
+      // Ragasztó
+      let glueCost = 0;
+      const glueKgForCost = (tn.area / 1e6) * (GLUE_KG_PER_M2[m.gluePreset] || 5) * (1 + Math.max(0, m.glueWastePct || 0) / 100);
+      const gluePacks = glueKgForCost > 0 ? Math.ceil(glueKgForCost / GLUE_PACK_KG) : 0;
+      if (m.gluePricePack > 0 && gluePacks > 0) glueCost = gluePacks * m.gluePricePack;
+      // Fuga
+      let groutCost = 0;
+      if (m.groutPricePack > 0 && massKg > 0) {
+        const packKg = GROUT_PACK_KG[m.groutPreset] || 5;
+        const groutPacks = Math.ceil(massKg / packKg);
+        groutCost = groutPacks * m.groutPricePack;
+      }
+      // Szilikon
+      let silCost = 0;
+      if (m.silPriceTube > 0 && totLen > 0) {
+        const t = computeSiliconeTubes(totLen, m);
+        silCost = t.tubes * m.silPriceTube;
+      }
+      // Élvédő
+      let edgingCost = 0;
+      if (m.edgingPricePerM > 0 && sil.edgingMm > 0) {
+        edgingCost = (sil.edgingMm / 1000) * m.edgingPricePerM;
+      }
+      // UI frissítés
+      el.prCostTiles.textContent = tilesHasPrice ? fmtFt(tilesCost) : "–";
+      el.prCostGlue.textContent = glueCost > 0 ? fmtFt(glueCost) : "–";
+      el.prCostGrout.textContent = groutCost > 0 ? fmtFt(groutCost) : "–";
+      el.prCostSil.textContent = silCost > 0 ? fmtFt(silCost) : "–";
+      el.prCostEdging.textContent = edgingCost > 0 ? fmtFt(edgingCost) : "–";
+      const total = tilesCost + glueCost + groutCost + silCost + edgingCost;
+      el.prCostTotal.textContent = total > 0 ? fmtFt(total) : "–";
     }
   }
 
@@ -3169,6 +3245,11 @@
       silWastePct: 15,
       gluePreset: "c2s1",            // "c1" | "c2" | "c2s1"
       glueWastePct: 10,
+      // egységárak (Ft) — 0 = nincs megadva, kihagyjuk a költségszámításból
+      groutPricePack: 0,
+      gluePricePack: 0,
+      silPriceTube: 0,
+      edgingPricePerM: 0,
     };
   }
   // g/cm³ — a Mapei Kerapoxy Easy Design adatlapja szerint a kevert epoxi 1,55 g/cm³
@@ -3219,7 +3300,10 @@
   function normalizeProject(p) {
     if (!p || typeof p !== "object") return defaultProject();
     const types = (Array.isArray(p.tileTypes) && p.tileTypes.length) ? p.tileTypes : defaultTiles().types;
-    types.forEach((t) => { if (!(typeof t.thicknessMm === "number" && t.thicknessMm > 0)) t.thicknessMm = 8; });
+    types.forEach((t) => {
+      if (!(typeof t.thicknessMm === "number" && t.thicknessMm > 0)) t.thicknessMm = 8;
+      if (!(typeof t.pricePerTile === "number" && t.pricePerTile >= 0)) t.pricePerTile = 0;
+    });
     let surfaces = (Array.isArray(p.surfaces) && p.surfaces.length)
       ? p.surfaces.map((s) => normSurface(s, types[0].id))
       : [normSurface({ name: "Padló", mode: "floor", baseId: types[0].id }, types[0].id)];
@@ -3276,7 +3360,8 @@
     const mat = Object.assign(defaultMaterial(), (p.material && typeof p.material === "object") ? p.material : {});
     if (!(mat.groutPreset in GROUT_DENSITIES)) mat.groutPreset = "cg1";
     if (!(mat.gluePreset in GLUE_KG_PER_M2)) mat.gluePreset = "c2s1";
-    ["silWidthMm", "silDepthMm", "silTubeMl", "silWastePct", "glueWastePct"].forEach((k) => {
+    ["silWidthMm", "silDepthMm", "silTubeMl", "silWastePct", "glueWastePct",
+     "groutPricePack", "gluePricePack", "silPriceTube", "edgingPricePerM"].forEach((k) => {
       if (!(typeof mat[k] === "number" && mat[k] >= 0)) mat[k] = defaultMaterial()[k];
     });
     return { id: p.id || newProjectId(), name: p.name || "Projekt", unit: p.unit === "mm" ? "mm" : "cm", untiledColor: p.untiledColor || "#8a8f98", tileTypes: types, surfaces, activeIndex: ai, material: mat };
@@ -3941,6 +4026,49 @@
       html += "</table>";
     }
 
+    // Költségszámítás — csak ha legalább egy ár meg van adva
+    const fmtFt = (v) => (Math.round(v)).toLocaleString("hu-HU") + " Ft";
+    let tilesCost = 0, anyTilePrice = false;
+    const tileGroups = computeProjectTileNumbersByType(project);
+    tileGroups.forEach((g) => {
+      const t = (project.tileTypes || []).find((x) => x.id === g.id);
+      const price = t && typeof t.pricePerTile === "number" ? t.pricePerTile : 0;
+      if (price > 0) {
+        anyTilePrice = true;
+        const finalDb = Math.ceil(g.needed * (1 + overage / 100));
+        tilesCost += finalDb * price;
+      }
+    });
+    let glueCost = 0;
+    if (mat.gluePricePack > 0 && glueKg > 0) {
+      glueCost = Math.ceil(glueKg / GLUE_PACK_KG) * mat.gluePricePack;
+    }
+    let groutCost = 0;
+    if (mat.groutPricePack > 0 && groutKg > 0) {
+      const packKg = GROUT_PACK_KG[mat.groutPreset] || 5;
+      groutCost = Math.ceil(groutKg / packKg) * mat.groutPricePack;
+    }
+    let silCost = 0;
+    if (mat.silPriceTube > 0 && totLen > 0) {
+      const tubes = computeSiliconeTubes(totLen, mat).tubes;
+      silCost = tubes * mat.silPriceTube;
+    }
+    let edgingCost = 0;
+    if (mat.edgingPricePerM > 0 && sil.edgingMm > 0) {
+      edgingCost = (sil.edgingMm / 1000) * mat.edgingPricePerM;
+    }
+    const totalCost = tilesCost + glueCost + groutCost + silCost + edgingCost;
+    if (totalCost > 0) {
+      html += "<h2>Költségszámítás</h2><table>";
+      if (anyTilePrice) html += row("Lap (típusonként)", fmtFt(tilesCost));
+      if (glueCost > 0) html += row("Ragasztó", fmtFt(glueCost));
+      if (groutCost > 0) html += row("Fuga", fmtFt(groutCost));
+      if (silCost > 0) html += row("Szilikon", fmtFt(silCost));
+      if (edgingCost > 0) html += row("Élvédő profil", fmtFt(edgingCost));
+      html += row("<strong>ÖSSZESEN</strong>", "<strong>" + fmtFt(totalCost) + "</strong>");
+      html += "</table>";
+    }
+
     sections.forEach((sec) => {
       html += `<h2>${escapeHtml(sec.name)} (${sec.mode === "floor" ? "padló" : "fal"})</h2>`;
       if (sec.img) html += `<img src="${sec.img}" style="max-width:100%;border:1px solid #999" />`;
@@ -4040,6 +4168,10 @@
       });
     }
     if (el.glueWaste) el.glueWaste.addEventListener("change", numHandler(el.glueWaste, "glueWastePct", 0));
+    if (el.groutPricePack) el.groutPricePack.addEventListener("change", numHandler(el.groutPricePack, "groutPricePack", 0));
+    if (el.gluePricePack) el.gluePricePack.addEventListener("change", numHandler(el.gluePricePack, "gluePricePack", 0));
+    if (el.silPriceTube) el.silPriceTube.addEventListener("change", numHandler(el.silPriceTube, "silPriceTube", 0));
+    if (el.edgingPricePerM) el.edgingPricePerM.addEventListener("change", numHandler(el.edgingPricePerM, "edgingPricePerM", 0));
   }
 
   function syncMaterialUI() {
@@ -4052,6 +4184,10 @@
     el.silWaste.value = m.silWastePct;
     if (el.gluePreset) el.gluePreset.value = m.gluePreset || "c2s1";
     if (el.glueWaste) el.glueWaste.value = m.glueWastePct;
+    if (el.groutPricePack) el.groutPricePack.value = m.groutPricePack || 0;
+    if (el.gluePricePack) el.gluePricePack.value = m.gluePricePack || 0;
+    if (el.silPriceTube) el.silPriceTube.value = m.silPriceTube || 0;
+    if (el.edgingPricePerM) el.edgingPricePerM.value = m.edgingPricePerM || 0;
   }
 
   // ---- Csatolt JSON-fájl (File System Access API) ---------------------

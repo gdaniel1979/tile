@@ -322,6 +322,13 @@
             <span class="unit-suffix">%</span>
           </div>
         </div>
+        <div class="control-row">
+          <label for="gluePricePack">Egységár (25 kg zsák)</label>
+          <div class="input-with-unit">
+            <input type="number" id="gluePricePack" min="0" step="100" value="0" />
+            <span class="unit-suffix">Ft/zs.</span>
+          </div>
+        </div>
         <p class="hint">EN 12004 szerinti osztály-jelölés. A fogyasztás (kg/m²) a fogazatlap-méret függvénye; ezek átlagértékek vékony és közepes ágyazáshoz. Az S1 osztály a deformálható (rugalmas) ragasztókat jelöli — pl. padlófűtéses padlóhoz, vékony nagyméretű lapokhoz.</p>
       </section>
 
@@ -343,6 +350,13 @@
             <option value="cg2">Cementes CG2 (~1,7 g/cm³, 5 kg/zsák)</option>
             <option value="epoxy">Mapei Kerapoxy Easy Design (1,55 g/cm³, 3 kg/vödör)</option>
           </select>
+        </div>
+        <div class="control-row">
+          <label for="groutPricePack">Egységár (csomag)</label>
+          <div class="input-with-unit">
+            <input type="number" id="groutPricePack" min="0" step="100" value="0" />
+            <span class="unit-suffix">Ft/cs.</span>
+          </div>
         </div>
         <p class="hint">A sűrűség a fugatérfogat → tömeg átszámításához kell; az epoxi adatok a <em>Mapei Kerapoxy Easy Design</em> műszaki adatlapja alapján. A vastagság laptípusonként a Burkolat fülön állítható.</p>
       </section>
@@ -386,6 +400,13 @@
             <span class="unit-suffix">%</span>
           </div>
         </div>
+        <div class="control-row">
+          <label for="silPriceTube">Egységár (kartus)</label>
+          <div class="input-with-unit">
+            <input type="number" id="silPriceTube" min="0" step="100" value="0" />
+            <span class="unit-suffix">Ft/k.</span>
+          </div>
+        </div>
         <p class="hint">A negatív sarkokba (padló-fal találkozás, fal-fal függőleges él) szilikon kerül, nem fuga. A számítás projekt-szintű: minden generált fal alja + a fallal érintett padló-csúcsoknál függőleges sarkok × falmagasság.</p>
       </section>
 
@@ -401,10 +422,29 @@
       <section class="panel summary">
         <h2>Élvédő profil — egész projekt</h2>
         <div class="mat-row"><span><strong>Élvédő szükséglet:</strong></span> <strong id="prEdging">–</strong></div>
+        <div class="control-row" style="margin-top:8px">
+          <label for="edgingPricePerM">Egységár (folyóméter)</label>
+          <div class="input-with-unit">
+            <input type="number" id="edgingPricePerM" min="0" step="100" value="0" />
+            <span class="unit-suffix">Ft/m</span>
+          </div>
+        </div>
         <p class="hint">Az élvédő a burkolat tényleges szegélyén jelölhető. Két helyen tehető:
           <br>• <strong>Felület éleire</strong> — az Alaprajz fül „Élek" listájában az adott él alatti jelölőnégyzettel (pl. fal felső éle = befejező profil, fal alsó éle = padló-fal találkozás szilikon helyett).
           <br>• <strong>Kivágás éleire</strong> — az „Élek" panelben/listában minden kivágás (ajtó, ablak, nem-burkolt sáv) alatt 4 jelölőnégyzet (fent / jobb / lent / bal). Itt jelölheted pl. egy ajtónyílás körüli profilt, vagy a felső csonkolt burkolat-él befejezését.
           <br>A megjelölt élek a vásznon piros vastag vonallal látszanak; a szilikon-számítás kihagyja a fal-éleken jelölt szakaszokat.</p>
+      </section>
+
+      <!-- KÖLTSÉG -->
+      <section class="panel summary">
+        <h2>Költség — egész projekt</h2>
+        <div class="mat-row"><span>Lap (típusonként):</span> <strong id="prCostTiles">–</strong></div>
+        <div class="mat-row"><span>Ragasztó:</span> <strong id="prCostGlue">–</strong></div>
+        <div class="mat-row"><span>Fuga:</span> <strong id="prCostGrout">–</strong></div>
+        <div class="mat-row"><span>Szilikon:</span> <strong id="prCostSil">–</strong></div>
+        <div class="mat-row"><span>Élvédő:</span> <strong id="prCostEdging">–</strong></div>
+        <div class="mat-row" style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border)"><span><strong>ÖSSZESEN:</strong></span> <strong id="prCostTotal">–</strong></div>
+        <p class="hint">Az egységárak: laptípusonként Ft/db a Burkolat fülön, a többi anyagra az itt felül levő ár-mezőkben. A „–" akkor jelenik meg, ha még nincs ár megadva. Az árak tájékoztató jellegűek — az aktuális bolti egységárakkal pontosan számolható projekt-szintű ajánlat.</p>
       </section>
       </div><!-- /material -->
 
