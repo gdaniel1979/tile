@@ -182,7 +182,12 @@
           <label for="tileRotate">Lap elforgatása 90°</label>
           <input type="checkbox" id="tileRotate" />
         </div>
+        <div class="control-row checkbox-row" id="linkToFloorRow" hidden>
+          <label for="linkToFloor">Padló-rácshoz illesztve</label>
+          <input type="checkbox" id="linkToFloor" />
+        </div>
         <p class="hint" id="layoutHint">Az „alap" laptípus mérete + a fuga adja a rácsot. A felület szélén a lapok valósághűen levágva jelennek meg.</p>
+        <p class="hint" id="linkToFloorHint" hidden>Bekapcsolva a fal függőleges fugavonalai a padló-csempék fugavonalaihoz igazodnak a padló-fal találkozás mentén (csak vízszintes/függőleges padló-élnél). A kézi „Rács eltolása" ilyenkor nincs hatással.</p>
       </section>
 
       <section class="panel">

@@ -77,6 +77,9 @@
     // 3. fázis
     layoutShow: document.getElementById("layoutShow"),
     tileRotate: document.getElementById("tileRotate"),
+    linkToFloor: document.getElementById("linkToFloor"),
+    linkToFloorRow: document.getElementById("linkToFloorRow"),
+    linkToFloorHint: document.getElementById("linkToFloorHint"),
     offX: document.getElementById("offX"),
     offY: document.getElementById("offY"),
     tileTotal: document.getElementById("tileTotal"),
@@ -2198,6 +2201,58 @@
       offX = alignAxis(maxX - minX, tileW, grout, state.layout.alignMode, thr);
       offY = alignAxis(maxY - minY, tileH, grout, state.layout.alignMode, thr);
     }
+    // Padló-fal kötésvonal-illesztés: ha generált fal vagyunk és a kapcsoló be
+    // van kapcsolva, az x-eltolódást a padló-rácsból számoljuk (csak vízszintes/
+    // függőleges padló-élnél működik, ferde élnél nincs hatása).
+    if (state.layout.linkToFloor && project && project.surfaces) {
+      const s = project.surfaces[project.activeIndex];
+      if (s && s.mode === "wall" && s.fromFloorId && typeof s.fromEdgeIndex === "number") {
+        const floor = project.surfaces.find((x) => x.id === s.fromFloorId);
+        if (floor && floor.points && floor.points.length >= 3 && floor.layout) {
+          const fi = s.fromEdgeIndex, fn = floor.points.length;
+          if (fi >= 0 && fi < fn) {
+            const a = floor.points[fi], b = floor.points[(fi + 1) % fn];
+            const dx = b.x - a.x, dy = b.y - a.y;
+            // padló-rács pitch a saját baseTile + grout alapján
+            const fBase = (project.tileTypes || []).find((t) => t.id === floor.baseId);
+            if (fBase) {
+              const fGrout = Math.max(0, floor.groutMm || 0);
+              const fTileW = floor.layout.rotated ? fBase.hMm : fBase.wMm;
+              const fTileH = floor.layout.rotated ? fBase.wMm : fBase.hMm;
+              const fPitchX = fTileW + fGrout, fPitchY = fTileH + fGrout;
+              // padló bbox + offXmm/offYmm — világ-koord. első rácsvonalak helye
+              let fMinX = Infinity, fMinY = Infinity, fMaxX = -Infinity, fMaxY = -Infinity;
+              floor.points.forEach((pt) => {
+                fMinX = Math.min(fMinX, pt.x); fMaxX = Math.max(fMaxX, pt.x);
+                fMinY = Math.min(fMinY, pt.y); fMaxY = Math.max(fMaxY, pt.y);
+              });
+              let fOffX = floor.layout.offXmm || 0, fOffY = floor.layout.offYmm || 0;
+              if (floor.layout.alignMode !== "none") {
+                fOffX = alignAxis(fMaxX - fMinX, fTileW, fGrout, floor.layout.alignMode, floor.layout.thresholdMm);
+                fOffY = alignAxis(fMaxY - fMinY, fTileH, fGrout, floor.layout.alignMode, floor.layout.thresholdMm);
+              }
+              const mod = (x, m) => ((x % m) + m) % m;
+              // Padló-él irányának eldöntése: csak vízszintes/függőleges éleknél
+              if (Math.abs(dy) < 0.5) {
+                // vízszintes padló-él → fal x-tengelye = ±x világ-tengely
+                // padló-rács első vonalainak világ-x pozíciói: fMinX + fOffX + k * fPitchX
+                // a fal x=0 pozíciója a P_start = a. Ha dx > 0, a fal jobbra megy (= +x);
+                // ha dx < 0, balra megy (= -x).
+                const dirSign = dx > 0 ? 1 : -1;
+                // a padló-rács VONAL világ-x = fMinX + fOffX. A fal x=0 = a.x.
+                // a fal saját x = dirSign * (worldX - a.x).
+                // 0 helye a falon = dirSign * (fMinX + fOffX - a.x) modulo pitchX.
+                offX = mod(dirSign * (fMinX + fOffX - a.x), fPitchX);
+              } else if (Math.abs(dx) < 0.5) {
+                // függőleges padló-él
+                const dirSign = dy > 0 ? 1 : -1;
+                offX = mod(dirSign * (fMinY + fOffY - a.y), fPitchY);
+              }
+            }
+          }
+        }
+      }
+    }
     return {
       base, minX, minY, maxX, maxY, grout, tileW, tileH, pitchX, pitchY,
       offX, offY, originX: minX + offX, originY: minY + offY,
@@ -2986,6 +3041,12 @@
     el.tileRotate.addEventListener("change", () => {
       state.layout.rotated = el.tileRotate.checked; render(); save();
     });
+    if (el.linkToFloor) {
+      el.linkToFloor.addEventListener("change", () => {
+        state.layout.linkToFloor = el.linkToFloor.checked;
+        render(); save();
+      });
+    }
     el.offX.addEventListener("change", () => {
       const v = parseFloat(el.offX.value);
       if (!Number.isNaN(v)) { state.layout.offXmm = toMm(v); render(); save(); }
@@ -3048,6 +3109,7 @@
       offYmm: typeof d.offYmm === "number" ? d.offYmm : 0,
       rotated: !!d.rotated,
       herringboneTilted: !!d.herringboneTilted,
+      linkToFloor: !!d.linkToFloor,
       alignMode: ["none", "center", "min"].includes(d.alignMode) ? d.alignMode : "none",
       thresholdMm: typeof d.thresholdMm === "number" ? d.thresholdMm : 100,
       overagePct: typeof d.overagePct === "number" ? d.overagePct : 10,
@@ -4174,6 +4236,14 @@
     applyPatternUIState();
     el.layoutShow.checked = state.layout.show;
     el.tileRotate.checked = state.layout.rotated;
+    // Padló-rácshoz illesztés: csak generált falon látszik
+    if (el.linkToFloorRow && el.linkToFloor && project) {
+      const s = project.surfaces[project.activeIndex];
+      const showLink = !!(s && s.mode === "wall" && s.fromFloorId && typeof s.fromEdgeIndex === "number");
+      el.linkToFloorRow.hidden = !showLink;
+      if (el.linkToFloorHint) el.linkToFloorHint.hidden = !showLink;
+      el.linkToFloor.checked = !!state.layout.linkToFloor;
+    }
     document.querySelectorAll(".off-unit").forEach((s) => (s.textContent = state.unit));
     el.offX.value = fromMm(state.layout.offXmm).toFixed(state.unit === "cm" ? 1 : 0);
     el.offY.value = fromMm(state.layout.offYmm).toFixed(state.unit === "cm" ? 1 : 0);
