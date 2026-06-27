@@ -60,6 +60,12 @@ A projekt minden felületét egyszerre összesíti:
 - **PDF / nyomtatás** – a teljes projekt: minden felület rajza + felületenkénti vágási lista +
   összesítő oldal a teljes anyagszükséglettel.
 
+### 3D nézet
+- A „3D" fülön a projekt minden felülete (padló, a belőle generált falak, előtétfal- és
+  lépcső-csoportok) térben elhelyezve, a saját lapkiosztás-textúrájával jelenik meg.
+  Saját Canvas 2D ortografikus projekció (Three.js nélkül) — húzással forgatható, görgővel
+  nagyítható.
+
 ### Egyéb
 - **Visszavonás / újra** – Ctrl+Z és Ctrl+Y, vagy a cím-sorban a kis ikongombok.
 - **Vászon-fejléc** – mindig látszik az aktív projekt és felület neve.
@@ -71,11 +77,18 @@ Mivel statikus oldal, egy egyszerű HTTP-szerver is elég a futtatáshoz:
 ## Fájlszerkezet
 
 ```
-index.html      – az alkalmazás váza
-css/styles.css  – megjelenés
-js/editor.js    – a teljes alkalmazás-logika
-favicon.svg     – a böngésző-fülön megjelenő ikon
+index.html        – az alkalmazás váza
+css/styles.css    – megjelenés
+js/modules/*.js   – a teljes alkalmazás-logika, 32 kis fájlra szétszedve
+favicon.svg       – a böngésző-fülön megjelenő ikon
 ```
+
+A JS logika nincs egyetlen nagy fájlban: 32 darab kis, témánkénti fájlra van bontva a
+`js/modules/` mappában (`01-state.js` … `32-init.js`). Nincs build-lépés és modulrendszer —
+mindegyik klasszikus `<script>` tag az `index.html` végén, pontosan ebben a sorrendben
+betöltve (a sorrend számít: közös globális scope-on osztoznak, mintha egy fájlba lennének
+összefűzve). Az `init()` az utolsó fájlban (`32-init.js`) fut, miután minden korábbi fájl
+már definiálta a függvényeit/változóit.
 
 ## Adattárolás
 
