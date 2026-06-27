@@ -140,6 +140,5 @@
     canvasHelp3d: document.getElementById("canvasHelp3d"),
     viewToggle: document.getElementById("viewToggle"),
     view3dResetBtn: document.getElementById("view3dResetBtn"),
-    activeTabTitle: document.getElementById("activeTabTitle"),
   };
 

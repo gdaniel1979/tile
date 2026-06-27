@@ -219,13 +219,6 @@
     renderPaintPalette(); // a festő-paletta is kövesse a könyvtárat
   }
 
-  // Fül-nevek a függőleges ikonsávhoz (a gombok csak ikont mutatnak, a teljes
-  // nevet az "active-tab-title" feliratban és a title/aria-label-ben adjuk meg).
-  const TAB_LABELS = {
-    plan: "Alaprajz", tiles: "Burkolat", layout: "Kiosztás",
-    material: "Anyag", export: "Export",
-  };
-
   function initTilesUI() {
     // Fülek
     el.tabs.addEventListener("click", (e) => {
@@ -236,7 +229,6 @@
       document.querySelectorAll("[data-tabpanel]").forEach((p) => {
         p.hidden = p.dataset.tabpanel !== tab;
       });
-      if (el.activeTabTitle) el.activeTabTitle.textContent = TAB_LABELS[tab] || "";
       // Anyag fülre váltáskor minden felület cache-ét frissítjük (offscreen),
       // hogy a projekt-összesítés ne csak az aktív felületet mutassa.
       if (tab === "material") recomputeAllSurfacesMaterial();
