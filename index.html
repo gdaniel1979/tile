@@ -27,14 +27,16 @@
         <div class="proj-tree" id="projTree"></div>
       </div>
 
+      <div class="tabs-layout">
       <div class="tabs" id="tabs">
-        <button data-tab="plan" class="active">Alaprajz</button>
-        <button data-tab="tiles">Burkolat</button>
-        <button data-tab="layout">Kiosztás</button>
-        <button data-tab="material">Anyag</button>
-        <button data-tab="view3d">3D</button>
-        <button data-tab="export">Export</button>
+        <button data-tab="plan" class="active" title="Alaprajz" aria-label="Alaprajz">✎</button>
+        <button data-tab="tiles" title="Burkolat" aria-label="Burkolat">▦</button>
+        <button data-tab="layout" title="Kiosztás" aria-label="Kiosztás">▣</button>
+        <button data-tab="material" title="Anyag" aria-label="Anyag">Σ</button>
+        <button data-tab="export" title="Export" aria-label="Export">↓</button>
       </div>
+      <div class="tab-panels">
+      <div class="active-tab-title" id="activeTabTitle">Alaprajz</div>
 
       <!-- ALAPRAJZ FÜL -->
       <div class="tab-panel" data-tabpanel="plan">
@@ -532,15 +534,6 @@
       </section>
       </div><!-- /material -->
 
-      <!-- 3D FÜL -->
-      <div class="tab-panel" data-tabpanel="view3d" hidden>
-      <section class="panel">
-        <h2>3D nézet</h2>
-        <button class="btn btn-secondary full" id="view3dReset">Nézet visszaállítása</button>
-        <p class="hint">Húzd a vásznat a forgatáshoz, görgővel nagyíthatsz. A padló és a belőle generált falak a valós elrendezésükben, a saját lapkiosztásukkal jelennek meg. Az előtétfal-csoportok a falukra illesztve, a lépcső-csoportok lépcsőzetesen — ezeket külön, jelölt helyen mutatjuk, mert nincs a padlóhoz rögzített pozíciójuk. A különálló (nem padlóból generált) fal-felületek egy sorban, a padló mellett jelennek meg.</p>
-      </section>
-      </div><!-- /view3d -->
-
       <!-- EXPORT FÜL -->
       <div class="tab-panel" data-tabpanel="export" hidden>
       <section class="panel">
@@ -574,11 +567,20 @@
         <p class="hint" id="fsaUnsupported" hidden style="color: var(--danger)">Az élő mentés nem érhető el ezen az URL-en. A funkció csak <strong>HTTPS</strong> vagy <strong>localhost</strong> kontextusban működik, és <strong>Chrome / Edge</strong> böngészőt igényel. Sima HTTP-n (pl. IP-cím:port) a böngésző biztonsági okokból letiltja. Megoldás: nyisd meg az alkalmazást a <a href="https://gdaniel1979.github.io/tile/" target="_blank" rel="noopener">https://gdaniel1979.github.io/tile/</a> címen, vagy futtasd helyben (<code>http://localhost</code>).</p>
       </section>
       </div><!-- /export -->
+      </div><!-- /tab-panels -->
+      </div><!-- /tabs-layout -->
     </aside>
 
     <!-- Vászon -->
     <div class="canvas-wrap" id="canvasWrap">
-      <div id="canvasTitle" class="canvas-title"></div>
+      <div class="canvas-title-bar" id="canvasTitleBar">
+        <span id="canvasTitle" class="canvas-title-text"></span>
+        <div class="view-toggle" id="viewToggle">
+          <button data-view="2d" class="active">2D</button>
+          <button data-view="3d">3D</button>
+        </div>
+        <button class="title-btn" id="view3dResetBtn" title="3D nézet visszaállítása" aria-label="3D nézet visszaállítása" hidden>⛶</button>
+      </div>
       <div id="wallWarn" class="wall-warn" hidden>
         <span id="wallWarnText"></span>
         <span class="ww-actions">

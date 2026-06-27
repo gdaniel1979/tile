@@ -219,6 +219,13 @@
     renderPaintPalette(); // a festő-paletta is kövesse a könyvtárat
   }
 
+  // Fül-nevek a függőleges ikonsávhoz (a gombok csak ikont mutatnak, a teljes
+  // nevet az "active-tab-title" feliratban és a title/aria-label-ben adjuk meg).
+  const TAB_LABELS = {
+    plan: "Alaprajz", tiles: "Burkolat", layout: "Kiosztás",
+    material: "Anyag", export: "Export",
+  };
+
   function initTilesUI() {
     // Fülek
     el.tabs.addEventListener("click", (e) => {
@@ -229,14 +236,10 @@
       document.querySelectorAll("[data-tabpanel]").forEach((p) => {
         p.hidden = p.dataset.tabpanel !== tab;
       });
+      if (el.activeTabTitle) el.activeTabTitle.textContent = TAB_LABELS[tab] || "";
       // Anyag fülre váltáskor minden felület cache-ét frissítjük (offscreen),
       // hogy a projekt-összesítés ne csak az aktív felületet mutassa.
       if (tab === "material") recomputeAllSurfacesMaterial();
-      canvas.style.display = tab === "view3d" ? "none" : "block";
-      if (el.board3d) el.board3d.style.display = tab === "view3d" ? "block" : "none";
-      if (el.canvasHelp2d) el.canvasHelp2d.style.display = tab === "view3d" ? "none" : "flex";
-      if (el.canvasHelp3d) el.canvasHelp3d.style.display = tab === "view3d" ? "flex" : "none";
-      if (tab === "view3d") { resize3DCanvas(); render3D(); }
     });
 
     el.addTile.addEventListener("click", addTileType);

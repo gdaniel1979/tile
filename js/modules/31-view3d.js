@@ -294,10 +294,27 @@
       cam3d.zoom = Math.max(0.15, Math.min(10, cam3d.zoom * f));
       render3D();
     }, { passive: false });
-    if (el.view3dReset) {
-      el.view3dReset.addEventListener("click", () => {
+    if (el.view3dResetBtn) {
+      el.view3dResetBtn.addEventListener("click", () => {
         cam3d = { az: -0.6, el: 0.5, zoom: 1, panX: 0, panY: 0 };
         render3D();
+      });
+    }
+    // 2D/3D váltó a vászon cím-sorában — független a bal oldali füektől:
+    // bármelyik fülön lehetünk, a vászon külön dönthet 2D/3D nézet között.
+    if (el.viewToggle) {
+      el.viewToggle.addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        const view = b.dataset.view;
+        const is3d = view === "3d";
+        [...el.viewToggle.children].forEach((c) => c.classList.toggle("active", c === b));
+        canvas.style.display = is3d ? "none" : "block";
+        el.board3d.style.display = is3d ? "block" : "none";
+        if (el.canvasHelp2d) el.canvasHelp2d.style.display = is3d ? "none" : "flex";
+        if (el.canvasHelp3d) el.canvasHelp3d.style.display = is3d ? "flex" : "none";
+        if (el.view3dResetBtn) el.view3dResetBtn.hidden = !is3d;
+        if (is3d) { resize3DCanvas(); render3D(); }
       });
     }
   }

@@ -138,6 +138,8 @@
     board3d: document.getElementById("board3d"),
     canvasHelp2d: document.getElementById("canvasHelp2d"),
     canvasHelp3d: document.getElementById("canvasHelp3d"),
-    view3dReset: document.getElementById("view3dReset"),
+    viewToggle: document.getElementById("viewToggle"),
+    view3dResetBtn: document.getElementById("view3dResetBtn"),
+    activeTabTitle: document.getElementById("activeTabTitle"),
   };
 
