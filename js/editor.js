@@ -157,6 +157,17 @@
     addProject: document.getElementById("addProject"),
     wallHeight: document.getElementById("wallHeight"),
     genWalls: document.getElementById("genWalls"),
+    pwName: document.getElementById("pwName"),
+    pwWidth: document.getElementById("pwWidth"),
+    pwHeight: document.getElementById("pwHeight"),
+    pwDepth: document.getElementById("pwDepth"),
+    genPreWall: document.getElementById("genPreWall"),
+    stName: document.getElementById("stName"),
+    stSteps: document.getElementById("stSteps"),
+    stWidth: document.getElementById("stWidth"),
+    stDepth: document.getElementById("stDepth"),
+    stRise: document.getElementById("stRise"),
+    genStairs: document.getElementById("genStairs"),
     cutoutDraw: document.getElementById("cutoutDraw"),
     cutoutList: document.getElementById("cutoutList"),
     cutoutKindSeg: document.getElementById("cutoutKindSeg"),
@@ -3219,6 +3230,10 @@
         : [],
       edgeNames: Array.isArray(d.edgeNames) ? d.edgeNames.slice() : [],
       edgeEdgings: Array.isArray(d.edgeEdgings) ? d.edgeEdgings.map((x) => !!x) : [],
+      // Csoport-azonosító — összetett objektumok (előtétfal, lépcső) felületeit fogja össze
+      groupId: d.groupId || null,
+      groupKind: d.groupKind || null,         // "preWall" | "stairs"
+      groupLabel: d.groupLabel || null,       // ember-olvasható csoport-felirat
       layout: normLayout(d.layout),
       fromFloorId: d.fromFloorId || null,
       fromEdgeIndex: typeof d.fromEdgeIndex === "number" ? d.fromEdgeIndex : null,
@@ -3723,6 +3738,51 @@
   function blankSurface(name, mode) {
     const baseId = project.tileTypes[0] ? project.tileTypes[0].id : "t1";
     return normSurface({ name, mode, baseId, layout: { paintTypeId: baseId } }, baseId);
+  }
+
+  // Téglalap-felület létrehozása megadott méretű (w × h) zárt sokszöggel.
+  function rectSurface(name, mode, w, h, groupId, groupKind, groupLabel) {
+    const s = blankSurface(name, mode);
+    s.points = [{ x: 0, y: 0 }, { x: w, y: 0 }, { x: w, y: h }, { x: 0, y: h }];
+    s.closed = true;
+    if (groupId) { s.groupId = groupId; s.groupKind = groupKind; s.groupLabel = groupLabel; }
+    return s;
+  }
+
+  // Előtétfal: 4 felületet hoz létre (eleje, bal oldal, jobb oldal, teteje).
+  function generatePreWall(name, width, height, depth) {
+    saveActiveSurface();
+    const id = "pw-" + Date.now().toString(36) + Math.floor(Math.random() * 1000);
+    const label = name || "Előtétfal";
+    const front = rectSurface(label + ": eleje",      "wall", width, height, id, "preWall", label);
+    const left  = rectSurface(label + ": bal oldal",  "wall", depth, height, id, "preWall", label);
+    const right = rectSurface(label + ": jobb oldal", "wall", depth, height, id, "preWall", label);
+    const top   = rectSurface(label + ": teteje",     "wall", width, depth,  id, "preWall", label);
+    project.surfaces.push(front, left, right, top);
+    project.activeIndex = project.surfaces.indexOf(front);
+    expandedProjects.add(store.activeProjectId);
+    loadActiveSurface();
+    refreshAll();
+    alert("Előtétfal létrehozva: 4 felület (eleje, bal oldal, jobb oldal, teteje).");
+  }
+
+  // Lépcső: minden fokhoz 1 homloklap + 1 lépőlap.
+  function generateStairs(name, steps, width, depth, rise) {
+    saveActiveSurface();
+    const id = "st-" + Date.now().toString(36) + Math.floor(Math.random() * 1000);
+    const label = name || "Lépcső";
+    const created = [];
+    for (let i = 1; i <= steps; i++) {
+      const hom = rectSurface(label + " — " + i + ". fok homloklap", "wall", width, rise,  id, "stairs", label);
+      const lep = rectSurface(label + " — " + i + ". fok lépőlap",   "wall", width, depth, id, "stairs", label);
+      created.push(hom, lep);
+    }
+    project.surfaces.push(...created);
+    project.activeIndex = project.surfaces.indexOf(created[0]);
+    expandedProjects.add(store.activeProjectId);
+    loadActiveSurface();
+    refreshAll();
+    alert("Lépcső létrehozva: " + (2 * steps) + " felület (" + steps + " homloklap + " + steps + " lépőlap).");
   }
 
   function addSurface() {
@@ -4344,6 +4404,28 @@
     el.histUndo.addEventListener("click", undo);
     el.histRedo.addEventListener("click", redo);
     el.genWalls.addEventListener("click", generateWallsFromActive);
+    if (el.genPreWall) {
+      el.genPreWall.addEventListener("click", () => {
+        const name = (el.pwName.value || "Előtétfal").trim();
+        const w = toMm(parseFloat(el.pwWidth.value));
+        const h = toMm(parseFloat(el.pwHeight.value));
+        const d = toMm(parseFloat(el.pwDepth.value));
+        if (!(w > 0 && h > 0 && d > 0)) { alert("Add meg az előtétfal mindhárom méretét pozitív értékkel."); return; }
+        generatePreWall(name, w, h, d);
+      });
+    }
+    if (el.genStairs) {
+      el.genStairs.addEventListener("click", () => {
+        const name = (el.stName.value || "Lépcső").trim();
+        const steps = parseInt(el.stSteps.value, 10);
+        const w = toMm(parseFloat(el.stWidth.value));
+        const d = toMm(parseFloat(el.stDepth.value));
+        const rise = toMm(parseFloat(el.stRise.value));
+        if (!(steps > 0 && w > 0 && d > 0 && rise > 0)) { alert("Add meg a fokszámot és mindhárom lépcső-méretet pozitív értékkel."); return; }
+        if (steps > 50) { alert("Maximum 50 fok engedélyezett."); return; }
+        generateStairs(name, steps, w, d, rise);
+      });
+    }
     el.wallWarnRegen.addEventListener("click", () => {
       if (staleFloorRef) generateWalls(staleFloorRef, staleFloorRef.wallHeightMm || toMm(parseFloat(el.wallHeight.value)) || 2700);
     });
