@@ -752,3 +752,4 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.5; }
   pointer-events: none;
 }
 #canvasHelp3d { display: none; }
+#view3dResetBtn { display: none; }

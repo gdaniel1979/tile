@@ -313,7 +313,7 @@
         el.board3d.style.display = is3d ? "block" : "none";
         if (el.canvasHelp2d) el.canvasHelp2d.style.display = is3d ? "none" : "flex";
         if (el.canvasHelp3d) el.canvasHelp3d.style.display = is3d ? "flex" : "none";
-        if (el.view3dResetBtn) el.view3dResetBtn.hidden = !is3d;
+        if (el.view3dResetBtn) el.view3dResetBtn.style.display = is3d ? "inline-flex" : "none";
         if (is3d) { resize3DCanvas(); render3D(); }
       });
     }
