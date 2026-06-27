@@ -29,12 +29,13 @@
 
       <div class="tabs-layout">
       <div class="tabs" id="tabs">
-        <button data-tab="plan" class="active" title="Alaprajz" aria-label="Alaprajz"><span class="tab-icon">✎</span><span class="tab-label">Alaprajz</span></button>
-        <button data-tab="tiles" title="Burkolat" aria-label="Burkolat"><span class="tab-icon">▦</span><span class="tab-label">Burkolat</span></button>
-        <button data-tab="layout" title="Kiosztás" aria-label="Kiosztás"><span class="tab-icon">▣</span><span class="tab-label">Kiosztás</span></button>
-        <button data-tab="material" title="Anyag" aria-label="Anyag"><span class="tab-icon">Σ</span><span class="tab-label">Anyag</span></button>
-        <button data-tab="export" title="Export" aria-label="Export"><span class="tab-icon">↓</span><span class="tab-label">Export</span></button>
+        <button data-tab="plan" class="active" title="Alaprajz" aria-label="Alaprajz">✎</button>
+        <button data-tab="tiles" title="Burkolat" aria-label="Burkolat">▦</button>
+        <button data-tab="layout" title="Kiosztás" aria-label="Kiosztás">▣</button>
+        <button data-tab="material" title="Anyag" aria-label="Anyag">Σ</button>
+        <button data-tab="export" title="Export" aria-label="Export">↓</button>
       </div>
+      <div class="active-tab-title" id="activeTabTitle">Alaprajz</div>
       <div class="tab-panels">
 
       <!-- ALAPRAJZ FÜL -->
@@ -569,6 +570,8 @@
       </div><!-- /tab-panels -->
       </div><!-- /tabs-layout -->
     </aside>
+
+    <div class="sidebar-resizer" id="sidebarResizer"></div>
 
     <!-- Vászon -->
     <div class="canvas-wrap" id="canvasWrap">

@@ -17,6 +17,38 @@
     return { w: r.width, h: r.height };
   }
 
+  // Sidebar-szélesség húzással állítható (mint egy ablak-szegély Windows alatt).
+  // A canvas-wrap rugalmas (flex: 1 1 auto), így a vászon automatikusan,
+  // valós időben igazodik a fennmaradó helyhez minden mousemove-on.
+  const SIDEBAR_WIDTH_KEY = "tile-planner-sidebar-width";
+  const SIDEBAR_MIN = 220, SIDEBAR_MAX = 640;
+  function initSidebarResizer() {
+    if (!el.sidebarResizer || !el.sidebar) return;
+    let saved = 0;
+    try { saved = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY), 10); } catch (_) {}
+    if (saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) el.sidebar.style.width = saved + "px";
+    let dragging = false, startX = 0, startW = 0;
+    el.sidebarResizer.addEventListener("mousedown", (e) => {
+      dragging = true; startX = e.clientX; startW = el.sidebar.getBoundingClientRect().width;
+      el.sidebarResizer.classList.add("dragging");
+      document.body.style.userSelect = "none";
+      e.preventDefault();
+    });
+    window.addEventListener("mousemove", (e) => {
+      if (!dragging) return;
+      const w = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startW + (e.clientX - startX)));
+      el.sidebar.style.width = w + "px";
+      resizeCanvas();
+    });
+    window.addEventListener("mouseup", () => {
+      if (!dragging) return;
+      dragging = false;
+      el.sidebarResizer.classList.remove("dragging");
+      document.body.style.userSelect = "";
+      try { localStorage.setItem(SIDEBAR_WIDTH_KEY, Math.round(el.sidebar.getBoundingClientRect().width)); } catch (_) {}
+    });
+  }
+
   function drawGrid() {
     const { w, h } = cssSize();
     const g = state.gridMm * state.view.scale; // rács px

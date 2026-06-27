@@ -14,6 +14,7 @@
     initProjectUI();
     initCutoutUI();
     init3DUI();
+    initSidebarResizer();
     renderProjectTree();
     renderTileLibrary();
     window.addEventListener("resize", resizeCanvas);

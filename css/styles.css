@@ -57,12 +57,11 @@ body {
   min-height: 0;
 }
 
-/* Sidebar */
+/* Sidebar — szélessége húzással állítható (lásd .sidebar-resizer) */
 .sidebar {
   width: 300px;
-  flex: 0 0 300px;
+  flex: 0 0 auto;
   background: var(--panel);
-  border-right: 1px solid var(--border);
   overflow-y: auto;
   overflow-x: hidden;
   padding: 9px;
@@ -70,6 +69,17 @@ body {
   flex-direction: column;
   gap: 8px;
 }
+
+/* Húzható elválasztó csík a sidebar és a vászon között */
+.sidebar-resizer {
+  flex: 0 0 5px;
+  width: 5px;
+  background: var(--border);
+  cursor: col-resize;
+  position: relative;
+}
+.sidebar-resizer:hover,
+.sidebar-resizer.dragging { background: var(--accent); }
 
 /* Mintázat-választó */
 .full-select {
@@ -234,13 +244,14 @@ body {
 .wall-warn .btn { padding: 5px 10px; font-size: 12px; background: #5e3c17; border-color: #b5731f; color: #ffe9cc; }
 .wall-warn .btn:hover { border-color: #ffd9a0; }
 
-/* Fülek — vízszintes ikonsor a bal oldalsávban; aktívnál a felirat az ikon
-   alatt jelenik meg, egy egységként (a gomb keretén belül). Tördelhet
-   2 sorba is, ha később több fül kerül bele. */
+/* Fülek — vízszintes, csak ikon sor (1. sor); a kijelölt fül neve külön,
+   alatta egy önálló cím-sorban jelenik meg (.active-tab-title, 2. sor),
+   a panel-tartalom pedig ez alatt (3. sortól). Az ikonsor tördelhet 2 sorba
+   is, ha később több fül kerül bele (flex-wrap). */
 .tabs-layout {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .tabs {
   display: flex;
@@ -253,24 +264,22 @@ body {
 }
 .tabs button {
   flex: 0 0 auto;
-  min-width: 40px;
+  min-width: 36px;
+  height: 32px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
   background: transparent;
   border: none;
   color: var(--muted);
   border-radius: 6px;
   cursor: pointer;
-  padding: 6px 4px 5px;
+  font-size: 16px;
+  line-height: 1;
 }
-.tabs button .tab-icon { font-size: 16px; line-height: 1; }
-.tabs button .tab-label { display: none; font-size: 9px; font-weight: 600; letter-spacing: 0.02em; line-height: 1.2; }
 .tabs button:hover { color: var(--text); background: var(--panel-2); }
 .tabs button.active { background: var(--accent); color: #fff; }
-.tabs button.active .tab-label { display: block; }
+.active-tab-title { font-size: 13px; font-weight: 600; color: var(--text); padding: 2px 0; }
 
 .tab-panels {
   display: flex;
