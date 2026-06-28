@@ -143,5 +143,9 @@
     activeTabTitle: document.getElementById("activeTabTitle"),
     sidebarResizer: document.getElementById("sidebarResizer"),
     sidebar: document.querySelector(".sidebar"),
+    // 20. fázis (Rétegek panel)
+    layersPanel: document.getElementById("layersPanel"),
+    layersResizer: document.getElementById("layersResizer"),
+    layersList: document.getElementById("layersList"),
   };
 

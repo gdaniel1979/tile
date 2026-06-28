@@ -228,20 +228,6 @@
     return null;
   }
 
-  // Melyik kivágás téglalapjába esik egy képernyő-pont (felülről lefelé).
-  // 4 px-es padding-gal: nagyon vékony lelógó/kis kivágást is könnyebb megfogni.
-  function cutoutAt(sx, sy) {
-    const cuts = state.cutouts || [];
-    const pad = 4;
-    for (let i = cuts.length - 1; i >= 0; i--) {
-      const c = cuts[i];
-      const a = worldToScreen({ x: c.x, y: c.y });
-      const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
-      if (sx >= a.x - pad && sx <= b.x + pad && sy >= a.y - pad && sy <= b.y + pad) return i;
-    }
-    return -1;
-  }
-
   // Húzott kivágás snap-elése: a felület-bbox ÉS a többi kivágás 4-4 éléhez.
   // Bármelyik él (bal/jobb/fent/lent) találkozhat bármelyik kandidátussal.
   // Visszaadja az új x,y-t + a snap-eléshez tartozó "guide"-vonalakat (vizuális).

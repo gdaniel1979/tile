@@ -16,6 +16,20 @@
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
 
+  // Réteg-kapcsolt kivágás-keresés: a vásznon csak az AKTÍV réteg
+  // (selectedCutout — lásd a Rétegek panelt) reagál a kattintásra, hogy az
+  // átfedő kivágások ne "nyeljék el" egymás (vagy a felület) elől a kattintást.
+  function activeCutoutAt(sx, sy) {
+    if (selectedCutout < 0) return -1;
+    const c = state.cutouts[selectedCutout];
+    if (!c) return -1;
+    const pad = 4;
+    const a = worldToScreen({ x: c.x, y: c.y });
+    const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
+    if (sx >= a.x - pad && sx <= b.x + pad && sy >= a.y - pad && sy <= b.y + pad) return selectedCutout;
+    return -1;
+  }
+
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
   canvas.addEventListener("mousedown", (e) => {
@@ -52,16 +66,19 @@
         render();
         return;
       }
-      // Kivágás kijelölése + áthelyezés (drag and drop)
-      const ci = cutoutAt(m.x, m.y);
-      if (ci >= 0) {
-        selectedCutout = ci;
-        state.selected = null;
-        const c = state.cutouts[ci];
-        const grab = screenToWorld(m.x, m.y);
-        drag = { type: "cutoutMove", ci, ox: c.x, oy: c.y, gx: grab.x, gy: grab.y, moved: false };
-        inDrag = true;
-        render();
+      // Réteg-kapcsolt áthelyezés: csak az AKTÍV kivágás-réteg mozgatható a
+      // vásznon (a réteg-választás a jobb oldali Rétegek panelból megy) —
+      // amíg egy kivágás aktív, a felület éle/címke nem reagál.
+      if (selectedCutout >= 0) {
+        const ci = activeCutoutAt(m.x, m.y);
+        if (ci >= 0) {
+          state.selected = null;
+          const c = state.cutouts[ci];
+          const grab = screenToWorld(m.x, m.y);
+          drag = { type: "cutoutMove", ci, ox: c.x, oy: c.y, gx: grab.x, gy: grab.y, moved: false };
+          inDrag = true;
+          render();
+        }
         return;
       }
       // Élhossz-feliratra kattintás: a click majd megnyitja a szerkesztőt,
@@ -145,7 +162,7 @@
     if (!wasDrag) return;
     if (wasDrag.type === "cutout") {
       if (pendingCutout && pendingCutout.w > 5 && pendingCutout.h > 5) {
-        state.cutouts.push({ ...pendingCutout, kind: newCutoutKind });
+        state.cutouts.push({ ...pendingCutout, kind: newCutoutKind, name: "" });
         selectedCutout = state.cutouts.length - 1; // az új kivágás kijelölve (méretek látszanak)
         pendingCutout = null;
         afterGeometryChange(); // save → előzmény
@@ -180,13 +197,6 @@
     if (paintMode) return;   // festést a mousedown kezeli
     if (cutoutMode) return;  // kivágás rajzolását a mousedown/move kezeli
 
-    // Kivágásra kattintás: a kijelölést a mousedown már elvégezte
-    if (cutoutAt(m.x, m.y) >= 0) return;
-
-    // Élhossz-felirat: kattintásra megnyílik a szerkesztő mező
-    const li = labelAt(m.x, m.y);
-    if (li >= 0 && li !== closingEdgeIndex()) { openLabelEditor(li); return; }
-
     const vi = vertexAt(m.x, m.y);
     if (vi >= 0) {
       // Kezdőpontra kattintás nyitott állapotban => zárás
@@ -202,11 +212,18 @@
       return;
     }
 
+    // Amíg egy kivágás-réteg aktív (Rétegek panel), a kattintást a mousedown
+    // már kezelte (mozgatás) — a felület éle/címkéje eddig nem reagál.
+    if (selectedCutout >= 0) return;
+
+    // Élhossz-felirat: kattintásra megnyílik a szerkesztő mező
+    const li = labelAt(m.x, m.y);
+    if (li >= 0 && li !== closingEdgeIndex()) { openLabelEditor(li); return; }
+
     if (state.closed) {
-      // zárt sokszögnél üres kattintás: kijelölések törlése
-      if (state.selected !== null || selectedCutout >= 0) {
+      // zárt sokszögnél üres kattintás: kijelölés törlése
+      if (state.selected !== null) {
         state.selected = null;
-        selectedCutout = -1;
         afterSelectionChange();
       }
       return;
@@ -235,10 +252,13 @@
     if (cutoutLabelAt(m.x, m.y)) { canvas.style.cursor = "text"; return; }
     if (cutoutMode) { canvas.style.cursor = "crosshair"; return; }
     if (paintMode) { canvas.style.cursor = "cell"; return; }
+    if (vertexAt(m.x, m.y) >= 0) { canvas.style.cursor = "pointer"; return; }
+    if (selectedCutout >= 0) {
+      canvas.style.cursor = activeCutoutAt(m.x, m.y) >= 0 ? "move" : "default";
+      return;
+    }
     const li = labelAt(m.x, m.y);
     if (li >= 0 && li !== closingEdgeIndex()) canvas.style.cursor = "text";
-    else if (vertexAt(m.x, m.y) >= 0) canvas.style.cursor = "pointer";
-    else if (cutoutAt(m.x, m.y) >= 0) canvas.style.cursor = "move";
     else if (edgeAt(m.x, m.y) >= 0) canvas.style.cursor = "move";
     else canvas.style.cursor = "crosshair";
   });

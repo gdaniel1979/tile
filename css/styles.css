@@ -81,6 +81,47 @@ body {
 .sidebar-resizer:hover,
 .sidebar-resizer.dragging { background: var(--accent); }
 
+/* Rétegek panel (jobb oldal) — szélessége is húzással állítható, ugyanazzal
+   a .sidebar-resizer csíkkal (#layersResizer) */
+.layers-panel {
+  width: 200px;
+  flex: 0 0 auto;
+  background: var(--panel);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.layers-panel-head { font-size: 13px; font-weight: 600; color: var(--text); }
+.layers-list { display: flex; flex-direction: column; gap: 4px; }
+.layer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 7px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.layer-item:hover { background: var(--panel-2); }
+.layer-item.active { background: rgba(76, 154, 255, 0.16); border-color: var(--accent); }
+.layer-swatch { width: 12px; height: 12px; border-radius: 3px; flex: 0 0 auto; border: 1px solid var(--border); }
+.layer-icon { font-size: 13px; color: var(--accent); flex: 0 0 auto; width: 12px; text-align: center; }
+.layer-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  padding: 2px 0;
+}
+.layer-name:focus { outline: none; border-bottom: 1px solid var(--accent); }
+.layer-name-static { flex: 1 1 auto; font-size: 12px; color: var(--text); font-weight: 600; }
+.layers-list-sep { height: 1px; background: var(--border); margin: 2px 0; }
+
 /* Mintázat-választó */
 .full-select {
   background: var(--bg);

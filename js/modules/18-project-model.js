@@ -42,6 +42,7 @@
         ? d.cutouts.filter((c) => c && typeof c.w === "number").map((c) => ({
             x: c.x || 0, y: c.y || 0, w: c.w, h: c.h,
             kind: c.kind === "untiled" ? "untiled" : "opening",
+            name: typeof c.name === "string" ? c.name : "",
             imageUrl: c.imageUrl || null,
             // élvédő a kivágás 4 élén: [top, right, bottom, left]
             edgeEdgings: Array.isArray(c.edgeEdgings) ? c.edgeEdgings.slice(0, 4).map((x) => !!x) : [false, false, false, false],

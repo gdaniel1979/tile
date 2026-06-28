@@ -48,6 +48,7 @@
     el.untiledColor.value = (project && project.untiledColor) || "#8a8f98";
     [...el.cutoutKindSeg.children].forEach((c) => c.classList.toggle("active", c.dataset.kind === newCutoutKind));
     renderCutoutList();
+    renderLayersList();
     syncMaterialUI();
     updateProjectMaterialReport();
   }

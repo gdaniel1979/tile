@@ -105,12 +105,14 @@
   // Csak a kijelölés változott (geometria nem): elég a vászon frissítése
   function afterSelectionChange() {
     render();
+    renderLayersList();
   }
 
   function afterGeometryChange() {
     render();
     renderEdgeList();
     renderCutoutList();
+    renderLayersList();
     updateSummary();
     if (project) checkWallSync(); // padló-változás esetén figyelmeztetés a generált falakra
     save();

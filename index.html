@@ -605,6 +605,15 @@
         <span>Görgő: nagyítás</span>
       </div>
     </div>
+
+    <div class="sidebar-resizer" id="layersResizer"></div>
+
+    <!-- Rétegek panel: a felület + a rajta lévő kivágások, mint Photoshop-rétegek -->
+    <aside class="layers-panel" id="layersPanel">
+      <div class="layers-panel-head">Rétegek</div>
+      <div class="layers-list" id="layersList"></div>
+      <p class="hint">Kattints egy rétegre — csak az lesz szerkeszthető a vásznon (a többi nem reagál a kattintásra), amíg másikra nem váltasz. Átnevezheted a kivágásokat is.</p>
+    </aside>
   </main>
 
   <!-- Nyomtatási/PDF nézet (csak nyomtatáskor látszik) -->
@@ -645,6 +654,7 @@
   <script src="js/modules/29-export-project-init.js"></script>
   <script src="js/modules/30-sync-controls.js"></script>
   <script src="js/modules/31-view3d.js"></script>
-  <script src="js/modules/32-init.js"></script>
+  <script src="js/modules/32-layers-panel.js"></script>
+  <script src="js/modules/33-init.js"></script>
 </body>
 </html>
