@@ -147,5 +147,6 @@
     layersPanel: document.getElementById("layersPanel"),
     layersResizer: document.getElementById("layersResizer"),
     layersList: document.getElementById("layersList"),
+    layersGroupBar: document.getElementById("layersGroupBar"),
   };
 

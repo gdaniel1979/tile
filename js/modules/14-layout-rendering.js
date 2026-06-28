@@ -152,14 +152,26 @@
     return kind === "untiled" ? ((project && project.untiledColor) || "#8a8f98") : OPENING_COLOR;
   }
 
+  // Egy kivágás csoport-társainak indexei (a saját maga is beletartozik).
+  // Csoport nélküli kivágásnál csak önmaga. A csoportosítás (lásd Rétegek
+  // panel) tisztán szervezési/elnevezési egység — a geometria darabonként
+  // marad, de a vászon-interakció (kijelölés/kattintás) a teljes csoportra
+  // egyszerre vonatkozik.
+  function cutoutGroupIndices(ci) {
+    const c = state.cutouts[ci];
+    if (!c || !c.groupId) return ci >= 0 ? [ci] : [];
+    return state.cutouts.reduce((acc, cc, i) => { if (cc.groupId === c.groupId) acc.push(i); return acc; }, []);
+  }
+
   function drawCutouts() {
     cutoutLabelRects = [];
     const cuts = state.cutouts || [];
     if (!cuts.length && !pendingCutout) return;
     ctx.save();
+    const activeIndices = cutoutGroupIndices(selectedCutout);
     cuts.forEach((c, ci) => {
       const col = cutoutColor(c.kind);
-      const selected = ci === selectedCutout;
+      const selected = activeIndices.includes(ci);
       const a = worldToScreen({ x: c.x, y: c.y });
       const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
       const sw = b.x - a.x, sh = b.y - a.y;

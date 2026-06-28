@@ -21,12 +21,16 @@
   // átfedő kivágások ne "nyeljék el" egymás (vagy a felület) elől a kattintást.
   function activeCutoutAt(sx, sy) {
     if (selectedCutout < 0) return -1;
-    const c = state.cutouts[selectedCutout];
-    if (!c) return -1;
     const pad = 4;
-    const a = worldToScreen({ x: c.x, y: c.y });
-    const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
-    if (sx >= a.x - pad && sx <= b.x + pad && sy >= a.y - pad && sy <= b.y + pad) return selectedCutout;
+    // csoport esetén bármelyik darabja reagál — felülről lefelé (utolsó index a legfelül)
+    const indices = cutoutGroupIndices(selectedCutout);
+    for (let k = indices.length - 1; k >= 0; k--) {
+      const ci = indices[k];
+      const c = state.cutouts[ci];
+      const a = worldToScreen({ x: c.x, y: c.y });
+      const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
+      if (sx >= a.x - pad && sx <= b.x + pad && sy >= a.y - pad && sy <= b.y + pad) return ci;
+    }
     return -1;
   }
 
@@ -73,6 +77,7 @@
         const ci = activeCutoutAt(m.x, m.y);
         if (ci >= 0) {
           state.selected = null;
+          selectedCutout = ci; // csoporton belül a konkrétan megfogott darab legyen a referencia
           const c = state.cutouts[ci];
           const grab = screenToWorld(m.x, m.y);
           drag = { type: "cutoutMove", ci, ox: c.x, oy: c.y, gx: grab.x, gy: grab.y, moved: false };

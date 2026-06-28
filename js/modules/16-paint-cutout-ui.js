@@ -43,6 +43,13 @@
       head.className = "cutout-head";
       const sw = document.createElement("span");
       sw.className = "swatch"; sw.style.background = cutoutColor(c.kind);
+      const nameInp = document.createElement("input");
+      nameInp.type = "text";
+      nameInp.className = "cutout-name";
+      nameInp.value = c.name || "";
+      nameInp.placeholder = layerDisplayName(c, idx);
+      nameInp.title = "Réteg neve (ugyanaz, mint a Rétegek panelben)";
+      nameInp.addEventListener("change", () => { c.name = nameInp.value.trim(); save(); renderLayersList(); });
       const kindSel = document.createElement("select");
       [["opening", "Nyílás"], ["untiled", "Nem burkolt"]].forEach(([v, l]) => {
         const o = document.createElement("option"); o.value = v; o.textContent = l; kindSel.appendChild(o);
@@ -57,7 +64,7 @@
       const del = document.createElement("button");
       del.className = "del"; del.textContent = "✕"; del.title = "Kivágás törlése";
       del.addEventListener("click", () => { state.cutouts.splice(idx, 1); afterGeometryChange(); });
-      head.append(sw, kindSel, fit, del);
+      head.append(sw, nameInp, kindSel, fit, del);
 
       const dims = document.createElement("div");
       dims.className = "cutout-dims";

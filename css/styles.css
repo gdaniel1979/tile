@@ -121,6 +121,12 @@ body {
 .layer-name:focus { outline: none; border-bottom: 1px solid var(--accent); }
 .layer-name-static { flex: 1 1 auto; font-size: 12px; color: var(--text); font-weight: 600; }
 .layers-list-sep { height: 1px; background: var(--border); margin: 2px 0; }
+.layer-checkbox { flex: 0 0 auto; cursor: pointer; }
+.layer-group-head { font-weight: 600; }
+.layer-caret { flex: 0 0 auto; width: 12px; text-align: center; font-size: 10px; color: var(--muted); cursor: pointer; }
+.layer-ungroup { flex: 0 0 auto; background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; }
+.layer-ungroup:hover { color: var(--danger); }
+.layers-group-bar { margin-top: 2px; }
 
 /* Mintázat-választó */
 .full-select {
@@ -450,8 +456,19 @@ input[type="color"] {
 }
 .cutout-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .cutout-head .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); flex: 0 0 auto; }
+.cutout-head .cutout-name {
+  flex: 1 1 auto; min-width: 40px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  outline: none;
+}
+.cutout-head .cutout-name:focus { border-color: var(--accent); }
 .cutout-head select {
-  flex: 1; min-width: 0;
+  flex: 0 0 88px; min-width: 0;
   background: var(--panel-2);
   border: 1px solid var(--border);
   color: var(--text);
