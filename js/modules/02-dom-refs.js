@@ -109,6 +109,7 @@
     addProject: document.getElementById("addProject"),
     wallHeight: document.getElementById("wallHeight"),
     genWalls: document.getElementById("genWalls"),
+    floorWallsPanel: document.getElementById("floorWallsPanel"),
     preWallPanel: document.getElementById("preWallPanel"),
     pwName: document.getElementById("pwName"),
     pwX: document.getElementById("pwX"),

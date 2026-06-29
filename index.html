@@ -125,7 +125,7 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="floorWallsPanel">
         <h2>Falak generálása</h2>
         <div class="control-row">
           <label for="wallHeight">Falmagasság</label>
@@ -641,7 +641,7 @@
         <p><strong>Kivágások</strong> (ajtó, ablak, nem burkolt sáv): válaszd a típust, kapcsold be a rajzolást, húzz egy téglalapot. Kijelölés után fogd meg és húzd át, vagy Delete-tel törld. A ⤧ gomb automatikusan beilleszti, ha lelóg a felületről.</p>
 
         <h3>2. Falak és lépcső generálása</h3>
-        <p>Az aktív padló minden éléhez egy fal-felület készül (szélesség = élhossz, megadott magassággal) — csak zárt padló-alaprajzra.</p>
+        <p>Az aktív padló minden éléhez egy fal-felület készül (szélesség = élhossz, megadott magassággal) — csak zárt padló-alaprajzra. A „Falak generálása” panel a már generált (padlóból származó) fal-felületeken nem jelenik meg, mert ott újra-generálásnak nincs értelme.</p>
         <p><strong>Előtétfal:</strong> az aktív fal-felületen egy „nem-burkolt” kivágást és négy gyermek-felületet (eleje, bal oldal, jobb oldal, teteje) hoz létre, külön burkolhatók.</p>
         <p><strong>Lépcső:</strong> minden fokhoz egy homloklap és egy lépőlap készül, közös csoportba rendezve.</p>
 
@@ -656,6 +656,7 @@
 
         <h3>6. Rétegek panel és projekt-fa</h3>
         <p>Kattints egy rétegre — csak az lesz szerkeszthető a vásznon, amíg másikra nem váltasz. Átnevezheted a kivágásokat, és 2+ kivágást egy csoportba jelölhetsz a kis négyzetekkel.</p>
+        <p><strong>Projektek beolvasztása:</strong> a projekt-fában egy nem-aktív projekt sorának <strong>⇒</strong> gombjával az egész projekt (összes felületével) beolvasztható az éppen aktív projektbe, mint egy 🏠 helyiség-csoport (a forrás-projekt neve lesz a helyiség neve, maga a projekt ezután törlődik). Hasznos, ha több helyiséget eredetileg külön projektként kezdtél, de egyetlen felújítás-projektbe szeretnéd összefogni őket. A 🏠 sor ✎ gombjával a helyiség neve utólag átírható; a vászon fejlécében is megjelenik ("Projekt — Helyiség — Felület").</p>
 
         <h3>7. Export és mentés</h3>
         <p>PNG az aktív felületet menti, PDF az egész projektet (felületenként egy szakasz + összesítő). Fájlba menthető egy projekt vagy a teljes tár (biztonsági mentés). <strong>Csatolt fájl (élő mentés):</strong> a 💾 gombbal vagy Ctrl+S-sel közvetlenül felülírható a csatolt JSON — csak HTTPS vagy localhost alatt, Chrome/Edge böngészőben működik.</p>
