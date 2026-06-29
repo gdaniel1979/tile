@@ -268,12 +268,28 @@
     else canvas.style.cursor = "crosshair";
   });
 
-  // Dupla kattintás egy pontra: törlés
+  // Dupla kattintás egy pontra: törlés; egy élre: új töréspont beszúrása
   canvas.addEventListener("dblclick", (e) => {
     const m = getMouse(e);
     const vi = vertexAt(m.x, m.y);
-    if (vi >= 0) deleteVertex(vi);
+    if (vi >= 0) { deleteVertex(vi); return; }
+    const ei = edgeAt(m.x, m.y);
+    if (ei >= 0) insertVertexOnEdge(ei, m.x, m.y);
   });
+
+  // Új töréspont beszúrása a kattintott él legközelebbi pontján
+  function insertVertexOnEdge(ei, sx, sy) {
+    const [a, b] = edgeEndpoints(ei);
+    const A = worldToScreen(a), B = worldToScreen(b);
+    const vx = B.x - A.x, vy = B.y - A.y;
+    const len2 = vx * vx + vy * vy;
+    let t = len2 > 0 ? ((sx - A.x) * vx + (sy - A.y) * vy) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    const wp = { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+    state.points.splice(ei + 1, 0, wp);
+    state.selected = ei + 1;
+    afterGeometryChange();
+  }
 
   // Delete: kijelölt kivágás vagy csúcs törlése; Ctrl+Z/Y: undo/redo
   window.addEventListener("keydown", (e) => {

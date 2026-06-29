@@ -17,6 +17,7 @@
         <button class="title-btn" id="histUndo" title="Visszavonás (Ctrl+Z)" aria-label="Visszavonás" disabled>↶</button>
         <button class="title-btn" id="histRedo" title="Újra (Ctrl+Y)" aria-label="Újra" disabled>↷</button>
         <button class="title-btn" id="saveLinkedBtn" title="Mentés a csatolt JSON-fájlba (Export fülön csatolható)" aria-label="Mentés" disabled>💾</button>
+        <button class="title-btn" id="helpBtn" title="Súgó" aria-label="Súgó">?</button>
       </div>
 
       <div class="proj-tree-wrap">
@@ -624,6 +625,48 @@
     <div id="printInfo"></div>
   </div>
 
+  <!-- Súgó modal -->
+  <div class="modal-overlay" id="helpModal" hidden>
+    <div class="modal-content">
+      <div class="modal-head">
+        <h2>Súgó</h2>
+        <button class="title-btn" id="helpCloseBtn" aria-label="Bezárás">×</button>
+      </div>
+      <div class="modal-body">
+
+        <h3>1. Alaprajz és szerkesztés</h3>
+        <p>Kattints a vászonra a sarokpontok lehelyezéséhez. A kör alakú kezdőpontra kattintva zárhatod a sokszöget. A rajzon megjelenő élhossz-feliratra kattintva közvetlenül átírhatod az adott él hosszát.</p>
+        <p><strong>Pont húzása:</strong> áthelyezés. <strong>Él húzása:</strong> az egész él eltolása. <strong>Dupla kattintás egy pontra</strong> vagy <strong>Delete</strong>: a kijelölt pont törlése. <strong>Dupla kattintás egy él közepébe:</strong> új töréspont beszúrása pontosan a kattintás helyén — ezzel egy egyenes oldalból trapéz alakú szakaszt hozhatsz létre (pl. zuhanyzó lejtés a falon), a két új szakasz hossza egymástól függetlenül állítható az Élek listában.</p>
+        <p>A rajzoló segédrács lépésköze: a sarokpontok, élek és kivágások ehhez „pattannak”. Nincs köze a lapmérethez (a lapkiosztás rácsát a lapméret + fuga adja).</p>
+        <p><strong>Kivágások</strong> (ajtó, ablak, nem burkolt sáv): válaszd a típust, kapcsold be a rajzolást, húzz egy téglalapot. Kijelölés után fogd meg és húzd át, vagy Delete-tel törld. A ⤧ gomb automatikusan beilleszti, ha lelóg a felületről.</p>
+
+        <h3>2. Falak és lépcső generálása</h3>
+        <p>Az aktív padló minden éléhez egy fal-felület készül (szélesség = élhossz, megadott magassággal) — csak zárt padló-alaprajzra.</p>
+        <p><strong>Előtétfal:</strong> az aktív fal-felületen egy „nem-burkolt” kivágást és négy gyermek-felületet (eleje, bal oldal, jobb oldal, teteje) hoz létre, külön burkolhatók.</p>
+        <p><strong>Lépcső:</strong> minden fokhoz egy homloklap és egy lépőlap készül, közös csoportba rendezve.</p>
+
+        <h3>3. Burkolat (laptípusok, fuga)</h3>
+        <p>Az „alap” laptípus mérete határozza meg a kiosztás rácsát. A többi típust egyedi lapokhoz (festés mód) használhatod. A fuga szélessége és színe itt állítható.</p>
+
+        <h3>4. Kiosztás (mintázat, rács, festés mód)</h3>
+        <p>Mintázat: egyenes, eltolt (téglakötés), 45°-os, halszálka. <strong>Szél-igazítás</strong> automatikusan elkerüli a túl keskeny szélső csíkokat; kézi <strong>Rács eltolása</strong> ilyenkor letiltva. <strong>Egyedi lapok:</strong> festés mód bekapcsolása után kattintással vagy húzással cserélheted le lapról lapra a típust.</p>
+
+        <h3>5. Anyagszükséglet és költség</h3>
+        <p>Laptípusonkénti és projekt-szintű összesítés: burkolat, ragasztó, fuga, szilikon, élvédő profil. A szilicon a negatív sarkokba kerül (padló-fal, fal-fal találkozás); az élvédő a burkolat szegélyén jelölhető (Élek lista jelölőnégyzetei). A Költség fülön egységárak adhatók meg.</p>
+
+        <h3>6. Rétegek panel és projekt-fa</h3>
+        <p>Kattints egy rétegre — csak az lesz szerkeszthető a vásznon, amíg másikra nem váltasz. Átnevezheted a kivágásokat, és 2+ kivágást egy csoportba jelölhetsz a kis négyzetekkel.</p>
+
+        <h3>7. Export és mentés</h3>
+        <p>PNG az aktív felületet menti, PDF az egész projektet (felületenként egy szakasz + összesítő). Fájlba menthető egy projekt vagy a teljes tár (biztonsági mentés). <strong>Csatolt fájl (élő mentés):</strong> a 💾 gombbal vagy Ctrl+S-sel közvetlenül felülírható a csatolt JSON — csak HTTPS vagy localhost alatt, Chrome/Edge böngészőben működik.</p>
+
+        <h3>8. Vászon-vezérlés</h3>
+        <p>Görgő: nagyítás/kicsinyítés. Jobb gomb + húzás: nézet mozgatása. ⛶ gomb: nézet igazítása az alaprajzhoz. Ctrl+Z / Ctrl+Y: visszavonás / újra. 2D/3D gomb: nézet váltása.</p>
+
+      </div>
+    </div>
+  </div>
+
   <script src="js/modules/01-state.js"></script>
   <script src="js/modules/02-dom-refs.js"></script>
   <script src="js/modules/03-coords-units.js"></script>
@@ -657,5 +700,6 @@
   <script src="js/modules/31-view3d.js"></script>
   <script src="js/modules/32-layers-panel.js"></script>
   <script src="js/modules/33-init.js"></script>
+  <script src="js/modules/34-help-modal.js"></script>
 </body>
 </html>
