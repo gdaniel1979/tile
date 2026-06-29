@@ -251,6 +251,12 @@ body {
 .tree-proj .caret { width: 14px; color: var(--muted); font-size: 10px; flex: 0 0 auto; cursor: pointer; text-align: center; }
 .tree-proj .caret:hover { color: var(--text); }
 
+.tree-room { padding-left: 22px; font-weight: 600; }
+.tree-room .caret { width: 12px; color: var(--muted); font-size: 10px; flex: 0 0 auto; cursor: pointer; text-align: center; }
+.tree-room .caret:hover { color: var(--text); }
+.tree-room .micon { flex: 0 0 auto; color: var(--accent-warm); font-size: 11px; }
+.tree-room .tree-name { color: var(--muted); }
+
 .tree-surf { padding-left: 22px; font-weight: 400; }
 .tree-surf.active .tree-name { color: var(--accent); font-weight: 600; }
 .tree-surf .micon { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
@@ -770,6 +776,7 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.5; }
 .canvas-title-text:empty { display: none; }
 .canvas-title-text .sep { color: var(--muted); margin: 0 6px; font-weight: 400; }
 .canvas-title-text .surf { color: var(--accent-warm); }
+.canvas-title-text .room { color: var(--accent); }
 .view-toggle {
   display: flex;
   flex: 0 0 auto;

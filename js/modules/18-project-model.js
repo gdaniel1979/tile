@@ -59,6 +59,7 @@
       groupKind: d.groupKind || null,         // "preWall" | "stairs"
       groupLabel: d.groupLabel || null,       // ember-olvasható csoport-felirat
       parentSurfaceId: d.parentSurfaceId || null,  // szülő-felület (pl. fal, amire az előtétfal kerül)
+      roomName: typeof d.roomName === "string" ? d.roomName : "",  // helyiség-csoport neve a projekt-fában (üres = nincs csoport)
       layout: normLayout(d.layout),
       fromFloorId: d.fromFloorId || null,
       fromEdgeIndex: typeof d.fromEdgeIndex === "number" ? d.fromEdgeIndex : null,
