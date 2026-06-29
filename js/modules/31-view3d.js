@@ -65,6 +65,12 @@
   // a többi (nem generált) fal-felület egy sorban, a padló mellett.
   function collect3DPlacements() {
     const surfaces = project.surfaces;
+    // Csak az aktív felület helyiség-csoportját (roomName) mutatjuk — ha több
+    // korábbi projekt van egybe-olvasztva, ne keveredjen egy 3D jelenetbe
+    // több helyiség padlója/fala.
+    const activeSurf = surfaces[project.activeIndex];
+    const activeRoom = (activeSurf && activeSurf.roomName) || "";
+    const inActiveRoom = (s) => (s.roomName || "") === activeRoom;
     const placements = [];
     const placedByIdx = new Map();
     function addPlacement(idx, P0, Ex, Ey, extra) {
@@ -85,7 +91,7 @@
     // 1) Padlók (zárt, nem gyermek-felület) - egymás mellé igazítva
     const floorOriginById = new Map();
     surfaces.forEach((s, idx) => {
-      if (s.mode !== "floor" || !s.closed || s.points.length < 3 || s.parentSurfaceId) return;
+      if (s.mode !== "floor" || !s.closed || s.points.length < 3 || s.parentSurfaceId || !inActiveRoom(s)) return;
       let minX = Infinity, maxX = -Infinity;
       s.points.forEach((p) => { if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x; });
       const ox = rowX - minX, oy = 0;
@@ -96,7 +102,7 @@
 
     // 2) Padlóból generált falak - a forrás-él felett, függőlegesen
     surfaces.forEach((w, idx) => {
-      if (w.mode !== "wall" || !w.fromFloorId || typeof w.fromEdgeIndex !== "number") return;
+      if (w.mode !== "wall" || !w.fromFloorId || typeof w.fromEdgeIndex !== "number" || !inActiveRoom(w)) return;
       const floor = surfaces.find((f) => f.id === w.fromFloorId);
       const origin = floor && floorOriginById.get(floor.id);
       if (!floor || !origin) return;
@@ -119,7 +125,7 @@
 
     // 3) Előtétfal-csoportok: a szülő fal-placement + a kivágás-koordináták alapján
     surfaces.forEach((s, idx) => {
-      if (s.groupKind !== "preWall" || !s.parentSurfaceId || !s.groupId) return;
+      if (s.groupKind !== "preWall" || !s.parentSurfaceId || !s.groupId || !inActiveRoom(s)) return;
       const parentIdx = surfaces.findIndex((x) => x.id === s.parentSurfaceId);
       const parentSurf = surfaces[parentIdx];
       const parentPl = placedByIdx.get(parentIdx);
@@ -154,7 +160,7 @@
     // 4) Lépcső-csoportok: önállóan, lépcsőzetesen egy sorban
     const stairGroups = new Map();
     surfaces.forEach((s) => {
-      if (s.groupKind === "stairs" && s.groupId) {
+      if (s.groupKind === "stairs" && s.groupId && inActiveRoom(s)) {
         if (!stairGroups.has(s.groupId)) stairGroups.set(s.groupId, []);
         stairGroups.get(s.groupId).push(s);
       }
@@ -178,7 +184,7 @@
 
     // 5) Egyéb, önálló (nem generált) fal-felületek - egy sorban felállítva
     surfaces.forEach((s, idx) => {
-      if (s.mode !== "wall" || s.fromFloorId || s.groupKind || placedByIdx.has(idx)) return;
+      if (s.mode !== "wall" || s.fromFloorId || s.groupKind || placedByIdx.has(idx) || !inActiveRoom(s)) return;
       if (!s.closed || s.points.length < 3) return;
       let width = 0, height = 0;
       s.points.forEach((p) => { if (p.x > width) width = p.x; if (p.y > height) height = p.y; });

@@ -10,6 +10,9 @@
     checkWallSync();
     fitView();
     save();
+    // Ha 3D nézetben vagyunk, felület/projekt-váltásnál is frissítsen
+    // (különben a régi helyiség jelenete marad látható).
+    if (el.board3d && el.board3d.style.display !== "none") render3D();
   }
 
   // A vászon-fejléc frissítése: "Projekt — Felület"
@@ -204,7 +207,12 @@
           const rn = document.createElement("span");
           rn.className = "tree-name"; rn.textContent = roomName;
           rrow.append(rCaret, ric, rn);
-          rrow.addEventListener("click", (e) => { if (e.target.closest(".tree-btn")) return; toggleRoomExpanded(roomKey); });
+          rrow.addEventListener("click", (e) => {
+            if (e.target.closest(".tree-btn") || e.target === rCaret) return;
+            if (!rOpen) expandedRooms.add(roomKey);
+            if (!isActive) switchProject(p.id);
+            switchSurface(group[0].i);
+          });
           const re = treeBtn("✎", "", "Helyiség átnevezése");
           re.addEventListener("click", (e) => { e.stopPropagation(); if (!isActive) switchProject(p.id); renameRoomFn(p.id, roomName); });
           rrow.appendChild(re);
