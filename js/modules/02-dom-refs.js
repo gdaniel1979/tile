@@ -141,6 +141,7 @@
     canvasHelp3d: document.getElementById("canvasHelp3d"),
     viewToggle: document.getElementById("viewToggle"),
     view3dResetBtn: document.getElementById("view3dResetBtn"),
+    compass3d: document.getElementById("compass3d"),
     activeTabTitle: document.getElementById("activeTabTitle"),
     sidebarResizer: document.getElementById("sidebarResizer"),
     sidebar: document.querySelector(".sidebar"),

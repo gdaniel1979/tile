@@ -14,9 +14,7 @@
 
   function dot3(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 
-  function defaultBasis3D() {
-    // az = -0.6, el = 0.5 (a korábbi alapértelmezett nézőpont)
-    const az = -0.6, elev = 0.5;
+  function basisFromAzEl(az, elev) {
     const ca = Math.cos(az), sa = Math.sin(az), cz = Math.cos(elev), sz = Math.sin(elev);
     return {
       D: { x: cz * ca, y: cz * sa, z: sz },
@@ -24,6 +22,9 @@
       U: { x: -sz * ca, y: -sz * sa, z: cz },
     };
   }
+
+  // az = -0.6, el = 0.5 (a korábbi alapértelmezett nézőpont)
+  function defaultBasis3D() { return basisFromAzEl(-0.6, 0.5); }
 
   // Vektor forgatása tetszőleges (egység-)tengely körül (Rodrigues-képlet).
   function rotAxis(v, axis, ang) {
@@ -332,7 +333,7 @@
       if (drag3d.pan) {
         cam3d.panX += dx; cam3d.panY += dy;
       } else {
-        rotateBasis3D(dx * 0.006, dy * 0.006);
+        rotateBasis3D(-dx * 0.006, -dy * 0.006);
       }
       render3D();
     });
@@ -353,6 +354,20 @@
         render3D();
       });
     }
+    // Iránytű-gombok: nézet beállítása égtáj szerint (enyhén felülről),
+    // középső gomb: felülnézet. Észak = az alaprajz teteje.
+    if (el.compass3d) {
+      el.compass3d.addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        let az, elev;
+        if (b.dataset.top) { az = -Math.PI / 2; elev = Math.PI / 2 - 0.02; }
+        else { az = parseFloat(b.dataset.az) * Math.PI / 180; elev = 0.45; }
+        cam3d.basis = basisFromAzEl(az, elev);
+        cam3d.panX = 0; cam3d.panY = 0;
+        render3D();
+      });
+    }
     // 2D/3D váltó a vászon cím-sorában — független a bal oldali füektől:
     // bármelyik fülön lehetünk, a vászon külön dönthet 2D/3D nézet között.
     if (el.viewToggle) {
@@ -367,6 +382,7 @@
         if (el.canvasHelp2d) el.canvasHelp2d.style.display = is3d ? "none" : "flex";
         if (el.canvasHelp3d) el.canvasHelp3d.style.display = is3d ? "flex" : "none";
         if (el.view3dResetBtn) el.view3dResetBtn.style.display = is3d ? "inline-flex" : "none";
+        if (el.compass3d) el.compass3d.hidden = !is3d;
         if (is3d) { resize3DCanvas(); render3D(); }
       });
     }

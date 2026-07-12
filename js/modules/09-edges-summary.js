@@ -47,7 +47,7 @@
           afterGeometryChange();
         });
         const edgLabel = document.createElement("span");
-        edgLabel.textContent = "Élvédő profil ezen az élen";
+        edgLabel.textContent = "Élvédő ezen az élen";
         edgField.append(edgCheck, edgLabel);
         item.appendChild(edgField);
       }

@@ -591,6 +591,17 @@
           <button class="btn" id="wallWarnHide">Elrejtés</button>
         </span>
       </div>
+      <div class="compass3d" id="compass3d" hidden>
+        <button data-az="-135" title="Északnyugat felől">ÉNY</button>
+        <button data-az="-90" title="Észak felől">É</button>
+        <button data-az="-45" title="Északkelet felől">ÉK</button>
+        <button data-az="180" title="Nyugat felől">NY</button>
+        <button data-top="1" title="Felülnézet">⬒</button>
+        <button data-az="0" title="Kelet felől">K</button>
+        <button data-az="135" title="Délnyugat felől">DNY</button>
+        <button data-az="90" title="Dél felől">D</button>
+        <button data-az="45" title="Délkelet felől">DK</button>
+      </div>
       <canvas id="board"></canvas>
       <canvas id="board3d" hidden></canvas>
       <div class="canvas-help" id="canvasHelp2d">
@@ -664,7 +675,7 @@
 
         <h3>8. Vászon-vezérlés</h3>
         <p>Görgő: nagyítás/kicsinyítés. Jobb gomb + húzás: nézet mozgatása. ⛶ gomb: nézet igazítása az alaprajzhoz. Ctrl+Z / Ctrl+Y: visszavonás / újra. 2D/3D gomb: nézet váltása.</p>
-        <p><strong>3D nézet:</strong> mindig az aktív felület helyiségét mutatja (helyiség- vagy felület-váltásnál automatikusan frissül). Húzással a jelenet szabadon, bármilyen irányba és szögbe forgatható; jobb gombbal vagy Shift + húzással eltolható; görgővel nagyítható. A ⛶ gomb visszaállítja az alapértelmezett nézőpontot.</p>
+        <p><strong>3D nézet:</strong> mindig az aktív felület helyiségét mutatja (helyiség- vagy felület-váltásnál automatikusan frissül). Húzással a jelenet szabadon, bármilyen irányba és szögbe forgatható; jobb gombbal vagy Shift + húzással eltolható; görgővel nagyítható. A ⛶ gomb visszaállítja az alapértelmezett nézőpontot. A jobb felső sarokban lévő iránytű-gombokkal (É, ÉK, K, DK, D, DNY, NY, ÉNY) a nézet egy kattintással a választott égtáj felőli nézőpontba fordul; a középső ⬒ gomb felülnézetet ad. Észak = az alaprajz teteje.</p>
 
       </div>
     </div>
