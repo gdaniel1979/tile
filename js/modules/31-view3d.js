@@ -9,17 +9,50 @@
   let textures3D = null;     // [{ idx, P0, Ex, Ey, tex:{canvas,wmm,hmm,pxPerMm} }]
   let scene3DCenter = { x: 0, y: 0, z: 0 };
   let scene3DRadius = 1;
-  let cam3d = { az: -0.6, el: 0.5, zoom: 1, panX: 0, panY: 0 };
+  let cam3d = { basis: defaultBasis3D(), zoom: 1, panX: 0, panY: 0 };
   let drag3d = null;
 
   function dot3(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 
-  function camBasis3D(az, elev) {
+  function defaultBasis3D() {
+    // az = -0.6, el = 0.5 (a korábbi alapértelmezett nézőpont)
+    const az = -0.6, elev = 0.5;
     const ca = Math.cos(az), sa = Math.sin(az), cz = Math.cos(elev), sz = Math.sin(elev);
-    const D = { x: cz * ca, y: cz * sa, z: sz };
-    const R = { x: -sa, y: ca, z: 0 };
-    const U = { x: -sz * ca, y: -sz * sa, z: cz };
-    return { D, R, U };
+    return {
+      D: { x: cz * ca, y: cz * sa, z: sz },
+      R: { x: -sa, y: ca, z: 0 },
+      U: { x: -sz * ca, y: -sz * sa, z: cz },
+    };
+  }
+
+  // Vektor forgatása tetszőleges (egység-)tengely körül (Rodrigues-képlet).
+  function rotAxis(v, axis, ang) {
+    const c = Math.cos(ang), s = Math.sin(ang);
+    const d = dot3(axis, v) * (1 - c);
+    return {
+      x: v.x * c + (axis.y * v.z - axis.z * v.y) * s + axis.x * d,
+      y: v.y * c + (axis.z * v.x - axis.x * v.z) * s + axis.y * d,
+      z: v.z * c + (axis.x * v.y - axis.y * v.x) * s + axis.z * d,
+    };
+  }
+
+  function norm3(v) {
+    const l = Math.hypot(v.x, v.y, v.z) || 1;
+    return { x: v.x / l, y: v.y / l, z: v.z / l };
+  }
+
+  // Trackball-forgatás: vízszintes húzás a képernyő "fel" tengelye körül,
+  // függőleges húzás a képernyő "jobbra" tengelye körül forgat — így a
+  // jelenet bármilyen irányba és szögbe átforgatható, nincs dőlés-korlát.
+  function rotateBasis3D(dxAng, dyAng) {
+    let { D, R, U } = cam3d.basis;
+    if (dxAng) { D = rotAxis(D, U, dxAng); R = rotAxis(R, U, dxAng); }
+    if (dyAng) { D = rotAxis(D, R, dyAng); U = rotAxis(U, R, dyAng); }
+    // Numerikus drift ellen: újra-ortogonalizálás
+    D = norm3(D);
+    R = norm3({ x: R.x - D.x * dot3(R, D), y: R.y - D.y * dot3(R, D), z: R.z - D.z * dot3(R, D) });
+    U = { x: D.y * R.z - D.z * R.y, y: D.z * R.x - D.x * R.z, z: D.x * R.y - D.y * R.x };
+    cam3d.basis = { D, R, U };
   }
 
   // Egy felület textúrája offscreen vászonra (transparens háttér, csak a
@@ -56,7 +89,7 @@
     ctx = savedCtx;
     state.view = savedView;
     suppressHistory = wasSuppress; inDrag = wasInDrag;
-    return { canvas: off, wmm, hmm, pxPerMm };
+    return { canvas: off, wmm, hmm, pxPerMm, minX, minY };
   }
 
   // Minden felület térbeli elhelyezése. Padló + a belőle generált falak a
@@ -201,7 +234,16 @@
     const placements = collect3DPlacements();
     textures3D = placements.map((pl) => {
       const tex = buildSurfaceTexture(pl.idx);
-      return tex ? Object.assign({ tex }, pl) : null;
+      if (!tex) return null;
+      // A textúra a felület bbox-ának bal-felső sarkától (minX,minY) indul,
+      // a placement viszont a lokális (0,0)-ra vonatkozik — eltoljuk a P0-t,
+      // különben a bbox-eltolásnyival csúszna el a felület (pl. fal a padlóhoz képest).
+      const P0 = {
+        x: pl.P0.x + pl.Ex.x * tex.minX + pl.Ey.x * tex.minY,
+        y: pl.P0.y + pl.Ex.y * tex.minX + pl.Ey.y * tex.minY,
+        z: pl.P0.z + pl.Ex.z * tex.minX + pl.Ey.z * tex.minY,
+      };
+      return Object.assign({}, pl, { tex, P0 });
     }).filter(Boolean);
 
     let cx = 0, cy = 0, cz = 0, cnt = 0;
@@ -246,7 +288,7 @@
       c3.fillText("Nincs megjeleníthető felület (rajzolj egy zárt padlót).", 20, 30);
       return;
     }
-    const { D, R, U } = camBasis3D(cam3d.az, cam3d.el);
+    const { D, R, U } = cam3d.basis;
     const scale = (Math.min(w, h) * 0.42 / scene3DRadius) * cam3d.zoom;
     const cx = w / 2 + cam3d.panX, cy = h / 2 + cam3d.panY;
 
@@ -279,14 +321,19 @@
   function init3DUI() {
     if (!el.board3d) return;
     el.board3d.addEventListener("mousedown", (e) => {
-      drag3d = { x: e.clientX, y: e.clientY, az0: cam3d.az, el0: cam3d.el };
+      drag3d = { x: e.clientX, y: e.clientY, pan: e.button === 2 || e.shiftKey };
       el.board3d.classList.add("dragging");
     });
+    el.board3d.addEventListener("contextmenu", (e) => e.preventDefault());
     window.addEventListener("mousemove", (e) => {
       if (!drag3d) return;
       const dx = e.clientX - drag3d.x, dy = e.clientY - drag3d.y;
-      cam3d.az = drag3d.az0 + dx * 0.006;
-      cam3d.el = Math.max(-1.45, Math.min(1.45, drag3d.el0 - dy * 0.006));
+      drag3d.x = e.clientX; drag3d.y = e.clientY;
+      if (drag3d.pan) {
+        cam3d.panX += dx; cam3d.panY += dy;
+      } else {
+        rotateBasis3D(dx * 0.006, dy * 0.006);
+      }
       render3D();
     });
     window.addEventListener("mouseup", () => {
@@ -302,7 +349,7 @@
     }, { passive: false });
     if (el.view3dResetBtn) {
       el.view3dResetBtn.addEventListener("click", () => {
-        cam3d = { az: -0.6, el: 0.5, zoom: 1, panX: 0, panY: 0 };
+        cam3d = { basis: defaultBasis3D(), zoom: 1, panX: 0, panY: 0 };
         render3D();
       });
     }
