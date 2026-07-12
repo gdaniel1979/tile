@@ -41,13 +41,13 @@
 
     ctx = savedCtx; state.view = savedView;
     render(); // a képernyő helyreállítása
-    return url;
+    return { url, w: outW, h: outH };
   }
 
   function exportPNG() {
-    const url = buildPlanImage(2000);
-    if (!url) { alert("Előbb rajzolj egy (zárt) alaprajzot."); return; }
-    triggerDownload("lapkiosztas.png", url);
+    const img = buildPlanImage(2000);
+    if (!img) { alert("Előbb rajzolj egy (zárt) alaprajzot."); return; }
+    triggerDownload("lapkiosztas.png", img.url);
   }
 
   function materialNumbers() {
@@ -227,18 +227,28 @@
     }
 
     sections.forEach((sec) => {
+      html += '<div class="pa-section">';
       html += `<h2>${escapeHtml(sec.name)} (${sec.mode === "floor" ? "padló" : "fal"})</h2>`;
-      if (sec.img) html += `<img src="${sec.img}" style="max-width:100%;border:1px solid #999" />`;
-      html += '<div class="pa-grid"><div class="pa-col"><table>';
+      // Ha a kép szélesség szerint teljes szélességre nyújtva még kényelmesen
+      // elfér a táblázatoknak hely az oldal alján, akkor egymás alatt (teljes
+      // szélesség); ha a kép magas/keskeny és kitöltené a teljes oldalmagasságot,
+      // akkor a táblázatok a kép mellé, jobbra kerülnek.
+      const PAGE_W_MM = 180, PAGE_H_MM = 250, TABLES_MIN_H_MM = 90;
+      let sideLayout = false;
+      if (sec.img && sec.img.w && sec.img.h) {
+        const widthScaledHeight = PAGE_W_MM * (sec.img.h / sec.img.w);
+        sideLayout = widthScaledHeight > (PAGE_H_MM - TABLES_MIN_H_MM);
+      }
+      html += '<div class="pa-body ' + (sideLayout ? "pa-body-side" : "pa-body-stack") + '">';
+      if (sec.img) html += `<img src="${sec.img.url}" />`;
+      html += '<div class="pa-tables"><div class="pa-grid"><div class="pa-col"><table>';
       if (sec.m) {
         html += row("Egész lap", sec.m.whole + " db");
         html += row("Vágott hely", sec.m.cut + " db");
         html += row("Szükséges lap (újrahaszn.)", sec.m.tilesNeeded + " db");
         html += row("Hulladék", sec.m.wastePct.toFixed(0) + " %");
         html += row("Lap tartalékkal (+" + sec.m.pct + "%)", sec.m.finalTiles + " db");
-        if (sec.m.groutKg != null) {
-          html += row("Fuga", sec.m.groutKg.toFixed(2) + " kg");
-        }
+        if (sec.m.groutKg != null) html += row("Fuga", sec.m.groutKg.toFixed(2) + " kg");
       } else {
         html += row("Kiosztás", "nincs");
       }
@@ -250,7 +260,9 @@
       } else {
         html += "<p>—</p>";
       }
-      html += "</div></div>";
+      html += '</div></div></div>'; // pa-col, pa-grid, pa-tables vége
+      html += '</div>'; // pa-body vége
+      html += '</div>'; // pa-section vége
     });
     el.printInfo.innerHTML = html;
   }

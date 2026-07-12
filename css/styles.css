@@ -444,12 +444,23 @@ input[type="color"] {
   .app-header, .app-main { display: none !important; }
   #printArea { display: block; padding: 10px 16px; color: #000; font-family: system-ui, sans-serif; }
   #printArea h1 { font-size: 18px; margin: 0 0 12px; }
-  #printArea h2 { font-size: 14px; margin: 16px 0 6px; }
-  #printArea img { max-width: 100%; height: auto; border: 1px solid #999; }
+  #printArea h2 { font-size: 14px; margin: 0 0 8px; }
   #printArea table { border-collapse: collapse; width: 100%; font-size: 12px; }
   #printArea th, #printArea td { border: 1px solid #bbb; padding: 4px 8px; text-align: left; }
-  #printArea .pa-grid { display: flex; gap: 32px; flex-wrap: wrap; }
-  #printArea .pa-col { flex: 1; min-width: 240px; }
+  #printArea .pa-section { page-break-before: always; }
+  #printArea .pa-body img { border: 1px solid #999; display: block; }
+  #printArea .pa-tables { min-width: 0; }
+  #printArea .pa-grid { display: flex; flex-direction: column; gap: 16px; }
+  /* Keskeny/magas kép: táblázatok mellé, jobbra */
+  #printArea .pa-body-side { display: flex; flex-direction: row; gap: 24px; align-items: flex-start; }
+  #printArea .pa-body-side img { max-height: 220mm; max-width: 65%; width: auto; height: auto; flex-shrink: 0; }
+  #printArea .pa-body-side .pa-tables { flex: 1; }
+  /* Széles kép: táblázatok alá, teljes szélességben */
+  #printArea .pa-body-stack { display: block; }
+  #printArea .pa-body-stack img { max-width: 100%; height: auto; margin-bottom: 12px; }
+  #printArea .pa-body-stack .pa-grid { flex-direction: row; gap: 32px; }
+  #printArea .pa-body-stack .pa-col { flex: 1; }
+  #printArea .pa-col { width: 100%; }
 }
 
 /* Kivágások lista */
