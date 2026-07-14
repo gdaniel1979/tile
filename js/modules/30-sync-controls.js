@@ -28,10 +28,15 @@
       const s = project.surfaces[project.activeIndex];
       el.preWallPanel.hidden = !(s && s.mode === "wall" && s.closed);
     }
-    // Falak generálása panel: generált gyermek-falon (fromFloorId) nincs értelme
+    // Falak generálása panel: generált gyermek-falon (fromFloorId) nincs
+    // értelme, és olyan padlón sem látszik, amiből már vannak generált falak
+    // (újrageneráláshoz a figyelmeztető sáv "Falak újragenerálása" gombja való).
     if (el.floorWallsPanel && project) {
       const s = project.surfaces[project.activeIndex];
-      el.floorWallsPanel.hidden = !!(s && s.mode === "wall" && s.fromFloorId);
+      const isGenWall = !!(s && s.mode === "wall" && s.fromFloorId);
+      const floorHasWalls = !!(s && s.mode === "floor" &&
+        project.surfaces.some((w) => w.fromFloorId === s.id));
+      el.floorWallsPanel.hidden = isGenWall || floorHasWalls;
     }
     document.querySelectorAll(".off-unit").forEach((s) => (s.textContent = state.unit));
     el.offX.value = fromMm(state.layout.offXmm).toFixed(state.unit === "cm" ? 1 : 0);
