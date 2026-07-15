@@ -92,6 +92,8 @@
     prEdging: document.getElementById("prEdging"),
     // 6. fázis
     saveLinkedBtn: document.getElementById("saveLinkedBtn"),
+    exportMenuBtn: document.getElementById("exportMenuBtn"),
+    exportMenu: document.getElementById("exportMenu"),
     linkJsonBtn: document.getElementById("linkJsonBtn"),
     unlinkJsonBtn: document.getElementById("unlinkJsonBtn"),
     linkedFileName: document.getElementById("linkedFileName"),

@@ -29,7 +29,7 @@
         saveFailed = true;
         setTimeout(() => alert(
           "A terv nem mentődött el (IndexedDB hiba): " + (e && e.message || e) + "\n\n" +
-          "Mentsd a projektet fájlba az Export fülön (Összes projekt mentése JSON)."
+          "Mentsd a projektet fájlba a cím-sori 💾 gomb menüjéből (Összes projekt mentése JSON)."
         ), 0);
       }
     });

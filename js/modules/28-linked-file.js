@@ -13,7 +13,7 @@
       if (el.unlinkJsonBtn) el.unlinkJsonBtn.hidden = false;
     } else {
       el.saveLinkedBtn.disabled = true;
-      el.saveLinkedBtn.title = "Mentés a csatolt JSON-fájlba (előbb csatolj egyet az Export fülön)";
+      el.saveLinkedBtn.title = "Mentés a csatolt JSON-fájlba (előbb csatolj egyet a „Tár megnyitása írhatóan…” gombbal)";
       if (el.linkedFileName) el.linkedFileName.textContent = "—";
       if (el.unlinkJsonBtn) el.unlinkJsonBtn.hidden = true;
     }
@@ -77,7 +77,7 @@
 
   async function saveToLinkedFile() {
     if (!linkedHandle) {
-      alert('Nincs csatolt fájl. Az Export fülön a „Tár megnyitása írhatóan…” gombbal csatolhatsz egyet.');
+      alert('Nincs csatolt fájl. A cím-sori 💾 gomb menüjében a „Tár megnyitása írhatóan…” gombbal csatolhatsz egyet.');
       return;
     }
     const ok = await ensureRWPermission(linkedHandle);
@@ -87,10 +87,15 @@
       const w = await linkedHandle.createWritable();
       await w.write(snap);
       await w.close();
-      // vizuális visszajelzés a gombon
+      // vizuális visszajelzés a gombokon (menü-gomb + panel-beli mentés gomb)
+      if (el.exportMenuBtn) {
+        el.exportMenuBtn.textContent = "✓";
+        setTimeout(() => { if (el.exportMenuBtn) el.exportMenuBtn.textContent = "💾"; }, 800);
+      }
       if (el.saveLinkedBtn) {
-        el.saveLinkedBtn.textContent = "✓";
-        setTimeout(() => { if (el.saveLinkedBtn) el.saveLinkedBtn.textContent = "💾"; }, 800);
+        const orig = el.saveLinkedBtn.textContent;
+        el.saveLinkedBtn.textContent = "✓ Mentve";
+        setTimeout(() => { if (el.saveLinkedBtn) el.saveLinkedBtn.textContent = orig; }, 800);
       }
     } catch (e) {
       alert("Mentés nem sikerült: " + (e && e.message || e));

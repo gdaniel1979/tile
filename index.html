@@ -16,9 +16,43 @@
         <button class="title-btn" id="fitBtn" title="Nézet igazítása az alaprajzhoz" aria-label="Nézet igazítása">⛶</button>
         <button class="title-btn" id="histUndo" title="Visszavonás (Ctrl+Z)" aria-label="Visszavonás" disabled>↶</button>
         <button class="title-btn" id="histRedo" title="Újra (Ctrl+Y)" aria-label="Újra" disabled>↷</button>
-        <button class="title-btn" id="saveLinkedBtn" title="Mentés a csatolt JSON-fájlba (Export fülön csatolható)" aria-label="Mentés" disabled>💾</button>
+        <button class="title-btn" id="exportMenuBtn" title="Mentés / Export" aria-label="Mentés / Export">💾</button>
         <button class="title-btn" id="helpBtn" title="Súgó" aria-label="Súgó">?</button>
       </div>
+
+      <!-- Mentés / Export lenyíló panel (a 💾 gomb nyitja) -->
+      <div class="export-menu" id="exportMenu" hidden>
+      <section class="panel">
+        <h2>Csatolt fájl (élő mentés)</h2>
+        <button class="btn btn-secondary full" id="saveLinkedBtn" disabled>💾 Mentés a csatolt fájlba (Ctrl+S)</button>
+        <div class="mat-row" style="margin-top:8px"><span>Csatolt fájl:</span> <strong id="linkedFileName">—</strong></div>
+        <button class="btn btn-ghost full" id="linkJsonBtn" style="margin-top:8px">Tár megnyitása írhatóan…</button>
+        <button class="btn btn-ghost full" id="unlinkJsonBtn" style="margin-top:8px" hidden>Csatolás megszüntetése</button>
+        <p class="hint">Válaszd ki a tár JSON-fájlját (pl. a OneDrive mappádból) — ezután a 💾 gombbal vagy <strong>Ctrl+S</strong>-sel közvetlenül felülírható. A csatolás reload után is megmarad.</p>
+        <p class="hint" id="fsaUnsupported" hidden style="color: var(--danger)">Az élő mentés nem érhető el ezen az URL-en. A funkció csak <strong>HTTPS</strong> vagy <strong>localhost</strong> kontextusban működik, és <strong>Chrome / Edge</strong> böngészőt igényel. Megoldás: <a href="https://gdaniel1979.github.io/tile/" target="_blank" rel="noopener">https://gdaniel1979.github.io/tile/</a>, vagy futtasd helyben (<code>http://localhost</code>).</p>
+      </section>
+      <section class="panel">
+        <h2>Projekt</h2>
+        <div class="control-row">
+          <label for="projName">Név</label>
+          <input type="text" id="projName" class="tile-name" value="Projekt" />
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Kép & PDF</h2>
+        <button class="btn btn-secondary full" id="exportPng">PNG (aktív felület)</button>
+        <button class="btn btn-ghost full" id="exportPdf" style="margin-top:8px">PDF / nyomtatás (egész projekt)</button>
+        <p class="hint">A PNG az aktív felületet menti. A PDF az egész projektet tartalmazza: felületenként egy szakasz + összesítő oldal. A böngésző nyomtatási ablakából menthető („Cél: Mentés PDF-ként").</p>
+      </section>
+      <section class="panel">
+        <h2>Mentés fájlba</h2>
+        <button class="btn btn-ghost full" id="saveProjJson">Aktív projekt mentése (JSON)</button>
+        <button class="btn btn-ghost full" id="saveStoreJson" style="margin-top:8px">Összes projekt mentése (JSON)</button>
+        <button class="btn btn-ghost full" id="loadJsonBtn" style="margin-top:8px">Betöltés (JSON)</button>
+        <input type="file" id="loadJsonInput" accept="application/json,.json" hidden />
+        <p class="hint">Egy projekt fájlja megosztáshoz/folytatáshoz; az „összes" egy teljes biztonsági mentés. Betöltéskor a program felismeri, hogy egy projektet (hozzáadja) vagy a teljes tárat (visszaállítja) töltöd be.</p>
+      </section>
+      </div><!-- /export-menu -->
 
       <div class="proj-tree-wrap">
         <div class="proj-tree-head">
@@ -30,13 +64,11 @@
 
       <div class="tabs-layout">
       <div class="tabs" id="tabs">
-        <button data-tab="plan" class="active" title="Alaprajz" aria-label="Alaprajz">✎</button>
-        <button data-tab="tiles" title="Burkolat" aria-label="Burkolat">▦</button>
-        <button data-tab="layout" title="Kiosztás" aria-label="Kiosztás">▣</button>
-        <button data-tab="material" title="Anyag" aria-label="Anyag">Σ</button>
-        <button data-tab="export" title="Export" aria-label="Export">↓</button>
+        <button data-tab="plan" class="active" title="Alaprajz"><span class="tab-ico">✎</span>Alaprajz</button>
+        <button data-tab="tiles" title="Burkolat"><span class="tab-ico">▦</span>Burkolat</button>
+        <button data-tab="layout" title="Kiosztás"><span class="tab-ico">▣</span>Kiosztás</button>
+        <button data-tab="material" title="Anyag"><span class="tab-ico">Σ</span>Anyag</button>
       </div>
-      <div class="active-tab-title" id="activeTabTitle">Alaprajz</div>
       <div class="tab-panels">
 
       <!-- ALAPRAJZ FÜL -->
@@ -535,39 +567,6 @@
       </section>
       </div><!-- /material -->
 
-      <!-- EXPORT FÜL -->
-      <div class="tab-panel" data-tabpanel="export" hidden>
-      <section class="panel">
-        <h2>Projekt</h2>
-        <div class="control-row">
-          <label for="projName">Név</label>
-          <input type="text" id="projName" class="tile-name" value="Projekt" />
-        </div>
-      </section>
-      <section class="panel">
-        <h2>Kép & PDF</h2>
-        <button class="btn btn-secondary full" id="exportPng">PNG (aktív felület)</button>
-        <button class="btn btn-ghost full" id="exportPdf" style="margin-top:8px">PDF / nyomtatás (egész projekt)</button>
-        <p class="hint">A PNG az aktív felületet menti. A PDF az egész projektet tartalmazza: felületenként egy szakasz + összesítő oldal. A böngésző nyomtatási ablakából menthető („Cél: Mentés PDF-ként").</p>
-      </section>
-      <section class="panel">
-        <h2>Mentés fájlba</h2>
-        <button class="btn btn-ghost full" id="saveProjJson">Aktív projekt mentése (JSON)</button>
-        <button class="btn btn-ghost full" id="saveStoreJson" style="margin-top:8px">Összes projekt mentése (JSON)</button>
-        <button class="btn btn-ghost full" id="loadJsonBtn" style="margin-top:8px">Betöltés (JSON)</button>
-        <input type="file" id="loadJsonInput" accept="application/json,.json" hidden />
-        <p class="hint">Egy projekt fájlja megosztáshoz/folytatáshoz; az „összes" egy teljes biztonsági mentés. Betöltéskor a program felismeri, hogy egy projektet (hozzáadja) vagy a teljes tárat (visszaállítja) töltöd be.</p>
-      </section>
-
-      <section class="panel">
-        <h2>Csatolt fájl (élő mentés)</h2>
-        <button class="btn btn-secondary full" id="linkJsonBtn">Tár megnyitása írhatóan…</button>
-        <div class="mat-row" style="margin-top:8px"><span>Csatolt fájl:</span> <strong id="linkedFileName">—</strong></div>
-        <button class="btn btn-ghost full" id="unlinkJsonBtn" style="margin-top:8px" hidden>Csatolás megszüntetése</button>
-        <p class="hint">Válaszd ki a tár JSON-fájlját (pl. a OneDrive mappádból). Ezután a cím-sori <strong>💾</strong> gombbal vagy <strong>Ctrl+S</strong>-sel közvetlenül felülírható ez a fájl — a OneDrive a saját kliensével automatikusan szinkronizálja a felhőbe. A csatolás reload után is megmarad (a böngésző egyszer engedélyt kér).</p>
-        <p class="hint" id="fsaUnsupported" hidden style="color: var(--danger)">Az élő mentés nem érhető el ezen az URL-en. A funkció csak <strong>HTTPS</strong> vagy <strong>localhost</strong> kontextusban működik, és <strong>Chrome / Edge</strong> böngészőt igényel. Sima HTTP-n (pl. IP-cím:port) a böngésző biztonsági okokból letiltja. Megoldás: nyisd meg az alkalmazást a <a href="https://gdaniel1979.github.io/tile/" target="_blank" rel="noopener">https://gdaniel1979.github.io/tile/</a> címen, vagy futtasd helyben (<code>http://localhost</code>).</p>
-      </section>
-      </div><!-- /export -->
       </div><!-- /tab-panels -->
       </div><!-- /tabs-layout -->
     </aside>
@@ -671,7 +670,7 @@
         <p><strong>Projektek beolvasztása:</strong> a projekt-fában egy nem-aktív projekt sorának <strong>⇒</strong> gombjával az egész projekt (összes felületével) beolvasztható az éppen aktív projektbe, mint egy 🏠 helyiség-csoport (a forrás-projekt neve lesz a helyiség neve, maga a projekt ezután törlődik). Hasznos, ha több helyiséget eredetileg külön projektként kezdtél, de egyetlen felújítás-projektbe szeretnéd összefogni őket. A 🏠 sor ✎ gombjával a helyiség neve utólag átírható; a vászon fejlécében is megjelenik ("Projekt — Helyiség — Felület").</p>
 
         <h3>7. Export és mentés</h3>
-        <p>PNG az aktív felületet menti, PDF az egész projektet (felületenként egy szakasz + összesítő). Fájlba menthető egy projekt vagy a teljes tár (biztonsági mentés). <strong>Csatolt fájl (élő mentés):</strong> a 💾 gombbal vagy Ctrl+S-sel közvetlenül felülírható a csatolt JSON — csak HTTPS vagy localhost alatt, Chrome/Edge böngészőben működik.</p>
+        <p>Minden mentés- és export-funkció a bal felső <strong>💾</strong> gomb lenyíló paneljében található (a korábbi Export fül megszűnt). PNG az aktív felületet menti, PDF az egész projektet (felületenként egy szakasz + összesítő). Fájlba menthető egy projekt vagy a teljes tár (biztonsági mentés). <strong>Csatolt fájl (élő mentés):</strong> a panel „Mentés a csatolt fájlba" gombjával vagy Ctrl+S-sel közvetlenül felülírható a csatolt JSON — csak HTTPS vagy localhost alatt, Chrome/Edge böngészőben működik. A panel ESC-cel vagy mellé-kattintással záródik.</p>
 
         <h3>8. Vászon-vezérlés</h3>
         <p>Görgő: nagyítás/kicsinyítés. Jobb gomb + húzás: nézet mozgatása. ⛶ gomb: nézet igazítása az alaprajzhoz. Ctrl+Z / Ctrl+Y: visszavonás / újra. 2D/3D gomb: nézet váltása.</p>

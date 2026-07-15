@@ -1,5 +1,21 @@
 "use strict";
   function initExportUI() {
+    // Mentés / Export lenyíló panel (cím-sori 💾 gomb)
+    if (el.exportMenuBtn && el.exportMenu) {
+      el.exportMenuBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        el.exportMenu.hidden = !el.exportMenu.hidden;
+      });
+      document.addEventListener("click", (e) => {
+        if (el.exportMenu.hidden) return;
+        if (!el.exportMenu.contains(e.target) && e.target !== el.exportMenuBtn) {
+          el.exportMenu.hidden = true;
+        }
+      });
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !el.exportMenu.hidden) el.exportMenu.hidden = true;
+      });
+    }
     el.exportPng.addEventListener("click", exportPNG);
     el.exportPdf.addEventListener("click", printPlan);
     el.saveProjJson.addEventListener("click", saveProjectJSON);

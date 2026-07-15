@@ -223,7 +223,7 @@
   // egy önálló cím-sor (#activeTabTitle) adja meg, a panel-tartalom felett.
   const TAB_LABELS = {
     plan: "Alaprajz", tiles: "Burkolat", layout: "Kiosztás",
-    material: "Anyag", export: "Export",
+    material: "Anyag",
   };
 
   function initTilesUI() {
