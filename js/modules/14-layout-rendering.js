@@ -16,9 +16,37 @@
   function rectsOverlap(c, x0, y0, x1, y1) {
     return !(x1 <= c.x || x0 >= c.x + c.w || y1 <= c.y || y0 >= c.y + c.h);
   }
+  // A kivágások uniója egymást nem fedő téglalap-cellákra bontva, hogy az
+  // átfedő kivágások csak egyszer számítsanak (terület, rajz-maszk, levonás).
+  function cutoutCells(cutouts) {
+    const cuts = (cutouts || []).filter((c) => c.w > 0 && c.h > 0);
+    if (cuts.length <= 1) return cuts.map((c) => ({ x: c.x, y: c.y, w: c.w, h: c.h }));
+    const xs = [...new Set(cuts.flatMap((c) => [c.x, c.x + c.w]))].sort((a, b) => a - b);
+    const ys = [...new Set(cuts.flatMap((c) => [c.y, c.y + c.h]))].sort((a, b) => a - b);
+    const cells = [];
+    for (let i = 0; i + 1 < xs.length; i++) {
+      const mx = (xs[i] + xs[i + 1]) / 2;
+      for (let j = 0; j + 1 < ys.length; j++) {
+        const my = (ys[j] + ys[j + 1]) / 2;
+        if (cuts.some((c) => mx > c.x && mx < c.x + c.w && my > c.y && my < c.y + c.h)) {
+          cells.push({ x: xs[i], y: ys[j], w: xs[i + 1] - xs[i], h: ys[j + 1] - ys[j] });
+        }
+      }
+    }
+    return cells;
+  }
+
+  // A kivágások által elfoglalt terület a felületen BELÜL (átfedés egyszer,
+  // a felületről kilógó rész nem számít).
   function cutoutsAreaMm2() {
+    const cells = cutoutCells(state.cutouts);
+    const closed = state.closed && state.points.length >= 3;
     let a = 0;
-    (state.cutouts || []).forEach((c) => { a += Math.max(0, c.w) * Math.max(0, c.h); });
+    cells.forEach((c) => {
+      if (!closed) { a += c.w * c.h; return; }
+      const part = clipPolygonRect(state.points, c.x, c.y, c.x + c.w, c.y + c.h);
+      if (part.length >= 3) a += polyArea(part);
+    });
     return a;
   }
 

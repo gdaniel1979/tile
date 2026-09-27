@@ -60,6 +60,15 @@
     near(Math.abs(a) / 2, 750000, 1e-6, "terület");
   });
 
+  test("cutoutsAreaMm2: átfedő kivágás egyszer, a felületről kilógó rész nem számít", () => {
+    // két 400×400-as kivágás 200×200-as átfedéssel: 2·160000 − 40000
+    setup(RECT(4000, 3000), { cutouts: [{ x: 1000, y: 1000, w: 400, h: 400 }, { x: 1200, y: 1200, w: 400, h: 400 }] });
+    near(cutoutsAreaMm2(), 280000, 1e-6, "átfedés");
+    // a felület szélén félig kilógó 400×400-as kivágás: csak a bent lévő 200×400
+    setup(RECT(4000, 3000), { cutouts: [{ x: 3800, y: 1000, w: 400, h: 400 }] });
+    near(cutoutsAreaMm2(), 80000, 1e-6, "kilógás");
+  });
+
   // ---- computeLayout ---------------------------------------------------------
   test("egyenes: kézzel ellenőrzött kis helyiség (3 egész + 1 vágott)", () => {
     // 1203×603 mm, 300×600-as lap, 3 mm fuga, 0 eltolás:
@@ -110,6 +119,38 @@
         ok(p.w <= 600 + 0.5 && p.h <= 300 + 0.5, `darab ${p.w.toFixed(0)}×${p.h.toFixed(0)} nem fér a 600×300-as lapba`);
       });
     });
+  });
+
+  // A fuga/terület arány elméletileg 1 - (300·600)/(303·603) ≈ 1,48 %. Ha a
+  // kivágás melletti lapok kimaradnak (foltok) vagy a kivágásba lógó részük
+  // is beszámít, az arány elcsúszik (régen: átlósnál 0 %, halszálkánál 0–4 %).
+  [["straight", {}], ["diagonal", {}], ["herringbone", {}], ["herringbone", { herringboneTilted: true }]].forEach(([pattern, extra]) => {
+    const label = pattern + (extra.herringboneTilted ? " (45°)" : "");
+    test(`${label}: kivágások mellett is helyes a fuga-arány (nincs kimaradt lap)`, () => {
+      setup(RECT(4000, 3000), {
+        cutouts: [{ x: 1000, y: 800, w: 700, h: 900 }, { x: 2500, y: 1500, w: 400, h: 400 }, { x: 2700, y: 1700, w: 400, h: 400 }],
+        layout: Object.assign({ pattern }, extra),
+      });
+      const s = computeLayout().stats;
+      const pct = 100 * s.groutAreaMm2 / s.areaMm2;
+      ok(pct > 1.3 && pct < 1.7, `fuga-arány ${pct.toFixed(2)} % (várt ≈ 1,48 %)`);
+    });
+  });
+
+  test("halszálka: festés a megfelelő lapra kerül és megjelenik a statisztikában", () => {
+    setup(RECT(4000, 3000), { layout: { pattern: "herringbone" } });
+    if (!state.tiles.types.some((t) => t.id === "tDekor")) {
+      state.tiles.types.push({ id: "tDekor", name: "Dekor", wMm: 300, hMm: 600, thicknessMm: 8, pricePerTile: 0, fillKind: "color", color: "#c33", imageUrl: null, imageMode: "full" });
+    }
+    state.layout.paintTypeId = "tDekor";
+    ok(applyPaintAt(2000, 1500), "a festés változtatott");
+    const key = Object.keys(state.layout.overrides)[0];
+    ok(/^-?\d+_-?\d+_[0-3]$/.test(key), `halszálka-kulcs (i_j_idx), kapott: ${key}`);
+    const r = computeLayout();
+    const t = r.tiles.find((x) => x.key === key);
+    ok(t && t.typeId === "tDekor" && pointInPolygon(2000, 1500, t.quad), "a kattintott lap lett festve");
+    ok(r.stats.byType.tDekor && r.stats.byType.tDekor.whole + r.stats.byType.tDekor.cut === 1, "egy dekor lap a statisztikában");
+    state.layout.paintTypeId = null;
   });
 
   test("négyzetes lap halszálkában: degenerált eredmény, nincs statisztika", () => {

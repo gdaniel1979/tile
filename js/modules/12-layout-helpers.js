@@ -89,6 +89,12 @@
   }
 
   // Vágott darab méretének felirata (W×H a kijelzett egységben)
+  function polyArea(pts) {
+    let s = 0;
+    for (let k = 0; k < pts.length; k++) { const a = pts[k], b = pts[(k + 1) % pts.length]; s += a.x * b.y - b.x * a.y; }
+    return Math.abs(s) / 2;
+  }
+
   function fmtDim(wmm, hmm) {
     const f = (mm) => (state.unit === "cm" ? (mm / 10).toFixed(1) : String(Math.round(mm)));
     return f(wmm) + "×" + f(hmm);

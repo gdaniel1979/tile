@@ -84,6 +84,14 @@
 
   // Melyik rács-cellára esik egy világkoordináta (festéshez); null ha fuga/kívül
   function tileIndexAt(wx, wy, g) {
+    // halszálka: nincs egyszerű rács-képlet — a kiszámolt lapok közül keressük
+    // azt, amelyiknek a négyszögébe a pont esik (a kulcs: "i_j_idx")
+    if (g && state.layout.pattern === "herringbone") {
+      if (!pointInPolygon(wx, wy, state.points)) return null;
+      const res = getLayout();
+      const hit = res && res.tiles.find((t) => t.quad && pointInPolygon(wx, wy, t.quad));
+      return hit ? { key: hit.key } : null;
+    }
     if (g && state.layout.pattern === "diagonal") {
       const th = Math.PI / 4, ux = Math.cos(th), uy = Math.sin(th), vx = -uy, vy = ux;
       const pU = g.tileW + g.grout, pV = g.tileH + g.grout;
@@ -131,7 +139,7 @@
   //  vissza. A render, az export, a 3D és a projekt-szintű anyagszámítás mind
   //  ezt használja; a nézet (zoom/pan) nem befolyásolja, ezért felületenként
   //  gyorsítótárazzuk (getLayout).
-  //  Eredmény: { g, tiles: [{ typeId, rect:{x,y,w,h} | quad:[4 pont] }],
+  //  Eredmény: { g, tiles: [{ key, typeId, rect:{x,y,w,h} | quad:[4 pont] }],
   //              cutLabels: [{ x, y, w, h, text }], needPieces: [{ w, h }],
   //              stats, degenerate? }
   // =======================================================================
@@ -271,14 +279,92 @@
             bumpType(acc.byType, type, false, idx === 0 ? area : 0, { w: cbw, h: cbh });
           });
         }
-        acc.tiles.push({ typeId: type.id, rect: { x: x0, y: y0, w: tileW, h: tileH } });
+        acc.tiles.push({ key: i + "_" + j, typeId: type.id, rect: { x: x0, y: y0, w: tileW, h: tileH } });
       }
     }
     return finishLayout(g, acc, tileW, tileH);
   }
 
+  // ---- Elforgatott lapok (átlós, halszálka): lap-darab a kivágások nélkül ----
+  // súlypont × terület (a kivágott részek levonásához összegezhető)
+  function polyMoment(pts) {
+    let s = 0, mx = 0, my = 0;
+    for (let k = 0; k < pts.length; k++) {
+      const a = pts[k], b = pts[(k + 1) % pts.length];
+      const cr = a.x * b.y - b.x * a.y;
+      s += cr; mx += (a.x + b.x) * cr; my += (a.y + b.y) * cr;
+    }
+    if (Math.abs(s) < 1e-9) return { a: 0, mx: 0, my: 0 };
+    const sign = s < 0 ? -1 : 1; // a = |s|/2, mx = cx·a
+    return { a: Math.abs(s) / 2, mx: (mx / 6) * sign, my: (my / 6) * sign };
+  }
+  const inRectStrict = (px, py, c) => px > c.x + 1e-6 && px < c.x + c.w - 1e-6 && py > c.y + 1e-6 && py < c.y + c.h - 1e-6;
+
+  // A lap sokszögbe eső darabjából (piece = sokszög ∩ lap) levonjuk a
+  // kivágásokat (cells = cutoutCells(cutouts)). Visszaadja a maradék
+  // területét, súlypontját és a lap saját tengelyei (u = (ax,ay),
+  // v = (bx,by), origó: o) menti kiterjedését.
+  function pieceMinusCutouts(piece, cutouts, cells, o, ax, ay, bx, by) {
+    let pminX = Infinity, pminY = Infinity, pmaxX = -Infinity, pmaxY = -Infinity;
+    piece.forEach((q) => { pminX = Math.min(pminX, q.x); pmaxX = Math.max(pmaxX, q.x); pminY = Math.min(pminY, q.y); pmaxY = Math.max(pmaxY, q.y); });
+    const near = (c) => c.x < pmaxX && c.x + c.w > pminX && c.y < pmaxY && c.y + c.h > pminY;
+    const cuts = cutouts.filter(near);
+
+    // terület és súlypont: darab − Σ(darab ∩ kivágás-cella); a cellák nem
+    // fedik egymást, így az átfedő kivágások is pontosan egyszer vonódnak le
+    const m = polyMoment(piece);
+    let area = m.a, mx = m.mx, my = m.my;
+    cells.forEach((c) => {
+      if (!near(c)) return;
+      const part = clipPolygonRect(piece, c.x, c.y, c.x + c.w, c.y + c.h);
+      if (part.length < 3) return;
+      const pm = polyMoment(part);
+      area -= pm.a; mx -= pm.mx; my -= pm.my;
+    });
+    area = Math.max(0, area);
+
+    // kiterjedés: a maradék tartomány határának csúcsai — a darab csúcsai a
+    // kivágásokon kívül, a darab-élek és kivágás-élek metszéspontjai, valamint
+    // a darabba eső kivágás-sarkok
+    const outside = (px, py) => !cuts.some((c) => inRectStrict(px, py, c));
+    const pts = [];
+    piece.forEach((q) => { if (outside(q.x, q.y)) pts.push(q); });
+    cuts.forEach((c) => {
+      const X0 = c.x, X1 = c.x + c.w, Y0 = c.y, Y1 = c.y + c.h;
+      for (let k = 0; k < piece.length; k++) {
+        const a = piece[k], b = piece[(k + 1) % piece.length];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        if (Math.abs(dx) > 1e-9) [X0, X1].forEach((X) => {
+          const t = (X - a.x) / dx;
+          if (t < 0 || t > 1) return;
+          const y = a.y + t * dy;
+          if (y >= Y0 && y <= Y1 && outside(X, y)) pts.push({ x: X, y });
+        });
+        if (Math.abs(dy) > 1e-9) [Y0, Y1].forEach((Y) => {
+          const t = (Y - a.y) / dy;
+          if (t < 0 || t > 1) return;
+          const x = a.x + t * dx;
+          if (x >= X0 && x <= X1 && outside(x, Y)) pts.push({ x, y: Y });
+        });
+      }
+      [[X0, Y0], [X1, Y0], [X1, Y1], [X0, Y1]].forEach(([x, y]) => {
+        if (pointInPolygon(x, y, piece) && outside(x, y)) pts.push({ x, y });
+      });
+    });
+    let lu0 = Infinity, lu1 = -Infinity, lv0 = Infinity, lv1 = -Infinity;
+    pts.forEach((q) => {
+      const rx = q.x - o.x, ry = q.y - o.y;
+      const lu = rx * ax + ry * ay, lv = rx * bx + ry * by;
+      lu0 = Math.min(lu0, lu); lu1 = Math.max(lu1, lu); lv0 = Math.min(lv0, lv); lv1 = Math.max(lv1, lv);
+    });
+    const w = pts.length ? Math.max(0, lu1 - lu0) : 0, h = pts.length ? Math.max(0, lv1 - lv0) : 0;
+    const cx = area > 1e-6 ? mx / area : (pminX + pmaxX) / 2;
+    const cy = area > 1e-6 ? my / area : (pminY + pmaxY) / 2;
+    return { area, w, h, cx, cy };
+  }
+
   // ÁTLÓS (45°) kiosztás – elforgatott rács. A vágási méret a lap saját
-  // tengelye mentén (közelítő a kivágásoknál és a kontúr ferde éleinél).
+  // tengelye mentén (a kivágások levonásával; ferde kontúrnál befoglaló méret).
   function computeDiagonalLayout(g) {
     const { base, minX, minY, maxX, maxY, tileW, tileH, grout } = g;
     const p = state.points;
@@ -288,7 +374,7 @@
     const pU = tileW + grout, pV = tileH + grout;
     const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
     const cutouts = state.cutouts || [];
-    const inCutPt = (px, py) => { for (const c of cutouts) if (px > c.x && px < c.x + c.w && py > c.y && py < c.y + c.h) return true; return false; };
+    const cells = cutoutCells(cutouts);
 
     // i,j tartomány a bbox lefedéséhez
     let iMin = Infinity, iMax = -Infinity, jMin = Infinity, jMax = -Infinity;
@@ -315,45 +401,28 @@
         const qminY = Math.min(c0.y, c1.y, c2.y, c3.y), qmaxY = Math.max(c0.y, c1.y, c2.y, c3.y);
         if (qmaxX < minX || qminX > maxX || qmaxY < minY || qminY > maxY) continue;
 
-        const cenx = (c0.x + c2.x) / 2, ceny = (c0.y + c2.y) / 2;
-        let cornersInCut = 0, anyInside = false;
-        quad.forEach((q) => { const inP = pointInPolygon(q.x, q.y, p); if (inP) anyInside = true; if (inCutPt(q.x, q.y)) cornersInCut++; });
-        const centerIn = pointInPolygon(cenx, ceny, p), centerCut = inCutPt(cenx, ceny);
-        if (!anyInside && !centerIn) continue;
-        if (centerCut && cornersInCut === 4) continue; // gyakorlatilag kivágásban
-
-        // a lap sokszögbe eső része (a kivágásokat itt nem vonjuk le – közelítés)
+        // a lap sokszögbe eső része, a kivágások levonásával
         const piece = clipPolygonByConvex(p, quad);
         if (piece.length < 3) continue;
-        let pieceArea = 0;
-        for (let k = 0; k < piece.length; k++) { const a = piece[k], b = piece[(k + 1) % piece.length]; pieceArea += a.x * b.y - b.x * a.y; }
-        pieceArea = Math.abs(pieceArea) / 2;
-        if (pieceArea < tileW * tileH * 0.004) continue;
-        acc.tilesAreaSumMm2 += pieceArea;
+        const rest = pieceMinusCutouts(piece, cutouts, cells, c0, ux, uy, vx, vy);
+        if (rest.area < tileW * tileH * 0.004) continue; // gyakorlatilag nincs burkolható rész
+        acc.tilesAreaSumMm2 += rest.area;
 
-        const touchesCut = centerCut || cornersInCut > 0;
-        const isWhole = pieceArea >= tileW * tileH * 0.985 && !touchesCut;
-        const type = overrideType(i + "_" + j, base);
+        const isWhole = rest.area >= tileW * tileH * 0.985;
+        const key = i + "_" + j;
+        const type = overrideType(key, base);
         acc.total++;
         if (isWhole) {
           acc.whole++;
-          bumpType(acc.byType, type, true, pieceArea, null);
+          bumpType(acc.byType, type, true, rest.area, null);
         } else {
-          let lu0 = Infinity, lu1 = -Infinity, lv0 = Infinity, lv1 = -Infinity, pcx = 0, pcy = 0;
-          piece.forEach((q) => {
-            const rx = q.x - Ax, ry = q.y - Ay;
-            const lu = rx * ux + ry * uy, lv = rx * vx + ry * vy;
-            lu0 = Math.min(lu0, lu); lu1 = Math.max(lu1, lu); lv0 = Math.min(lv0, lv); lv1 = Math.max(lv1, lv);
-            pcx += q.x; pcy += q.y;
-          });
-          pcx /= piece.length; pcy /= piece.length;
-          const pw = Math.max(0, lu1 - lu0), ph = Math.max(0, lv1 - lv0);
+          const pw = rest.w, ph = rest.h;
           acc.cut++;
-          acc.cutLabels.push({ x: pcx, y: pcy, w: pw, h: ph, text: "~" + fmtDim(pw, ph) });
+          acc.cutLabels.push({ x: rest.cx, y: rest.cy, w: pw, h: ph, text: "~" + fmtDim(pw, ph) });
           acc.needPieces.push({ w: pw, h: ph });
-          bumpType(acc.byType, type, false, pieceArea, { w: pw, h: ph });
+          bumpType(acc.byType, type, false, rest.area, { w: pw, h: ph });
         }
-        acc.tiles.push({ typeId: type.id, quad });
+        acc.tiles.push({ key, typeId: type.id, quad });
       }
     }
     return finishLayout(g, acc, tileW, tileH);
@@ -392,7 +461,7 @@
     // Forgatás középpontja: a felület bbox-közepe
     const ctrX = (minX + maxX) / 2, ctrY = (minY + maxY) / 2;
     const cutouts = state.cutouts || [];
-    const inCutPt = (px, py) => { for (const c of cutouts) if (px > c.x && px < c.x + c.w && py > c.y && py < c.y + c.h) return true; return false; };
+    const cells = cutoutCells(cutouts);
 
     // Iteráció (i, j) tartománya: invertáljuk az u1World, u2World mátrixot a
     // bbox sarokpontjaira (centerHoz képest). Det = 4WH (forgatás megőrzi).
@@ -436,50 +505,33 @@
           const qminY = Math.min(quad[0].y, quad[1].y, quad[2].y, quad[3].y);
           const qmaxY = Math.max(quad[0].y, quad[1].y, quad[2].y, quad[3].y);
           if (qmaxX < minX || qminX > maxX || qmaxY < minY || qminY > maxY) return;
-          // középpont kivágás-check
-          const tcx = (quad[0].x + quad[2].x) / 2, tcy = (quad[0].y + quad[2].y) / 2;
-          if (inCutPt(tcx, tcy)) return;
+          // a lap sokszögbe eső része, a kivágások levonásával; a méretet a lap
+          // SAJÁT tengelyei mentén mérjük (origó: quad[0], a lap bal-felső sarka)
           const piece = clipPolygonByConvex(p, quad);
           if (piece.length < 3) return;
-          let pieceArea = 0;
-          for (let k = 0; k < piece.length; k++) {
-            const a = piece[k], b = piece[(k + 1) % piece.length];
-            pieceArea += a.x * b.y - b.x * a.y;
-          }
-          pieceArea = Math.abs(pieceArea) / 2;
-          if (pieceArea < t.tw * t.th * 0.004) return;
-          acc.tilesAreaSumMm2 += pieceArea;
+          const rest = pieceMinusCutouts(piece, cutouts, cells, quad[0], ax, ay, bx, by);
+          if (rest.area < t.tw * t.th * 0.004) return; // gyakorlatilag nincs burkolható rész
+          acc.tilesAreaSumMm2 += rest.area;
 
-          const isWhole = pieceArea >= t.tw * t.th * 0.985;
+          const isWhole = rest.area >= t.tw * t.th * 0.985;
           acc.total++;
-          const type = overrideType(i + "_" + j + "_" + idx, base);
+          const key = i + "_" + j + "_" + idx;
+          const type = overrideType(key, base);
 
           if (isWhole) {
             acc.whole++;
-            bumpType(acc.byType, type, true, pieceArea, null);
+            bumpType(acc.byType, type, true, rest.area, null);
           } else {
             acc.cut++;
-            // a vágott darab méretét a lap SAJÁT tengelyei mentén mérjük (forgatott rendszerben)
-            // origó: a lap bal-felső sarka (quad[0]) világ-koordinátában.
-            let lu0 = Infinity, lu1 = -Infinity, lv0 = Infinity, lv1 = -Infinity, pcx = 0, pcy = 0;
-            piece.forEach((q) => {
-              const rx = q.x - quad[0].x, ry = q.y - quad[0].y;
-              const lu = rx * ax + ry * ay;
-              const lv = rx * bx + ry * by;
-              lu0 = Math.min(lu0, lu); lu1 = Math.max(lu1, lu);
-              lv0 = Math.min(lv0, lv); lv1 = Math.max(lv1, lv);
-              pcx += q.x; pcy += q.y;
-            });
-            pcx /= piece.length; pcy /= piece.length;
-            const pw = Math.max(0, lu1 - lu0), ph = Math.max(0, lv1 - lv0);
-            acc.cutLabels.push({ x: pcx, y: pcy, w: pw, h: ph, text: (tilted ? "~" : "") + fmtDim(pw, ph) });
+            const pw = rest.w, ph = rest.h;
+            acc.cutLabels.push({ x: rest.cx, y: rest.cy, w: pw, h: ph, text: (tilted ? "~" : "") + fmtDim(pw, ph) });
             // Az újrahasznosítás-számítás a lapot h × w (hosszú × rövid) tájolásban
             // nézi: az álló (V) lapok darabjait ehhez elforgatva adjuk át.
             const dims = t.tw === w ? { w: ph, h: pw } : { w: pw, h: ph };
             acc.needPieces.push(dims);
-            bumpType(acc.byType, type, false, pieceArea, dims);
+            bumpType(acc.byType, type, false, rest.area, dims);
           }
-          acc.tiles.push({ typeId: type.id, quad });
+          acc.tiles.push({ key, typeId: type.id, quad });
         });
       }
     }
@@ -496,13 +548,21 @@
 
     ctx.save();
     polygonScreenPath();
-    // a kivágásokat lyukként adjuk a path-hoz (evenodd kitöltési szabály)
-    (state.cutouts || []).forEach((c) => {
-      const a = worldToScreen({ x: c.x, y: c.y });
-      const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
-      ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
-    });
-    ctx.clip("evenodd");
+    ctx.clip();
+    // kivágások lyukként: egy nagy téglalap + a nem átfedő kivágás-cellák
+    // evenodd-szabállyal (átfedő kivágásoknál sem „töltődik vissza” a lap)
+    const cells = cutoutCells(state.cutouts);
+    if (cells.length) {
+      const m0 = worldToScreen({ x: minX, y: minY }), m1 = worldToScreen({ x: maxX, y: maxY });
+      ctx.beginPath();
+      ctx.rect(m0.x - 10, m0.y - 10, m1.x - m0.x + 20, m1.y - m0.y + 20);
+      cells.forEach((c) => {
+        const a = worldToScreen({ x: c.x, y: c.y });
+        const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
+        ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
+      });
+      ctx.clip("evenodd");
+    }
 
     // fuga háttér (a clip miatt csak a sokszögön belül látszik)
     const tl = worldToScreen({ x: minX, y: minY });
