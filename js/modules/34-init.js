@@ -16,6 +16,7 @@
     init3DUI();
     initSidebarResizer();
     initLayersPanel();
+    initQuoteUI();
     renderProjectTree();
     renderTileLibrary();
     window.addEventListener("resize", resizeCanvas);

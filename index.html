@@ -68,6 +68,7 @@
         <button data-tab="tiles" title="Burkolat"><span class="tab-ico">▦</span>Burkolat</button>
         <button data-tab="layout" title="Kiosztás"><span class="tab-ico">▣</span>Kiosztás</button>
         <button data-tab="material" title="Anyag"><span class="tab-ico">Σ</span>Anyag</button>
+        <button data-tab="quote" title="Árajánlat"><span class="tab-ico">Ft</span>Ajánlat</button>
       </div>
       <div class="tab-panels">
 
@@ -571,6 +572,67 @@
       </section>
       </div><!-- /material -->
 
+      <!-- AJÁNLAT FÜL -->
+      <div class="tab-panel" data-tabpanel="quote" hidden>
+      <section class="panel">
+        <h2>Megrendelő</h2>
+        <div class="q-field"><label for="qCustName">Név</label><input type="text" id="qCustName" data-q="customer.name" /></div>
+        <div class="q-field"><label for="qCustAddr">Cím</label><input type="text" id="qCustAddr" data-q="customer.address" /></div>
+        <div class="q-field"><label for="qCustPhone">Telefon</label><input type="text" id="qCustPhone" data-q="customer.phone" /></div>
+        <div class="q-field"><label for="qCustEmail">E-mail</label><input type="text" id="qCustEmail" data-q="customer.email" /></div>
+      </section>
+
+      <section class="panel">
+        <h2>Ajánlat</h2>
+        <div class="q-field"><label for="qNumber">Ajánlat száma</label><input type="text" id="qNumber" data-q="number" placeholder="pl. 2026/014" /></div>
+        <div class="q-field"><label for="qDate">Kelt</label><input type="date" id="qDate" data-q="date" /></div>
+        <div class="q-field"><label for="qValid">Érvényesség (nap)</label><input type="number" id="qValid" data-q="validDays" min="1" step="1" /></div>
+        <div class="q-field"><label for="qVat">ÁFA</label>
+          <select id="qVat" data-q="vat"><option value="27">27% ÁFA (nettó + ÁFA + bruttó)</option><option value="aam">Alanyi adómentes (AAM)</option></select></div>
+        <div class="control-row checkbox-row">
+          <label for="qInclMat">Anyagköltség az ajánlatban</label>
+          <input type="checkbox" id="qInclMat" data-q="includeMaterial" />
+        </div>
+        <p class="hint">Üres kelt = a nyomtatás napja. Az anyagok az Anyag fül számaival és áraival kerülnek be (laptípusonként, tartalékkal); ár nélküli anyag kimarad.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Munkadíj</h2>
+        <div class="q-labor"><span class="q-labor-name">Padlóburkolás</span><span class="q-labor-qty" data-qty="floorM2"></span><input type="number" min="0" step="any" data-q="labor.floorM2" /><span class="u">Ft/m²</span></div>
+        <div class="q-labor"><span class="q-labor-name">Falburkolás</span><span class="q-labor-qty" data-qty="wallM2"></span><input type="number" min="0" step="any" data-q="labor.wallM2" /><span class="u">Ft/m²</span></div>
+        <div class="q-labor"><span class="q-labor-name">Élvédő elhelyezése</span><span class="q-labor-qty" data-qty="edgingM"></span><input type="number" min="0" step="any" data-q="labor.edgingM" /><span class="u">Ft/fm</span></div>
+        <div class="q-labor"><span class="q-labor-name">Szilikonozás</span><span class="q-labor-qty" data-qty="siliconeM"></span><input type="number" min="0" step="any" data-q="labor.siliconeM" /><span class="u">Ft/fm</span></div>
+        <p class="hint">A mennyiségek a tervből jönnek: a kiosztott padló- és falfelületek burkolt területe, az élvédős élek és a szilikonos sarkok hossza. 0 Ft = a sor kimarad.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Egyedi tételek</h2>
+        <div id="qItems"></div>
+        <button class="btn btn-ghost full" id="qAddItem" style="margin-top:8px">+ Tétel</button>
+      </section>
+
+      <section class="panel">
+        <h2>Megjegyzés</h2>
+        <textarea id="qNote" data-q="note" rows="3" class="q-note" placeholder="pl. fizetési feltételek, kezdés várható ideje"></textarea>
+      </section>
+
+      <section class="panel">
+        <h2>Ajánlatadó (minden projektnél)</h2>
+        <div class="q-field"><label for="qCName">Név / cég</label><input type="text" id="qCName" data-c="name" /></div>
+        <div class="q-field"><label for="qCAddr">Cím</label><input type="text" id="qCAddr" data-c="address" /></div>
+        <div class="q-field"><label for="qCTax">Adószám</label><input type="text" id="qCTax" data-c="taxNo" /></div>
+        <div class="q-field"><label for="qCPhone">Telefon</label><input type="text" id="qCPhone" data-c="phone" /></div>
+        <div class="q-field"><label for="qCEmail">E-mail</label><input type="text" id="qCEmail" data-c="email" /></div>
+        <div class="q-field"><label for="qCBank">Bankszámla</label><input type="text" id="qCBank" data-c="bank" /></div>
+      </section>
+
+      <section class="panel summary">
+        <h2>Összesítő</h2>
+        <div id="qSummary"></div>
+        <button class="btn btn-secondary full" id="qPrint" style="margin-top:10px">Árajánlat PDF / nyomtatás</button>
+      </section>
+      </div><!-- /quote -->
+
       </div><!-- /tab-panels -->
       </div><!-- /tabs-layout -->
     </aside>
@@ -635,7 +697,7 @@
 
   <!-- Nyomtatási/PDF nézet (csak nyomtatáskor látszik) -->
   <div id="printArea" hidden>
-    <h1>Lapkiosztási terv</h1>
+    <h1 id="printTitle">Lapkiosztási terv</h1>
     <img id="printImg" alt="" />
     <div id="printInfo"></div>
   </div>
@@ -668,6 +730,11 @@
 
         <h3>5. Anyagszükséglet és költség</h3>
         <p>Laptípusonkénti és projekt-szintű összesítés: burkolat, ragasztó, fuga, szilikon, élvédő profil. A szilicon a negatív sarkokba kerül (padló-fal, fal-fal találkozás); az élvédő a burkolat szegélyén jelölhető (Élek lista jelölőnégyzetei). A Költség fülön egységárak adhatók meg.</p>
+
+        <h3>5/b. Árajánlat (Ajánlat fül)</h3>
+        <p>Projektenként megadható a <strong>megrendelő</strong>, az ajánlat száma, kelte (üresen a nyomtatás napja) és érvényessége, valamint az <strong>ÁFA</strong>: 27% (nettó + ÁFA + bruttó) vagy alanyi adómentes (AAM). Az <strong>ajánlatadó</strong> adatait elég egyszer megadni, minden projektnél megjelennek.</p>
+        <p><strong>Munkadíj:</strong> Ft/m² padlóra és falra, Ft/fm élvédőre és szilikonozásra — a mennyiségek automatikusan a tervből jönnek (a kiosztott felületek burkolt területe, az élvédős élek és a szilikonos sarkok hossza). <strong>Egyedi tételek</strong> (pl. bontás, aljzatkiegyenlítés, kiszállás) tetszőleges mennyiséggel és egységárral adhatók hozzá. Az <strong>Anyagköltség az ajánlatban</strong> kapcsolóval az anyagok (lap típusonként tartalékkal, ragasztó, fuga, szilikon, élvédő) is bekerülnek — ugyanazokkal a számokkal és árakkal, mint az Anyag fülön; az ár nélküli anyag kimarad, erről az összesítő alatt figyelmeztetés szól.</p>
+        <p>Az <strong>Árajánlat PDF / nyomtatás</strong> gomb nyomtatható ajánlatot készít (a böngésző nyomtatási ablakából „Mentés PDF-ként”); a javasolt fájlnév az ajánlat száma és a megrendelő neve.</p>
 
         <h3>6. Rétegek panel és projekt-fa</h3>
         <p>Kattints egy rétegre — csak az lesz szerkeszthető a vásznon, amíg másikra nem váltasz. Átnevezheted a kivágásokat, és 2+ kivágást egy csoportba jelölhetsz a kis négyzetekkel. Kijelölt csoportnál a <strong>Delete</strong> az egész csoportot törli (Ctrl+Z-vel visszavonható); egy-egy darabot a kivágás-lista ✕ gombjával törölhetsz.</p>
@@ -716,7 +783,8 @@
   <script src="js/modules/30-sync-controls.js"></script>
   <script src="js/modules/31-view3d.js"></script>
   <script src="js/modules/32-layers-panel.js"></script>
-  <script src="js/modules/33-init.js"></script>
-  <script src="js/modules/34-help-modal.js"></script>
+  <script src="js/modules/33-quote.js"></script>
+  <script src="js/modules/34-init.js"></script>
+  <script src="js/modules/35-help-modal.js"></script>
 </body>
 </html>

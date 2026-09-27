@@ -238,7 +238,7 @@
   // egy önálló cím-sor (#activeTabTitle) adja meg, a panel-tartalom felett.
   const TAB_LABELS = {
     plan: "Alaprajz", tiles: "Burkolat", layout: "Kiosztás",
-    material: "Anyag",
+    material: "Anyag", quote: "Ajánlat",
   };
 
   function initTilesUI() {
@@ -254,7 +254,8 @@
       if (el.activeTabTitle) el.activeTabTitle.textContent = TAB_LABELS[tab] || "";
       // Anyag fülre váltáskor minden felület cache-ét frissítjük (offscreen),
       // hogy a projekt-összesítés ne csak az aktív felületet mutassa.
-      if (tab === "material") recomputeAllSurfacesMaterial();
+      if (tab === "material" || tab === "quote") recomputeAllSurfacesMaterial();
+      if (tab === "quote") syncQuoteUI();
     });
 
     el.addTile.addEventListener("click", addTileType);

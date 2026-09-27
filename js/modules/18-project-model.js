@@ -78,6 +78,33 @@
     };
   }
 
+  // ---- Árajánlat (projektenként) és vállalkozó (egyszer, az egész tárra) ----
+  const str = (v) => (typeof v === "string" ? v : "");
+  const num0 = (v) => (typeof v === "number" && v >= 0 ? v : 0);
+  function normQuote(q) {
+    q = q && typeof q === "object" ? q : {};
+    const c = q.customer && typeof q.customer === "object" ? q.customer : {};
+    const l = q.labor && typeof q.labor === "object" ? q.labor : {};
+    return {
+      customer: { name: str(c.name), address: str(c.address), phone: str(c.phone), email: str(c.email) },
+      number: str(q.number),
+      date: str(q.date),                      // ÉÉÉÉ-HH-NN; üres = az export napja
+      validDays: typeof q.validDays === "number" && q.validDays > 0 ? q.validDays : 30,
+      includeMaterial: q.includeMaterial !== false,
+      vat: q.vat === "aam" ? "aam" : "27",    // "27" = 27% ÁFA, "aam" = alanyi adómentes
+      // munkadíj egységárak (Ft); a mennyiség a tervből jön
+      labor: { floorM2: num0(l.floorM2), wallM2: num0(l.wallM2), edgingM: num0(l.edgingM), siliconeM: num0(l.siliconeM) },
+      items: Array.isArray(q.items) ? q.items.filter((it) => it && typeof it === "object").map((it) => ({
+        name: str(it.name), qty: num0(it.qty), unit: str(it.unit) || "db", price: num0(it.price),
+      })) : [],
+      note: str(q.note),
+    };
+  }
+  function normContractor(c) {
+    c = c && typeof c === "object" ? c : {};
+    return { name: str(c.name), address: str(c.address), taxNo: str(c.taxNo), phone: str(c.phone), email: str(c.email), bank: str(c.bank) };
+  }
+
   function defaultMaterial() {
     return {
       groutPreset: "cg1",            // "cg1" | "cg2" | "epoxy"
@@ -122,7 +149,7 @@
     const types = dt.types.map((t) => ({ ...t })); // friss példány (projektenként külön könyvtár)
     return {
       id: newProjectId(), name: name || "Projekt", unit: "cm", tileTypes: types, activeIndex: 0, untiledColor: "#8a8f98",
-      material: defaultMaterial(),
+      material: defaultMaterial(), quote: normQuote(),
       surfaces: [normSurface({ name: "Padló", mode: "floor", baseId: types[0].id, groutMm: dt.groutMm, groutColor: dt.groutColor, layout: { paintTypeId: types[0].id } }, types[0].id)],
     };
   }
@@ -206,7 +233,7 @@
      "groutPricePack", "gluePricePack", "silPriceTube", "edgingPricePerM"].forEach((k) => {
       if (!(typeof mat[k] === "number" && mat[k] >= 0)) mat[k] = defaultMaterial()[k];
     });
-    return { id: p.id || newProjectId(), name: p.name || "Projekt", unit: p.unit === "mm" ? "mm" : "cm", untiledColor: p.untiledColor || "#8a8f98", tileTypes: types, surfaces, activeIndex: ai, material: mat };
+    return { id: p.id || newProjectId(), name: p.name || "Projekt", unit: p.unit === "mm" ? "mm" : "cm", untiledColor: p.untiledColor || "#8a8f98", tileTypes: types, surfaces, activeIndex: ai, material: mat, quote: normQuote(p.quote) };
   }
 
   // A state <-> aktív felület szinkronizálása

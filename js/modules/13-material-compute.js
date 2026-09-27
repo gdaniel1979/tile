@@ -208,6 +208,46 @@
     suppressHistory = wasSuppress; inDrag = wasInDrag;
   }
 
+  // Projekt-szintű anyagköltség tételesen — az Anyag fül, a PDF és az
+  // árajánlat is ezt használja, hogy mindenhol ugyanaz a szám jelenjen meg.
+  // Minden tétel: { kind, name, qty, unit, unitPrice, total } (unitPrice 0 =
+  // nincs megadva ár). A lapok típusonként, tartalékkal (felfelé kerekítve).
+  function computeProjectCosts(p) {
+    const m = p.material || defaultMaterial();
+    const overage = Math.max(0, state.layout && state.layout.overagePct || 0);
+    const lines = [];
+    computeProjectTileNumbersByType(p).forEach((g) => {
+      const t = (p.tileTypes || []).find((x) => x.id === g.id);
+      const price = t && typeof t.pricePerTile === "number" ? t.pricePerTile : 0;
+      const qty = Math.ceil(g.needed * (1 + overage / 100));
+      lines.push({ kind: "tiles", name: "Burkolólap — " + (t ? t.name : g.name), qty, unit: "db", unitPrice: price, total: qty * price });
+    });
+    const tn = computeProjectTileNumbers(p);
+    const glueKg = (tn.area / 1e6) * (GLUE_KG_PER_M2[m.gluePreset] || 5) * (1 + Math.max(0, m.glueWastePct || 0) / 100);
+    if (glueKg > 0) {
+      const qty = Math.ceil(glueKg / GLUE_PACK_KG), price = m.gluePricePack || 0;
+      lines.push({ kind: "glue", name: "Csemperagasztó — " + (GLUE_LABELS[m.gluePreset] || "") + " (" + GLUE_PACK_KG + " kg)", qty, unit: "zsák", unitPrice: price, total: qty * price });
+    }
+    const groutKg = computeProjectGroutMass(p) * (1 + overage / 100);
+    const groutPackKg = GROUT_PACK_KG[m.groutPreset] || 5;
+    if (groutKg > 0 && groutPackKg > 0) {
+      const qty = Math.ceil(groutKg / groutPackKg), price = m.groutPricePack || 0;
+      const packName = GROUT_PACK_NAME[m.groutPreset] || "csomag";
+      lines.push({ kind: "grout", name: "Fugázó — " + (GROUT_LABELS[m.groutPreset] || "") + " (" + groutPackKg + " kg)", qty, unit: packName, unitPrice: price, total: qty * price });
+    }
+    const sil = computeSiliconeForProject(p);
+    const silLen = sil.horizMm + sil.vertMm;
+    if (silLen > 0) {
+      const qty = computeSiliconeTubes(silLen, m).tubes, price = m.silPriceTube || 0;
+      lines.push({ kind: "silicone", name: "Szaniter szilikon (" + (m.silTubeMl || 310) + " ml)", qty, unit: "kartus", unitPrice: price, total: qty * price });
+    }
+    if (sil.edgingMm > 0) {
+      const qty = sil.edgingMm / 1000, price = m.edgingPricePerM || 0;
+      lines.push({ kind: "edging", name: "Élvédő profil", qty, unit: "fm", unitPrice: price, total: qty * price });
+    }
+    return { lines, total: lines.reduce((a, l) => a + l.total, 0), overagePct: overage, silicone: sil, tileAreaMm2: tn.area };
+  }
+
   function updateProjectMaterialReport() {
     if (!el.prMass || !project) return;
     const m = project.material || defaultMaterial();
@@ -292,41 +332,11 @@
     // Költségszámítás — laptípusonkénti ár × tartalékos db + anyagok ár × szám
     if (el.prCostTotal) {
       const fmtFt = (v) => (Math.round(v)).toLocaleString("hu-HU") + " Ft";
-      // Lapok típusonként
-      let tilesCost = 0, tilesHasPrice = false;
-      const groupsForCost = computeProjectTileNumbersByType(project);
-      groupsForCost.forEach((g) => {
-        const t = (project.tileTypes || []).find((x) => x.id === g.id);
-        const price = t && typeof t.pricePerTile === "number" ? t.pricePerTile : 0;
-        if (price > 0) {
-          tilesHasPrice = true;
-          const final = Math.ceil(g.needed * (1 + overage / 100));
-          tilesCost += final * price;
-        }
-      });
-      // Ragasztó
-      let glueCost = 0;
-      const glueKgForCost = (tn.area / 1e6) * (GLUE_KG_PER_M2[m.gluePreset] || 5) * (1 + Math.max(0, m.glueWastePct || 0) / 100);
-      const gluePacks = glueKgForCost > 0 ? Math.ceil(glueKgForCost / GLUE_PACK_KG) : 0;
-      if (m.gluePricePack > 0 && gluePacks > 0) glueCost = gluePacks * m.gluePricePack;
-      // Fuga
-      let groutCost = 0;
-      if (m.groutPricePack > 0 && massKg > 0) {
-        const packKg = GROUT_PACK_KG[m.groutPreset] || 5;
-        const groutPacks = Math.ceil(massKg / packKg);
-        groutCost = groutPacks * m.groutPricePack;
-      }
-      // Szilikon
-      let silCost = 0;
-      if (m.silPriceTube > 0 && totLen > 0) {
-        const t = computeSiliconeTubes(totLen, m);
-        silCost = t.tubes * m.silPriceTube;
-      }
-      // Élvédő
-      let edgingCost = 0;
-      if (m.edgingPricePerM > 0 && sil.edgingMm > 0) {
-        edgingCost = (sil.edgingMm / 1000) * m.edgingPricePerM;
-      }
+      const costs = computeProjectCosts(project);
+      const sumOf = (kind) => costs.lines.filter((l) => l.kind === kind).reduce((a, l) => a + l.total, 0);
+      const tilesHasPrice = costs.lines.some((l) => l.kind === "tiles" && l.unitPrice > 0);
+      const tilesCost = sumOf("tiles"), glueCost = sumOf("glue"), groutCost = sumOf("grout");
+      const silCost = sumOf("silicone"), edgingCost = sumOf("edging");
       // UI frissítés
       el.prCostTiles.textContent = tilesHasPrice ? fmtFt(tilesCost) : "–";
       el.prCostGlue.textContent = glueCost > 0 ? fmtFt(glueCost) : "–";

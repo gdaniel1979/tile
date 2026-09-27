@@ -123,6 +123,7 @@
 
   function populateProjectPrint(sections, agg, totalAreaMm2) {
     el.printImg.style.display = "none";
+    if (el.printTitle) el.printTitle.hidden = false; // az árajánlat elrejti
     const unit = state.unit;
     const row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
     let html = "<h2>Összesítő</h2><table>";
@@ -188,35 +189,11 @@
 
     // Költségszámítás — csak ha legalább egy ár meg van adva
     const fmtFt = (v) => (Math.round(v)).toLocaleString("hu-HU") + " Ft";
-    let tilesCost = 0, anyTilePrice = false;
-    const tileGroups = computeProjectTileNumbersByType(project);
-    tileGroups.forEach((g) => {
-      const t = (project.tileTypes || []).find((x) => x.id === g.id);
-      const price = t && typeof t.pricePerTile === "number" ? t.pricePerTile : 0;
-      if (price > 0) {
-        anyTilePrice = true;
-        const finalDb = Math.ceil(g.needed * (1 + overage / 100));
-        tilesCost += finalDb * price;
-      }
-    });
-    let glueCost = 0;
-    if (mat.gluePricePack > 0 && glueKg > 0) {
-      glueCost = Math.ceil(glueKg / GLUE_PACK_KG) * mat.gluePricePack;
-    }
-    let groutCost = 0;
-    if (mat.groutPricePack > 0 && groutKg > 0) {
-      const packKg = GROUT_PACK_KG[mat.groutPreset] || 5;
-      groutCost = Math.ceil(groutKg / packKg) * mat.groutPricePack;
-    }
-    let silCost = 0;
-    if (mat.silPriceTube > 0 && totLen > 0) {
-      const tubes = computeSiliconeTubes(totLen, mat).tubes;
-      silCost = tubes * mat.silPriceTube;
-    }
-    let edgingCost = 0;
-    if (mat.edgingPricePerM > 0 && sil.edgingMm > 0) {
-      edgingCost = (sil.edgingMm / 1000) * mat.edgingPricePerM;
-    }
+    const costs = computeProjectCosts(project);
+    const sumOf = (kind) => costs.lines.filter((l) => l.kind === kind).reduce((a, l) => a + l.total, 0);
+    const anyTilePrice = costs.lines.some((l) => l.kind === "tiles" && l.unitPrice > 0);
+    const tilesCost = sumOf("tiles"), glueCost = sumOf("glue"), groutCost = sumOf("grout");
+    const silCost = sumOf("silicone"), edgingCost = sumOf("edging");
     const totalCost = tilesCost + glueCost + groutCost + silCost + edgingCost;
     if (totalCost > 0) {
       html += "<h2>Költségszámítás</h2><table>";

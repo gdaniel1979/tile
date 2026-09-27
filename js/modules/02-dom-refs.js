@@ -153,5 +153,11 @@
     layersResizer: document.getElementById("layersResizer"),
     layersList: document.getElementById("layersList"),
     layersGroupBar: document.getElementById("layersGroupBar"),
+    // Ajánlat fül
+    qItems: document.getElementById("qItems"),
+    qAddItem: document.getElementById("qAddItem"),
+    qSummary: document.getElementById("qSummary"),
+    qPrint: document.getElementById("qPrint"),
+    printTitle: document.getElementById("printTitle"),
   };
 

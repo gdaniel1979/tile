@@ -264,5 +264,43 @@
     eq(selectedCutout, -1, "kijelölés");
   });
 
+  // ---- árajánlat --------------------------------------------------------------
+  test("computeQuote: munkadíj a tervből, egyedi tétel, ÁFA 27% és AAM, anyag ki/be", () => {
+    setup(RECT(3000, 2000));
+    render(); // a felület számai a cache-be (lastAreaMm2 = 6 m²)
+    const q = projectQuote(project);
+    const saved = JSON.stringify(q), savedPrice = state.tiles.types[0].pricePerTile;
+    try {
+      Object.assign(q, { includeMaterial: false, vat: "27", items: [{ name: "Bontás", qty: 2, unit: "óra", price: 5000 }] });
+      q.labor = { floorM2: 10000, wallM2: 0, edgingM: 0, siliconeM: 0 };
+      let r = computeQuote(project);
+      eq(r.qty.floorM2, 6, "padló m²");
+      eq(r.groups.map((g) => g.title).join(","), "Munkadíj,Egyéb tételek", "csoportok anyag nélkül");
+      eq(r.net, 60000 + 10000, "nettó");
+      eq(r.vatAmount, Math.round(70000 * 0.27), "ÁFA");
+      eq(r.gross, 70000 + 18900, "bruttó");
+      q.vat = "aam";
+      r = computeQuote(project);
+      eq(r.vatAmount, 0, "AAM: nincs ÁFA"); eq(r.gross, 70000, "AAM végösszeg");
+      q.includeMaterial = true;
+      state.tiles.types[0].pricePerTile = 1000;
+      r = computeQuote(project);
+      const mat = r.groups.find((g) => g.title === "Anyagok");
+      ok(mat && mat.lines.some((l) => l.unit === "db" && l.price === 1000), "a lap bekerül az anyagok közé");
+      ok(r.warnings.some((w) => /Csemperagasztó/.test(w)), "ár nélküli anyag figyelmeztetést ad");
+      const costs = computeProjectCosts(project);
+      eq(mat.lines.find((l) => l.unit === "db").total, costs.lines.find((l) => l.kind === "tiles").total, "ugyanaz, mint az Anyag fülön");
+    } finally {
+      project.quote = normQuote(JSON.parse(saved));
+      state.tiles.types[0].pricePerTile = savedPrice;
+    }
+  });
+  test("normQuote / normContractor: hiányzó mezők pótlása, hibás értékek kiszűrése", () => {
+    const q = normQuote({ vat: "valami", validDays: -3, items: [null, { name: "x", qty: -1, price: "sok" }] });
+    eq(q.vat, "27", "ÁFA alap"); eq(q.validDays, 30, "érvényesség alap"); eq(q.includeMaterial, true, "anyag alap");
+    eq(q.items.length, 1, "érvénytelen tétel kiszűrve"); eq(q.items[0].qty, 0, "negatív menny."); eq(q.items[0].price, 0, "nem szám ár");
+    eq(normContractor(null).name, "", "üres vállalkozó");
+  });
+
   window.__tileTestResults = results;
 })();

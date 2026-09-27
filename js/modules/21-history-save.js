@@ -112,12 +112,12 @@
   function normalizeStore(s) {
     if (!s || !Array.isArray(s.projects) || !s.projects.length) {
       const p = defaultProject();
-      return { projects: [p], activeProjectId: p.id };
+      return { projects: [p], activeProjectId: p.id, contractor: normContractor(s && s.contractor) };
     }
     const projects = s.projects.map(normalizeProject);
     let aid = s.activeProjectId;
     if (!projects.some((p) => p.id === aid)) aid = projects[0].id;
-    return { projects, activeProjectId: aid };
+    return { projects, activeProjectId: aid, contractor: normContractor(s.contractor) };
   }
 
   async function loadStoreAsync() {
@@ -160,7 +160,7 @@
     try { const r = localStorage.getItem(PROJECT_KEY); if (r) p = normalizeProject(JSON.parse(r)); } catch (_) {}
     if (!p) { try { const o = localStorage.getItem(STORAGE_KEY); if (o) p = projectFromLegacy(JSON.parse(o)); } catch (_) {} }
     if (!p) p = defaultProject();
-    store = { projects: [p], activeProjectId: p.id };
+    store = { projects: [p], activeProjectId: p.id, contractor: normContractor() };
   }
 
   // teljes UI-frissítés projekt- vagy felületváltás után

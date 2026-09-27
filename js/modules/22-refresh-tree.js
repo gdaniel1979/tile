@@ -8,6 +8,7 @@
     if (el.projName) el.projName.value = project.name;
     updateCanvasTitle();
     checkWallSync();
+    syncQuoteUI();
     fitView();
     save();
     // Ha 3D nézetben vagyunk, felület/projekt-váltásnál is frissítsen
