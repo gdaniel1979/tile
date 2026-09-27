@@ -147,5 +147,26 @@
     state.layout.show = true;
   });
 
+  // ---- kivágás-törlés ------------------------------------------------------
+  const CUT = (x, extra) => Object.assign({ x, y: 100, w: 200, h: 200 }, extra || {});
+  test("removeCutouts: a kijelölés követi az eltolódott indexet", () => {
+    setup(RECT(3000, 2000), { cutouts: [CUT(100), CUT(500), CUT(900)] });
+    selectedCutout = 2;
+    removeCutouts([0]);
+    eq(state.cutouts.length, 2, "maradt"); eq(selectedCutout, 1, "kijelölés");
+    eq(state.cutouts[selectedCutout].x, 900, "ugyanaz a kivágás maradt kijelölve");
+    removeCutouts([1]);
+    eq(selectedCutout, -1, "törölt kijelölés megszűnik");
+    selectedCutout = -1;
+  });
+  test("Delete billentyű: kijelölt csoport egészben törlődik", () => {
+    setup(RECT(3000, 2000), { cutouts: [CUT(100, { groupId: "g1" }), CUT(500), CUT(900, { groupId: "g1" })] });
+    document.activeElement && document.activeElement.blur && document.activeElement.blur();
+    selectedCutout = 2;
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete" }));
+    eq(state.cutouts.length, 1, "maradt"); eq(state.cutouts[0].x, 500, "a csoporton kívüli maradt");
+    eq(selectedCutout, -1, "kijelölés");
+  });
+
   window.__tileTestResults = results;
 })();

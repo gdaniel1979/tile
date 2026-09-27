@@ -63,7 +63,7 @@
       });
       const del = document.createElement("button");
       del.className = "del"; del.textContent = "✕"; del.title = "Kivágás törlése";
-      del.addEventListener("click", () => { state.cutouts.splice(idx, 1); afterGeometryChange(); });
+      del.addEventListener("click", () => { removeCutouts([idx]); afterGeometryChange(); });
       head.append(sw, nameInp, kindSel, fit, del);
 
       const dims = document.createElement("div");

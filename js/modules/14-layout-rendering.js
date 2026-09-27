@@ -169,6 +169,15 @@
     return state.cutouts.reduce((acc, cc, i) => { if (cc.groupId === c.groupId) acc.push(i); return acc; }, []);
   }
 
+  // Kivágások törlése index szerint; a kijelölés (selectedCutout) követi az
+  // eltolódott indexeket, törölt elemnél megszűnik.
+  function removeCutouts(indices) {
+    const del = [...new Set(indices)].filter((i) => i >= 0 && i < state.cutouts.length).sort((a, b) => b - a);
+    del.forEach((i) => state.cutouts.splice(i, 1));
+    if (del.includes(selectedCutout)) selectedCutout = -1;
+    else if (selectedCutout >= 0) selectedCutout -= del.filter((i) => i < selectedCutout).length;
+  }
+
   function drawCutouts() {
     cutoutLabelRects = [];
     const cuts = state.cutouts || [];

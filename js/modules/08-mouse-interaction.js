@@ -302,12 +302,11 @@
       if (k === "s") { e.preventDefault(); saveToLinkedFile(); return; }
     }
     if (e.key === "Delete" || e.key === "Backspace") {
-      const tag = document.activeElement && document.activeElement.tagName;
-      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return; // mezőben gépelünk
+      if (inField) return; // mezőben gépelünk
       if (selectedCutout >= 0 && state.cutouts[selectedCutout]) {
         e.preventDefault();
-        state.cutouts.splice(selectedCutout, 1);
-        selectedCutout = -1;
+        // csoport a vásznon egy egységként van kijelölve → az egész csoport törlődik
+        removeCutouts(cutoutGroupIndices(selectedCutout));
         afterGeometryChange();
       } else if (state.selected !== null) {
         e.preventDefault();
