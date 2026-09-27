@@ -208,7 +208,8 @@
     render(); // a látható vászon visszaáll (ezalatt is suppressHistory aktív)
     updateProjectMaterialReport();
     // a frissített cache-t mentjük (history nélkül), hogy reload után is megmaradjon
-    try { idbSet(STORE_KEY, JSON.stringify(serializeStore())); } catch (_) {}
+    pendingFlush = true;
+    flushToIDB();
     suppressHistory = wasSuppress; inDrag = wasInDrag;
   }
 

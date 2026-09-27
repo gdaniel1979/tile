@@ -184,7 +184,7 @@
       save();
     } else if (wasDrag.type === "vertex" || wasDrag.type === "edge") {
       inDrag = false;
-      if (wasDrag.moved) pushHistory(); // a húzás végén egyetlen előzmény-bejegyzés
+      if (wasDrag.moved) save(); // a húzás végén egyetlen mentés + előzmény-bejegyzés
     }
   });
 

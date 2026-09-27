@@ -14,16 +14,42 @@
     hIndex = history.length - 1;
     updateUndoRedoButtons();
   }
-  function pushHistory() { pushHistoryWith(JSON.stringify(serializeStore())); }
+  function pushHistory() { pushHistoryWith(historySnapshot()); }
+
+  // ---- Tömör előzmény-snapshot: a képek (data URL-ek) csak egyszer élnek a
+  // memóriában, a snapshotokban egy rövid token helyettesíti őket. Így 80
+  // előzmény-lépés sem sokszorozza meg a feltöltött lapképeket.
+  const IMG_TOKEN_PREFIX = "\u0001img:";
+  const imageTokenByUrl = new Map(); // dataURL -> token
+  const imageUrlByToken = new Map(); // token -> dataURL
+  function compactReplacer(_k, v) {
+    if (typeof v === "string" && v.length > 1024 && v.startsWith("data:")) {
+      let t = imageTokenByUrl.get(v);
+      if (!t) {
+        t = IMG_TOKEN_PREFIX + imageTokenByUrl.size;
+        imageTokenByUrl.set(v, t);
+        imageUrlByToken.set(t, v);
+      }
+      return t;
+    }
+    return v;
+  }
+  function expandReviver(_k, v) {
+    if (typeof v === "string" && v.startsWith(IMG_TOKEN_PREFIX)) return imageUrlByToken.get(v) || null;
+    return v;
+  }
+  function historySnapshot() { return JSON.stringify(serializeStore(), compactReplacer); }
 
   let saveFailed = false;
-  let pendingSnap = null;     // utoljára kért snapshot, ami még nincs IDB-be írva
+  let idbReadFailed = false;  // ha induláskor nem tudtuk kiolvasni a tárat, NEM írjuk felül
+  let pendingFlush = false;   // van-e még IDB-be ki nem írt változás
   let flushScheduled = false; // throttle: egy timer várja a flush-t
   function flushToIDB() {
     flushScheduled = false;
-    const snap = pendingSnap;
-    if (snap == null) return;
-    pendingSnap = null;
+    if (!pendingFlush || idbReadFailed) return;
+    pendingFlush = false;
+    // a teljes (képekkel együtti) JSON csak itt, throttle-ölve készül el
+    const snap = JSON.stringify(serializeStore());
     idbSet(STORE_KEY, snap).then(() => { saveFailed = false; }).catch((e) => {
       if (!saveFailed) {
         saveFailed = true;
@@ -34,30 +60,37 @@
       }
     });
   }
-  // Az utolsó pending snap-et a tab bezárása előtt is megpróbáljuk lemezre menteni.
-  window.addEventListener("beforeunload", () => {
-    if (pendingSnap != null) { try { idbSet(STORE_KEY, pendingSnap); } catch (_) {} }
+  // A ki nem írt változást azonnal mentjük, ha a lap háttérbe kerül / bezárul
+  // (a beforeunload-ban indított aszinkron írást a böngésző nem mindig várja meg,
+  // a visibilitychange → hidden viszont korábban és megbízhatóbban fut).
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushToIDB();
   });
+  window.addEventListener("beforeunload", flushToIDB);
 
   function save() {
     needRebuild3D = true; // a felület-adatok megváltozhattak, a 3D textúrákat újra kell építeni
-    const snap = JSON.stringify(serializeStore());
-    pendingSnap = snap; // mindig a legfrissebb snap, a flush csak ezt írja ki
+    // Húzás közben (csúcs/él/kivágás mozgatása) csak rajzolunk — a mouseup
+    // egyetlen save()-vel menti és rögzíti előzménybe a végállapotot.
+    if (inDrag) return;
+    pendingFlush = true;
     if (!flushScheduled) {
       flushScheduled = true;
       setTimeout(flushToIDB, 60); // ~60 ms throttle, hogy sűrű save-eknél ne fojtsunk meg minden frame-et
     }
-    if (!suppressHistory && !inDrag) pushHistoryWith(snap);
+    if (!suppressHistory) pushHistoryWith(historySnapshot());
   }
 
   function restoreSnapshot(snap) {
     suppressHistory = true;
     try {
-      store = normalizeStore(JSON.parse(snap));
+      store = normalizeStore(JSON.parse(snap, expandReviver));
       project = activeProject();
       loadActiveSurface();
       refreshAll();
-    } catch (_) {}
+    } catch (e) {
+      console.error("Előzmény-visszaállítás nem sikerült:", e);
+    }
     suppressHistory = false;
     updateUndoRedoButtons();
   }
@@ -89,10 +122,28 @@
 
   async function loadStoreAsync() {
     // 1. Friss adat IndexedDB-ből (új tárolás 2026-06-24 óta).
+    //    Ha az olvasás hibás, NEM lépünk tovább csendben egy üres/régi tárra,
+    //    amit az első save() rámentene a jó adatra: a sérült nyers adatot
+    //    biztonsági kulcsra mentjük, és ebben a munkamenetben nem írunk IDB-be.
+    let raw = null;
     try {
-      const raw = await idbGet(STORE_KEY);
-      if (raw) { store = normalizeStore(JSON.parse(raw)); return; }
-    } catch (_) {}
+      raw = await idbGet(STORE_KEY);
+    } catch (e) {
+      idbReadFailed = true;
+      console.error("IndexedDB olvasási hiba:", e);
+      alert("A mentett tervek nem olvashatók be (IndexedDB hiba: " + (e && e.message || e) + ").\n\n" +
+        "Ebben a munkamenetben az automatikus mentés KI VAN KAPCSOLVA, hogy a meglévő adat ne íródjon felül. " +
+        "Próbáld újratölteni az oldalt; a munkádat a 💾 menüből JSON-fájlba mentheted.");
+    }
+    if (raw) {
+      try { store = normalizeStore(JSON.parse(raw)); return; } catch (e) {
+        console.error("Sérült tár az IndexedDB-ben:", e);
+        const backupKey = STORE_KEY + "-corrupt-" + Date.now();
+        try { await idbSet(backupKey, raw); } catch (_) {}
+        alert("A mentett tár sérült, nem tölthető be. A nyers adat biztonsági kulcsra mentve (" + backupKey + "), " +
+          "az app üres/régebbi állapottal indul.");
+      }
+    }
     // 2. Migráció: ha még csak localStorage-ban van adat, beemeljük IDB-be.
     //    A localStorage-t MEGTARTJUK biztonsági mentésnek (a következő save() már
     //    nem írja át, mert IDB-be megy).
