@@ -18,7 +18,8 @@
   }
 
   // A teljes terv kirajzolása egy offscreen vászonra, PNG dataURL-ként
-  function buildPlanImage(maxPx) {
+  // opts.codes: a vágott darabokon a vágási terv kódja is (PDF-hez)
+  function buildPlanImage(maxPx, opts) {
     const b = planBounds();
     if (!b) return null;
     const wmm = Math.max(b.maxX - b.minX, 1), hmm = Math.max(b.maxY - b.minY, 1);
@@ -34,7 +35,7 @@
     state.view = { scale, ox: padPx - b.minX * scale, oy: padPx - b.minY * scale };
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, outW, outH);
-    if (shouldDrawLayout()) drawLayout();
+    if (shouldDrawLayout()) drawLayout(opts);
     drawCutouts();
     drawPolygon({ hideVertices: true });
     const url = off.toDataURL("image/png");
@@ -95,13 +96,15 @@
       project.activeIndex = i;
       loadActiveSurface();
       const s = project.surfaces[i];
-      let img = null, m = null, cuts = [];
+      let img = null, m = null, cuts = [], plan = null;
       if (s.points.length >= 2) {
-        img = buildPlanImage(1000); // render → drawLayout → lastStats beáll
+        img = buildPlanImage(1000, { codes: true }); // render → drawLayout → lastStats beáll
         m = materialNumbers();
         cuts = groupedCutList();
+        const res = canComputeLayout() ? getLayout() : null;
+        if (res && res.stats) plan = { cutPlan: res.cutPlan, labels: res.cutLabels };
       }
-      sections.push({ name: s.name, mode: s.mode, img, m, cuts });
+      sections.push({ name: s.name, mode: s.mode, img, m, cuts, plan });
       if (m && lastStats) {
         totalAreaMm2 += lastStats.areaMm2;
         const t = project.tileTypes.find((x) => x.id === s.baseId);
@@ -262,9 +265,62 @@
       }
       html += '</div></div></div>'; // pa-col, pa-grid, pa-tables vége
       html += '</div>'; // pa-body vége
+      html += cutPlanHtml(sec.plan);
       html += '</div>'; // pa-section vége
     });
     el.printInfo.innerHTML = html;
+  }
+
+  // ---- Vágási terv (PDF) --------------------------------------------------
+  // Laponként méretarányos ábra: a kivágandó darabok a kódjukkal, a
+  // felhasználható maradék szaggatott kerettel, a hulladék vonalkázva. A lapok
+  // száma megegyezik a „Szükséges lap (újrahaszn.)” vágott lapokra eső részével.
+  function cutPlanHtml(plan) {
+    if (!plan || !plan.cutPlan || !plan.cutPlan.length) return "";
+    let html = '<div class="pa-cutplan"><h3>Vágási terv (' + state.unit + ")</h3>";
+    html += '<p class="pa-note">A kódok a rajzon lévő feliratokkal egyeznek (pl. <strong>3a</strong> = a 3. lapból vágott „a” darab). ' +
+      "Szaggatott keret: felhasználható maradék · vonalkázott: hulladék.</p>";
+    plan.cutPlan.forEach((p) => {
+      const t = (project.tileTypes || []).find((x) => x.id === p.typeId);
+      html += `<h4>${escapeHtml(t ? t.name : "lap")} · ${fmtDim(p.tileW, p.tileH)} · ${p.tiles.length} lap vágáshoz</h4>`;
+      html += '<div class="cp-grid">';
+      p.tiles.forEach((tile) => { html += cutTileCard(tile, p.tileW, p.tileH, plan.labels); });
+      html += "</div>";
+    });
+    return html + "</div>";
+  }
+
+  function cutTileCard(tile, W, H, labels) {
+    const sw = Math.max(W, H) * 0.008;   // vonalvastagság (lap-mm-ben)
+    const fs = Math.min(W, H) * 0.17;    // betűméret
+    const hid = "cpH" + tile.no;         // saját vonalkázás-minta minden ábrához
+    const hs = Math.min(W, H) * 0.07;
+    let svg = `<svg viewBox="${-sw} ${-sw} ${W + 2 * sw} ${H + 2 * sw}" xmlns="http://www.w3.org/2000/svg">` +
+      `<defs><pattern id="${hid}" patternUnits="userSpaceOnUse" width="${hs}" height="${hs}" patternTransform="rotate(45)">` +
+      `<rect width="${hs}" height="${hs}" fill="#fff"/><line x1="0" y1="0" x2="0" y2="${hs}" stroke="#999" stroke-width="${sw * 0.8}"/></pattern></defs>` +
+      `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#${hid})" stroke="#222" stroke-width="${sw}"/>`;
+    const o = tile.offcut;
+    if (o && o.w > 0.5 && o.h > 0.5) {
+      svg += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" fill="#fff" stroke="#666" stroke-width="${sw}" stroke-dasharray="${sw * 4} ${sw * 3}"/>`;
+    }
+    tile.pieces.forEach((pc) => {
+      svg += `<rect x="${pc.x}" y="${pc.y}" width="${pc.w}" height="${pc.h}" fill="#dce7f3" stroke="#222" stroke-width="${sw}"/>`;
+      if (Math.min(pc.w, pc.h) > fs * 1.15) {
+        svg += `<text x="${pc.x + pc.w / 2}" y="${pc.y + pc.h / 2}" font-size="${fs}" font-weight="700" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif">${pc.code}</text>`;
+      }
+    });
+    svg += "</svg>";
+    // a méret az ábra tájolásában (halszálkánál az álló lapok darabja is a
+    // fekvő lap-keretben van); L-darabnál a teljes „L a×b / c×d” felirat
+    const cap = tile.pieces.map((pc) => {
+      const t = (labels[pc.li] && labels[pc.li].text) || "";
+      const dim = t.startsWith("L ") ? t : (t.startsWith("~") ? "~" : "") + fmtDim(pc.w, pc.h);
+      return `<strong>${pc.code}</strong> ${escapeHtml(dim)}`;
+    }).join("<br>");
+    // fekvő lapnál alacsonyabb ábra, hogy ne maradjon üres sáv alatta-felette
+    const hMm = Math.min(30, 26 * H / W).toFixed(1);
+    return `<div class="cp-card"><div class="cp-fig" style="height:${hMm}mm">${svg}</div>` +
+      `<div class="cp-cap"><span class="cp-no">${tile.no}. lap</span><br>${cap}</div></div>`;
   }
 
   const safeFile = (s) => (s || "terv").replace(/[^\w\-]+/g, "_");

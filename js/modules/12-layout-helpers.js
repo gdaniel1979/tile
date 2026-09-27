@@ -113,6 +113,24 @@
     ctx.fillText(text, x, y);
   }
 
+  // Kétsoros felirat (PDF-rajz): felül a vágási terv kódja, alatta a méret —
+  // keskenyebb, mint egy sorban, így a szélső csíkokon sem csúsznak össze.
+  function drawCodeCutLabel(code, text, x, y) {
+    ctx.font = "10px system-ui, sans-serif";
+    const tw = Math.max(ctx.measureText(text).width, ctx.measureText(code).width + 2);
+    const bw = tw + 6, bh = 25;
+    ctx.fillStyle = "rgba(15,20,25,0.78)";
+    roundRect(x - bw / 2, y - bh / 2, bw, bh, 3);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 10px system-ui, sans-serif";
+    ctx.fillText(code, x, y - 5.5);
+    ctx.font = "10px system-ui, sans-serif";
+    ctx.fillText(text, x, y + 6);
+  }
+
   // Egy tengely automatikus eltolása (mm) a szél-igazítási mód szerint.
   // L = befoglaló méret, T = lapméret, grout = fuga; visszaadja az eltolást [0,P).
   function alignAxis(L, T, grout, mode, thrMm) {
@@ -135,30 +153,45 @@
     return ((off % P) + P) % P;
   }
 
-  // Reális lapszükséglet a vágott darabokhoz: egy lapból a kivágott darab
-  // mellett a maradék egy másik darabhoz felhasználható, ha elég nagy.
-  function tilesNeededForCuts(pieces, tileW, tileH) {
-    const offcuts = []; // elérhető maradékok { w, h }
-    let tilesUsed = 0;
-    const sorted = pieces.slice().sort((a, b) => b.w * b.h - a.w * a.h);
-    for (const pc of sorted) {
-      let idx = -1;
-      for (let k = 0; k < offcuts.length; k++) {
+  // Vágási terv: melyik vágott darab melyik lapból, hol jön ki. Mohó
+  // újrahasznosítás: a darabokat terület szerint csökkenő sorrendben vesszük;
+  // ha egy korábbi lap maradékába belefér, abból vágjuk (és a maradék elfogy),
+  // különben új lapot kezdünk: a darab a lap sarkába kerül, a megmaradó
+  // nagyobbik csík lesz a lap maradéka.
+  // pieces: [{ w, h, ... }] → [{ pieces: [{ i, x, y, w, h }], offcut }]
+  //   i = a darab indexe a bemeneti tömbben; x, y = helye a lapon (mm);
+  //   offcut = a lap még fel nem használt maradéka (vagy null).
+  function planCuts(pieces, tileW, tileH) {
+    const tiles = [];
+    const offcuts = []; // elérhető maradékok { tile, x, y, w, h }
+    const order = pieces.map((p, i) => i).sort((a, b) => pieces[b].w * pieces[b].h - pieces[a].w * pieces[a].h);
+    for (const i of order) {
+      const pc = pieces[i];
+      const k = offcuts.findIndex((o) => pc.w <= o.w + 0.5 && pc.h <= o.h + 0.5);
+      if (k >= 0) {
         const o = offcuts[k];
-        if (pc.w <= o.w + 0.5 && pc.h <= o.h + 0.5) { idx = k; break; }
-      }
-      if (idx >= 0) {
-        offcuts.splice(idx, 1); // a maradékot felhasználtuk
+        offcuts.splice(k, 1); // a maradékot felhasználtuk (a darab mellett ami marad, hulladék)
+        o.tile.pieces.push({ i, x: o.x, y: o.y, w: pc.w, h: pc.h });
+        o.tile.offcut = null;
       } else {
-        tilesUsed++;
+        const tile = { pieces: [{ i, x: 0, y: 0, w: pc.w, h: pc.h }], offcut: null };
+        tiles.push(tile);
         // a friss lapból a darab kivágása után megmaradó nagyobbik csík
         const a1 = Math.max(tileW - pc.w, 0) * tileH;
         const a2 = tileW * Math.max(tileH - pc.h, 0);
-        if (a1 >= a2) offcuts.push({ w: Math.max(tileW - pc.w, 0), h: tileH });
-        else offcuts.push({ w: tileW, h: Math.max(tileH - pc.h, 0) });
+        const o = a1 >= a2
+          ? { tile, x: pc.w, y: 0, w: Math.max(tileW - pc.w, 0), h: tileH }
+          : { tile, x: 0, y: pc.h, w: tileW, h: Math.max(tileH - pc.h, 0) };
+        tile.offcut = { x: o.x, y: o.y, w: o.w, h: o.h };
+        offcuts.push(o);
       }
     }
-    return tilesUsed;
+    return tiles;
+  }
+
+  // Reális lapszükséglet a vágott darabokhoz (a vágási terv lapjainak száma).
+  function tilesNeededForCuts(pieces, tileW, tileH) {
+    return planCuts(pieces, tileW, tileH).length;
   }
 
   // A kiosztó hívja: az aktív felület számait megjeleníti a Kiosztás fülön

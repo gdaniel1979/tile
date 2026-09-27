@@ -471,6 +471,7 @@ input[type="color"] {
 /* Nyomtatás / PDF nézet */
 #printArea { display: none; }
 @media print {
+  html { background: #fff; }
   body { background: #fff; color: #000; height: auto; overflow: visible; display: block; }
   .app-header, .app-main { display: none !important; }
   #printArea { display: block; padding: 10px 16px; color: #000; font-family: system-ui, sans-serif; }
@@ -492,6 +493,16 @@ input[type="color"] {
   #printArea .pa-body-stack .pa-grid { flex-direction: row; gap: 32px; }
   #printArea .pa-body-stack .pa-col { flex: 1; }
   #printArea .pa-col { width: 100%; }
+  /* Vágási terv: laponként kis ábra + darab-lista */
+  #printArea .pa-cutplan { margin-top: 14px; }
+  #printArea .pa-cutplan h3 { font-size: 13px; margin: 0 0 4px; }
+  #printArea .pa-cutplan h4 { font-size: 11px; margin: 10px 0 6px; }
+  #printArea .pa-note { font-size: 10px; color: #444; margin: 0 0 6px; }
+  #printArea .cp-grid { display: flex; flex-wrap: wrap; gap: 3mm 4mm; }
+  #printArea .cp-card { width: 26mm; break-inside: avoid; page-break-inside: avoid; }
+  #printArea .cp-fig svg { width: 100%; height: 100%; display: block; }
+  #printArea .cp-cap { font-size: 8.5px; line-height: 1.3; margin-top: 2px; }
+  #printArea .cp-no { color: #555; }
 }
 
 /* Kivágások lista */

@@ -159,6 +159,34 @@
     eq(r.degenerate, true, "degenerált"); eq(r.stats, null, "statisztika");
   });
 
+  // ---- vágási terv ----------------------------------------------------------
+  [["straight", {}], ["diagonal", {}], ["herringbone", {}]].forEach(([pattern]) => {
+    test(`${pattern}: a vágási terv egyezik a lapszükséglettel, a darabok elférnek és nem fedik egymást`, () => {
+      setup(L_SHAPE, { cutouts: [{ x: 500, y: 700, w: 600, h: 800 }], layout: { pattern } });
+      if (!state.tiles.types.some((t) => t.id === "tDekor")) {
+        state.tiles.types.push({ id: "tDekor", name: "Dekor", wMm: 300, hMm: 600, thicknessMm: 8, pricePerTile: 0, fillKind: "color", color: "#c33", imageUrl: null, imageMode: "full" });
+      }
+      state.layout.overrides = pattern === "herringbone" ? { "0_0_1": "tDekor", "1_1_2": "tDekor" } : { "0_0": "tDekor", "3_2": "tDekor" };
+      const r = computeLayout();
+      const planTiles = r.cutPlan.reduce((n, p) => n + p.tiles.length, 0);
+      eq(r.stats.whole + planTiles, r.stats.tilesNeeded, "egész + terv lapjai = szükséges");
+      ok(r.cutLabels.every((c) => /^\d+[ab]$/.test(c.code)), "minden vágott darabnak van kódja");
+      eq(new Set(r.cutLabels.map((c) => c.code)).size, r.cutLabels.length, "a kódok egyediek");
+      r.cutPlan.forEach((p) => p.tiles.forEach((t) => {
+        t.pieces.forEach((a, i) => {
+          ok(a.x >= -0.01 && a.y >= -0.01 && a.x + a.w <= p.tileW + 0.51 && a.y + a.h <= p.tileH + 0.51, `${a.code} kilóg a lapból`);
+          ok(r.needPieces[a.li].typeId === p.typeId, `${a.code} más típusú lapból van vágva`);
+          t.pieces.slice(i + 1).forEach((b) => {
+            const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+            const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+            ok(!(ox > 0.51 && oy > 0.51), `${a.code} és ${b.code} átfedik egymást`);
+          });
+        });
+      }));
+      state.layout.overrides = {};
+    });
+  });
+
   // ---- gyorsítótár --------------------------------------------------------
   test("getLayout: nézet-váltás (zoom/pan) nem számol újra, geometria-változás igen", () => {
     setup(RECT(3000, 2000));

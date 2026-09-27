@@ -140,7 +140,8 @@
   //  ezt használja; a nézet (zoom/pan) nem befolyásolja, ezért felületenként
   //  gyorsítótárazzuk (getLayout).
   //  Eredmény: { g, tiles: [{ key, typeId, rect:{x,y,w,h} | quad:[4 pont] }],
-  //              cutLabels: [{ x, y, w, h, text }], needPieces: [{ w, h }],
+  //              cutLabels: [{ x, y, w, h, text, code }], needPieces: [{ w, h, typeId }],
+  //              cutPlan: [{ typeId, tileW, tileH, tiles: [{ no, pieces, offcut }] }],
   //              stats, degenerate? }
   // =======================================================================
 
@@ -149,32 +150,50 @@
   }
 
   // típusonkénti aggregáció (vízszintes/függőleges base, override-olt is)
-  function bumpType(byType, typeObj, isWhole, areaMm2, dims) {
+  function bumpType(byType, typeObj, isWhole, areaMm2) {
     const id = typeObj.id;
-    if (!byType[id]) byType[id] = { id, name: typeObj.name || "lap", area: 0, whole: 0, cut: 0, cutLabels: [] };
+    if (!byType[id]) byType[id] = { id, name: typeObj.name || "lap", area: 0, whole: 0, cut: 0 };
     const t = byType[id];
     t.area += areaMm2;
     if (isWhole) t.whole++; else t.cut++;
-    if (dims) t.cutLabels.push(dims);
   }
 
   // Anyagkimutatás (reális újrahasznosítással) – a burkolt terület a kivágások
   // nélkül. needW × needH: a lap mérete, amihez a needPieces darabjai igazodnak.
+  // A vágási terv (cutPlan) laptípusonként készül — különböző típusú lapok
+  // maradéka nem cserélhető —, és ebből jön a szükséges lapszám is. Minden
+  // vágott darab kódot kap (pl. „3a” = a terv 3. lapjából az első darab).
   function finishLayout(g, acc, needW, needH) {
     const tileAreaMm2 = needW * needH;
     const areaMm2 = Math.max(0, shoelaceAreaMm2() - cutoutsAreaMm2());
-    const tilesNeeded = acc.whole + tilesNeededForCuts(acc.needPieces, needW, needH);
-    // típusonkénti szükséges lap-számok (újrahaszn. a típus saját cut-darabjaira)
+    const cutPlan = [];
+    let tileNo = 0;
+    [...new Set(acc.needPieces.map((p) => p.typeId))].forEach((typeId) => {
+      const idxs = [];
+      acc.needPieces.forEach((p, i) => { if (p.typeId === typeId) idxs.push(i); });
+      const tiles = planCuts(idxs.map((i) => acc.needPieces[i]), needW, needH).map((t) => {
+        tileNo++;
+        const pieces = t.pieces.map((pc, k) => {
+          const li = idxs[pc.i]; // a darab indexe a cutLabels / needPieces tömbben
+          const code = tileNo + String.fromCharCode(97 + k);
+          acc.cutLabels[li].code = code;
+          return { code, li, x: pc.x, y: pc.y, w: pc.w, h: pc.h };
+        });
+        return { no: tileNo, pieces, offcut: t.offcut };
+      });
+      cutPlan.push({ typeId, tileW: needW, tileH: needH, tiles });
+    });
+    const cutTilesOf = (typeId) => { const p = cutPlan.find((x) => x.typeId === typeId); return p ? p.tiles.length : 0; };
     const byType = {};
     Object.keys(acc.byType).forEach((id) => {
       const t = acc.byType[id];
-      const needed = t.whole + tilesNeededForCuts(t.cutLabels, needW, needH);
-      byType[id] = { id: t.id, name: t.name, area: t.area, whole: t.whole, cut: t.cut, needed, tileAreaMm2 };
+      byType[id] = { id: t.id, name: t.name, area: t.area, whole: t.whole, cut: t.cut, needed: t.whole + cutTilesOf(id), tileAreaMm2 };
     });
+    const tilesNeeded = acc.whole + cutPlan.reduce((n, p) => n + p.tiles.length, 0);
     // fuga geometriailag: a burkolt területből levonjuk a lerakott lap-darabok összesített területét
     const groutAreaMm2 = Math.max(0, areaMm2 - acc.tilesAreaSumMm2);
     return {
-      g, tiles: acc.tiles, cutLabels: acc.cutLabels,
+      g, tiles: acc.tiles, cutLabels: acc.cutLabels, cutPlan,
       needPieces: acc.needPieces, // a vágott darabok a lap (needW × needH) tájolásában
       stats: { total: acc.total, whole: acc.whole, cut: acc.cut, tilesNeeded, areaMm2, tileAreaMm2, groutAreaMm2, byType },
     };
@@ -258,7 +277,7 @@
         const isWhole = subs.length === 1 && subs[0].w >= tileW - 0.5 && subs[0].h >= tileH - 0.5;
         if (isWhole) {
           acc.whole++;
-          bumpType(acc.byType, type, true, area, null);
+          bumpType(acc.byType, type, true, area);
         } else {
           acc.cut++;
           // a darabokat összefüggő komponensekre csoportosítjuk
@@ -275,8 +294,8 @@
             const rectangular = cArea >= cbw * cbh - Math.max(1, cbw * cbh * 0.002);
             const text = rectangular ? fmtDim(cbw, cbh) : ("L " + fmtDim(cbw, cbh) + " / " + fmtDim(big.w, big.h));
             acc.cutLabels.push({ x: big.x + big.w / 2, y: big.y + big.h / 2, w: cbw, h: cbh, text });
-            acc.needPieces.push({ w: cbw, h: cbh });
-            bumpType(acc.byType, type, false, idx === 0 ? area : 0, { w: cbw, h: cbh });
+            acc.needPieces.push({ w: cbw, h: cbh, typeId: type.id });
+            bumpType(acc.byType, type, false, idx === 0 ? area : 0);
           });
         }
         acc.tiles.push({ key: i + "_" + j, typeId: type.id, rect: { x: x0, y: y0, w: tileW, h: tileH } });
@@ -414,13 +433,13 @@
         acc.total++;
         if (isWhole) {
           acc.whole++;
-          bumpType(acc.byType, type, true, rest.area, null);
+          bumpType(acc.byType, type, true, rest.area);
         } else {
           const pw = rest.w, ph = rest.h;
           acc.cut++;
           acc.cutLabels.push({ x: rest.cx, y: rest.cy, w: pw, h: ph, text: "~" + fmtDim(pw, ph) });
-          acc.needPieces.push({ w: pw, h: ph });
-          bumpType(acc.byType, type, false, rest.area, { w: pw, h: ph });
+          acc.needPieces.push({ w: pw, h: ph, typeId: type.id });
+          bumpType(acc.byType, type, false, rest.area);
         }
         acc.tiles.push({ key, typeId: type.id, quad });
       }
@@ -443,7 +462,7 @@
     const w = Math.min(tileW, tileH);
     const h = Math.max(tileW, tileH);
     // négyzetes lap → halszálka degenerál; egyszerű rács szebb
-    if (Math.abs(h - w) < 0.01) return { g, tiles: [], cutLabels: [], stats: null, degenerate: true };
+    if (Math.abs(h - w) < 0.01) return { g, tiles: [], cutLabels: [], cutPlan: [], stats: null, degenerate: true };
     const W = w + grout;
     const H = h + grout;
     // Elforgatás: a teljes minta a felület közepe körül 45°-ban
@@ -520,7 +539,7 @@
 
           if (isWhole) {
             acc.whole++;
-            bumpType(acc.byType, type, true, rest.area, null);
+            bumpType(acc.byType, type, true, rest.area);
           } else {
             acc.cut++;
             const pw = rest.w, ph = rest.h;
@@ -528,8 +547,8 @@
             // Az újrahasznosítás-számítás a lapot h × w (hosszú × rövid) tájolásban
             // nézi: az álló (V) lapok darabjait ehhez elforgatva adjuk át.
             const dims = t.tw === w ? { w: ph, h: pw } : { w: pw, h: ph };
-            acc.needPieces.push(dims);
-            bumpType(acc.byType, type, false, rest.area, dims);
+            acc.needPieces.push({ w: dims.w, h: dims.h, typeId: type.id });
+            bumpType(acc.byType, type, false, rest.area);
           }
           acc.tiles.push({ key, typeId: type.id, quad });
         });
@@ -539,7 +558,8 @@
   }
 
   // ---- Rajzolás: egy computeLayout-eredmény kirajzolása a (bármely) ctx-re ----
-  function drawLayoutResult(res) {
+  // opts.codes: a vágott darabok feliratában a vágási terv kódja is (PDF)
+  function drawLayoutResult(res, opts) {
     if (!res || res.degenerate) return;
     const { minX, minY, maxX, maxY } = res.g;
     const scale = state.view.scale;
@@ -582,16 +602,21 @@
     ctx.restore();
 
     // vágott darabok méret-feliratai (a clip-en kívül, a lapok fölé)
+    const withCodes = !!(opts && opts.codes);
     res.cutLabels.forEach((c) => {
       const s = worldToScreen({ x: c.x, y: c.y });
-      drawCutLabel(c.text || fmtDim(c.w, c.h), s.x, s.y);
+      const text = c.text || fmtDim(c.w, c.h);
+      // kódos (PDF) feliratban L-darabnál csak a befoglaló méret — a teljes
+      // „L a×b / c×d” méret a vágási terv ábrája alatt szerepel
+      if (withCodes && c.code) drawCodeCutLabel(c.code, text.split(" / ")[0], s.x, s.y);
+      else drawCutLabel(text, s.x, s.y);
     });
   }
 
   // Kirajzolás a jelenlegi ctx-re (export, 3D-textúra); a statisztikát nem közli.
-  function drawLayout() {
+  function drawLayout(opts) {
     const res = getLayout();
-    drawLayoutResult(res);
+    drawLayoutResult(res, opts);
     return res;
   }
 
