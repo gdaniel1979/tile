@@ -141,7 +141,7 @@
   //  gyorsítótárazzuk (getLayout).
   //  Eredmény: { g, tiles: [{ key, typeId, rect:{x,y,w,h} | quad:[4 pont] }],
   //              cutLabels: [{ x, y, w, h, text, code }], needPieces: [{ w, h, typeId }],
-  //              cutPlan: [{ typeId, tileW, tileH, tiles: [{ no, pieces, offcut }] }],
+  //              cutPlan: [{ typeId, tileW, tileH, tiles: [{ no, pieces, free }] }],
   //              stats, degenerate? }
   // =======================================================================
 
@@ -171,15 +171,16 @@
     [...new Set(acc.needPieces.map((p) => p.typeId))].forEach((typeId) => {
       const idxs = [];
       acc.needPieces.forEach((p, i) => { if (p.typeId === typeId) idxs.push(i); });
-      const tiles = planCuts(idxs.map((i) => acc.needPieces[i]), needW, needH).map((t) => {
+      const tType = state.tiles.types.find((x) => x.id === typeId);
+      const tiles = planCuts(idxs.map((i) => acc.needPieces[i]), needW, needH, { rotate: tileRotatable(tType) }).map((t) => {
         tileNo++;
         const pieces = t.pieces.map((pc, k) => {
           const li = idxs[pc.i]; // a darab indexe a cutLabels / needPieces tömbben
           const code = tileNo + String.fromCharCode(97 + k);
           acc.cutLabels[li].code = code;
-          return { code, li, x: pc.x, y: pc.y, w: pc.w, h: pc.h };
+          return { code, li, x: pc.x, y: pc.y, w: pc.w, h: pc.h, rot: pc.rot };
         });
-        return { no: tileNo, pieces, offcut: t.offcut };
+        return { no: tileNo, pieces, free: t.free };
       });
       cutPlan.push({ typeId, tileW: needW, tileH: needH, tiles });
     });
@@ -224,7 +225,7 @@
       g.base.id, g.minX, g.minY, g.maxX, g.maxY, g.grout, g.tileW, g.tileH, g.originX, g.originY,
       state.points, state.closed, (state.cutouts || []).map((c) => [c.x, c.y, c.w, c.h]),
       L.pattern, L.offsetPct, L.herringboneTilted, L.overrides,
-      state.tiles.types.map((t) => [t.id, t.name]), state.unit,
+      state.tiles.types.map((t) => [t.id, t.name, tileRotatable(t)]), state.unit,
     ]);
   }
   function getLayout() {

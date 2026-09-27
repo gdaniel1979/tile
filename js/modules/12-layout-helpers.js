@@ -153,45 +153,83 @@
     return ((off % P) + P) % P;
   }
 
-  // Vágási terv: melyik vágott darab melyik lapból, hol jön ki. Mohó
-  // újrahasznosítás: a darabokat terület szerint csökkenő sorrendben vesszük;
-  // ha egy korábbi lap maradékába belefér, abból vágjuk (és a maradék elfogy),
-  // különben új lapot kezdünk: a darab a lap sarkába kerül, a megmaradó
-  // nagyobbik csík lesz a lap maradéka.
-  // pieces: [{ w, h, ... }] → [{ pieces: [{ i, x, y, w, h }], offcut }]
-  //   i = a darab indexe a bemeneti tömbben; x, y = helye a lapon (mm);
-  //   offcut = a lap még fel nem használt maradéka (vagy null).
-  function planCuts(pieces, tileW, tileH) {
+  // Vágási terv: melyik vágott darab melyik lapból, hol jön ki.
+  // Téglalap-pakolás (guillotine): minden lap szabad téglalapokat tart
+  // nyilván; egy darab abba a szabad részbe kerül (bármelyik már megkezdett
+  // lapon), ahol a legkevesebb marad (best area fit), ha nincs ilyen, új lap
+  // kezdődik. Vágás után a szabad rész két csíkra bomlik (egyenes, végigmenő
+  // vágások — mint a valóságban), és mindkettő újra felhasználható.
+  // opts.rotate: a darab 90°-kal elforgatva is kivágható (nincs mintairány).
+  // Több darab-sorrendet kipróbál, és a legkevesebb lapot adót választja.
+  // pieces: [{ w, h, ... }] → [{ pieces: [{ i, x, y, w, h, rot }], free: [{ x, y, w, h }] }]
+  //   i = a darab indexe a bemeneti tömbben; x, y, w, h = helye és mérete a
+  //   lapon (mm, forgatás után); free = a lap még fel nem használt részei.
+  const CUT_TOL = 0.5; // mm tűrés az illesztésnél
+  function planCuts(pieces, tileW, tileH, opts) {
+    const rotate = !!(opts && opts.rotate);
+    const idx = pieces.map((p, i) => i);
+    const orders = [
+      (a, b) => pieces[b].w * pieces[b].h - pieces[a].w * pieces[a].h,                                          // terület
+      (a, b) => Math.max(pieces[b].w, pieces[b].h) - Math.max(pieces[a].w, pieces[a].h),                      // hosszabb oldal
+      (a, b) => pieces[b].h - pieces[a].h || pieces[b].w - pieces[a].w,                                        // magasság
+      (a, b) => pieces[b].w - pieces[a].w || pieces[b].h - pieces[a].h,                                        // szélesség
+    ];
+    let best = null;
+    for (const cmp of orders) {
+      const plan = packGuillotine(pieces, idx.slice().sort((a, b) => cmp(a, b) || a - b), tileW, tileH, rotate);
+      if (!best || plan.length < best.length) best = plan;
+    }
+    return best;
+  }
+
+  function packGuillotine(pieces, order, tileW, tileH, rotate) {
     const tiles = [];
-    const offcuts = []; // elérhető maradékok { tile, x, y, w, h }
-    const order = pieces.map((p, i) => i).sort((a, b) => pieces[b].w * pieces[b].h - pieces[a].w * pieces[a].h);
     for (const i of order) {
       const pc = pieces[i];
-      const k = offcuts.findIndex((o) => pc.w <= o.w + 0.5 && pc.h <= o.h + 0.5);
-      if (k >= 0) {
-        const o = offcuts[k];
-        offcuts.splice(k, 1); // a maradékot felhasználtuk (a darab mellett ami marad, hulladék)
-        o.tile.pieces.push({ i, x: o.x, y: o.y, w: pc.w, h: pc.h });
-        o.tile.offcut = null;
-      } else {
-        const tile = { pieces: [{ i, x: 0, y: 0, w: pc.w, h: pc.h }], offcut: null };
-        tiles.push(tile);
-        // a friss lapból a darab kivágása után megmaradó nagyobbik csík
-        const a1 = Math.max(tileW - pc.w, 0) * tileH;
-        const a2 = tileW * Math.max(tileH - pc.h, 0);
-        const o = a1 >= a2
-          ? { tile, x: pc.w, y: 0, w: Math.max(tileW - pc.w, 0), h: tileH }
-          : { tile, x: 0, y: pc.h, w: tileW, h: Math.max(tileH - pc.h, 0) };
-        tile.offcut = { x: o.x, y: o.y, w: o.w, h: o.h };
-        offcuts.push(o);
+      const orient = [{ w: pc.w, h: pc.h, rot: false }];
+      if (rotate && Math.abs(pc.w - pc.h) > CUT_TOL) orient.push({ w: pc.h, h: pc.w, rot: true });
+      // legjobb szabad rész a már megkezdett lapokon
+      let pick = null;
+      tiles.forEach((t) => t.free.forEach((f, fi) => {
+        orient.forEach((o) => {
+          if (o.w > f.w + CUT_TOL || o.h > f.h + CUT_TOL) return;
+          const rest = f.w * f.h - o.w * o.h;
+          const shortSide = Math.min(f.w - o.w, f.h - o.h);
+          if (!pick || rest < pick.rest - 1e-6 || (Math.abs(rest - pick.rest) <= 1e-6 && shortSide < pick.shortSide)) {
+            pick = { t, fi, o, rest, shortSide };
+          }
+        });
+      }));
+      if (!pick) {
+        const t = { pieces: [], free: [{ x: 0, y: 0, w: tileW, h: tileH }] };
+        tiles.push(t);
+        // új lapon eredeti tájolásban (ha elfér), a lap sarkában
+        const o = orient.find((x) => x.w <= tileW + CUT_TOL && x.h <= tileH + CUT_TOL) || orient[0];
+        pick = { t, fi: 0, o };
       }
+      const f = pick.t.free[pick.fi];
+      const pw = Math.min(pick.o.w, f.w), ph = Math.min(pick.o.h, f.h);
+      pick.t.pieces.push({ i, x: f.x, y: f.y, w: pick.o.w, h: pick.o.h, rot: pick.o.rot });
+      // guillotine-vágás: a nagyobb megmaradó csík legyen minél nagyobb
+      const rw = f.w - pw, bh = f.h - ph;
+      const splitA = [{ x: f.x + pw, y: f.y, w: rw, h: f.h }, { x: f.x, y: f.y + ph, w: pw, h: bh }]; // függőleges vágás végig
+      const splitB = [{ x: f.x + pw, y: f.y, w: rw, h: ph }, { x: f.x, y: f.y + ph, w: f.w, h: bh }]; // vízszintes vágás végig
+      const maxA = Math.max(rw * f.h, pw * bh), maxB = Math.max(rw * ph, f.w * bh);
+      const parts = (maxA >= maxB ? splitA : splitB).filter((r) => r.w > CUT_TOL && r.h > CUT_TOL);
+      pick.t.free.splice(pick.fi, 1, ...parts);
     }
     return tiles;
   }
 
   // Reális lapszükséglet a vágott darabokhoz (a vágási terv lapjainak száma).
-  function tilesNeededForCuts(pieces, tileW, tileH) {
-    return planCuts(pieces, tileW, tileH).length;
+  function tilesNeededForCuts(pieces, tileW, tileH, opts) {
+    return planCuts(pieces, tileW, tileH, opts).length;
+  }
+
+  // Forgatható-e a laptípus darabja a vágási tervben (nincs mintairány).
+  // Amíg a felhasználó nem állítja be: színes lapnál igen, képesnél nem.
+  function tileRotatable(t) {
+    return t && typeof t.rotatable === "boolean" ? t.rotatable : !(t && t.fillKind === "image");
   }
 
   // A kiosztó hívja: az aktív felület számait megjeleníti a Kiosztás fülön

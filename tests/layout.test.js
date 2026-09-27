@@ -51,6 +51,28 @@
     // két 300×400-as már nem
     eq(tilesNeededForCuts([{ w: 300, h: 400 }, { w: 300, h: 400 }], 300, 600), 2, "lapszám");
   });
+  test("planCuts: a maradék többször is felhasználható", () => {
+    // négy 300×140-es csík egy 300×600-as lapból (régen csak 2 jött ki egy lapból)
+    const four = Array.from({ length: 4 }, () => ({ w: 300, h: 140 }));
+    eq(tilesNeededForCuts(four, 300, 600), 1, "lapszám");
+    // hat 140×280-as darab: 2 oszlop × 2 sor fér egy lapra → 2 lap
+    eq(tilesNeededForCuts(Array.from({ length: 6 }, () => ({ w: 140, h: 280 })), 300, 600), 2, "lapszám");
+  });
+  test("planCuts: forgatás csak ha engedélyezett", () => {
+    // 300×450-es darab után 300×150-es maradék marad; a 140×290-es darab
+    // csak elforgatva (290×140) fér bele
+    const pcs = [{ w: 300, h: 450 }, { w: 140, h: 290 }];
+    eq(tilesNeededForCuts(pcs, 300, 600, { rotate: false }), 2, "forgatás nélkül");
+    eq(tilesNeededForCuts(pcs, 300, 600, { rotate: true }), 1, "forgatással");
+    const plan = planCuts(pcs, 300, 600, { rotate: true });
+    ok(plan[0].pieces.some((p) => p.rot), "a forgatott darab jelölve");
+  });
+  test("tileRotatable: alapérték színes lapnál igen, képesnél nem; kézi beállítás felülírja", () => {
+    eq(tileRotatable({ fillKind: "color" }), true, "szín");
+    eq(tileRotatable({ fillKind: "image" }), false, "kép");
+    eq(tileRotatable({ fillKind: "image", rotatable: true }), true, "kézi");
+    eq(tileRotatable({ fillKind: "color", rotatable: false }), false, "kézi");
+  });
   test("clipPolygonRect: L-alak és téglalap metszete", () => {
     const pts = L_SHAPE.map(([x, y]) => ({ x, y }));
     const piece = clipPolygonRect(pts, 2000, 1500, 3000, 2500);
@@ -170,7 +192,7 @@
       const r = computeLayout();
       const planTiles = r.cutPlan.reduce((n, p) => n + p.tiles.length, 0);
       eq(r.stats.whole + planTiles, r.stats.tilesNeeded, "egész + terv lapjai = szükséges");
-      ok(r.cutLabels.every((c) => /^\d+[ab]$/.test(c.code)), "minden vágott darabnak van kódja");
+      ok(r.cutLabels.every((c) => /^\d+[a-z]$/.test(c.code)), "minden vágott darabnak van kódja");
       eq(new Set(r.cutLabels.map((c) => c.code)).size, r.cutLabels.length, "a kódok egyediek");
       r.cutPlan.forEach((p) => p.tiles.forEach((t) => {
         t.pieces.forEach((a, i) => {

@@ -193,10 +193,25 @@
     mode.addEventListener("change", () => { type.imageMode = mode.value; applyFill(sw, type); tilesSave(); });
     imgRow.append(file, mode);
 
+    // forgathatóság a vágási tervben (nincs mintairány) — amíg nincs kézzel
+    // beállítva, a kitöltéstől függ: szín → igen, kép → nem (tileRotatable)
+    const rotRow = document.createElement("label");
+    rotRow.className = "thick-row rot-row";
+    rotRow.title = "A vágási terv a maradékból 90°-kal elforgatva is kivághatja a darabot. Fa-, kő- vagy csíkos mintánál kapcsold ki.";
+    const rotCb = document.createElement("input");
+    rotCb.type = "checkbox";
+    rotCb.checked = tileRotatable(type);
+    rotCb.addEventListener("change", () => { type.rotatable = rotCb.checked; tilesSave(); render(); });
+    const rotLbl = document.createElement("span");
+    rotLbl.className = "u";
+    rotLbl.textContent = "Nincs mintairány, a darab forgatható";
+    rotRow.append(rotCb, rotLbl);
+
     function updateFillVisibility() {
       const isImg = kind.value === "image";
       colorWrap.hidden = isImg;
       imgRow.hidden = !isImg;
+      rotCb.checked = tileRotatable(type);
     }
     kind.addEventListener("change", () => {
       type.fillKind = kind.value;
@@ -206,7 +221,7 @@
     });
     updateFillVisibility();
 
-    fields.append(dim, thickRow, priceRow, fill, imgRow);
+    fields.append(dim, thickRow, priceRow, fill, imgRow, rotRow);
     body.append(sw, fields);
     card.appendChild(body);
     return card;

@@ -279,7 +279,7 @@
     if (!plan || !plan.cutPlan || !plan.cutPlan.length) return "";
     let html = '<div class="pa-cutplan"><h3>Vágási terv (' + state.unit + ")</h3>";
     html += '<p class="pa-note">A kódok a rajzon lévő feliratokkal egyeznek (pl. <strong>3a</strong> = a 3. lapból vágott „a” darab). ' +
-      "Szaggatott keret: felhasználható maradék · vonalkázott: hulladék.</p>";
+      "Szaggatott keret: felhasználható maradék · vonalkázott: hulladék · ↻: a lapból 90°-kal elforgatva vágandó.</p>";
     plan.cutPlan.forEach((p) => {
       const t = (project.tileTypes || []).find((x) => x.id === p.typeId);
       html += `<h4>${escapeHtml(t ? t.name : "lap")} · ${fmtDim(p.tileW, p.tileH)} · ${p.tiles.length} lap vágáshoz</h4>`;
@@ -299,23 +299,26 @@
       `<defs><pattern id="${hid}" patternUnits="userSpaceOnUse" width="${hs}" height="${hs}" patternTransform="rotate(45)">` +
       `<rect width="${hs}" height="${hs}" fill="#fff"/><line x1="0" y1="0" x2="0" y2="${hs}" stroke="#999" stroke-width="${sw * 0.8}"/></pattern></defs>` +
       `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#${hid})" stroke="#222" stroke-width="${sw}"/>`;
-    const o = tile.offcut;
-    if (o && o.w > 0.5 && o.h > 0.5) {
+    // felhasználható maradékok (1 cm-nél keskenyebb csík hulladék)
+    (tile.free || []).forEach((o) => {
+      if (Math.min(o.w, o.h) < 10) return;
       svg += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" fill="#fff" stroke="#666" stroke-width="${sw}" stroke-dasharray="${sw * 4} ${sw * 3}"/>`;
-    }
+    });
     tile.pieces.forEach((pc) => {
       svg += `<rect x="${pc.x}" y="${pc.y}" width="${pc.w}" height="${pc.h}" fill="#dce7f3" stroke="#222" stroke-width="${sw}"/>`;
       if (Math.min(pc.w, pc.h) > fs * 1.15) {
-        svg += `<text x="${pc.x + pc.w / 2}" y="${pc.y + pc.h / 2}" font-size="${fs}" font-weight="700" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif">${pc.code}</text>`;
+        svg += `<text x="${pc.x + pc.w / 2}" y="${pc.y + pc.h / 2}" font-size="${fs}" font-weight="700" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif">${pc.code}${pc.rot ? " ↻" : ""}</text>`;
       }
     });
     svg += "</svg>";
-    // a méret az ábra tájolásában (halszálkánál az álló lapok darabja is a
-    // fekvő lap-keretben van); L-darabnál a teljes „L a×b / c×d” felirat
+    // a méret a darab SAJÁT tájolásában (ahogy a rajzon áll; halszálkánál a
+    // fekvő lap-keretben); ↻ = a lapból 90°-kal elforgatva vágandó.
+    // L-darabnál a teljes „L a×b / c×d” felirat.
     const cap = tile.pieces.map((pc) => {
       const t = (labels[pc.li] && labels[pc.li].text) || "";
-      const dim = t.startsWith("L ") ? t : (t.startsWith("~") ? "~" : "") + fmtDim(pc.w, pc.h);
-      return `<strong>${pc.code}</strong> ${escapeHtml(dim)}`;
+      const w = pc.rot ? pc.h : pc.w, h = pc.rot ? pc.w : pc.h;
+      const dim = t.startsWith("L ") ? t : (t.startsWith("~") ? "~" : "") + fmtDim(w, h);
+      return `<strong>${pc.code}</strong> ${escapeHtml(dim)}${pc.rot ? " ↻ (forgatva)" : ""}`;
     }).join("<br>");
     // fekvő lapnál alacsonyabb ábra, hogy ne maradjon üres sáv alatta-felette
     const hMm = Math.min(30, 26 * H / W).toFixed(1);
