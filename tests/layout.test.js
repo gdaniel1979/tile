@@ -1,0 +1,151 @@
+/* =========================================================================
+   Kiosztás- és számítás-tesztek. Az app globális függvényeit használja, ezért
+   a betöltött app oldalába kell injektálni — a futtató: tests/run_tests.py
+   (Playwright, friss böngésző-profil, így a valódi mentett adatokhoz nem nyúl).
+   ========================================================================= */
+"use strict";
+(function () {
+  const results = [];
+  function test(name, fn) {
+    try { fn(); results.push({ name, ok: true }); }
+    catch (e) { results.push({ name, ok: false, msg: e && e.message || String(e) }); }
+  }
+  function eq(actual, expected, what) {
+    if (actual !== expected) throw new Error(`${what || "érték"}: várt ${expected}, kapott ${actual}`);
+  }
+  function near(actual, expected, tol, what) {
+    if (!(Math.abs(actual - expected) <= tol)) throw new Error(`${what || "érték"}: várt ${expected}±${tol}, kapott ${actual}`);
+  }
+  function ok(cond, what) { if (!cond) throw new Error(what || "feltétel nem teljesül"); }
+
+  // Tiszta, determinisztikus kiinduló állapot egy felületen
+  function setup(pts, opts) {
+    opts = opts || {};
+    state.points = pts.map(([x, y]) => ({ x, y }));
+    state.closed = true;
+    state.cutouts.length = 0;
+    (opts.cutouts || []).forEach((c) => state.cutouts.push(Object.assign({ kind: "opening", name: "", edgeEdgings: [false, false, false, false] }, c)));
+    const base = state.tiles.types.find((t) => t.id === state.tiles.baseId);
+    base.wMm = opts.tileW || 300; base.hMm = opts.tileH || 600;
+    state.tiles.groutMm = opts.grout != null ? opts.grout : 3;
+    Object.assign(state.layout, {
+      pattern: "straight", offsetPct: 50, herringboneTilted: false, alignMode: "none",
+      thresholdMm: 100, offXmm: 0, offYmm: 0, rotated: false, overrides: {}, show: true,
+    }, opts.layout || {});
+  }
+  const RECT = (w, h) => [[0, 0], [w, 0], [w, h], [0, h]];
+  const L_SHAPE = [[0, 0], [5000, 0], [5000, 2000], [2500, 2000], [2500, 4000], [0, 4000]];
+
+  // ---- tiszta segédfüggvények ----------------------------------------------
+  test("alignAxis: 'center' szimmetrikus szélső csíkot ad", () => {
+    // L=1000, T=300, fuga 3 → 3 teljes lap: csík = (1000-900-12)/2 = 44 → eltolás 47
+    near(alignAxis(1000, 300, 3, "center", 100), 47, 1e-9, "eltolás");
+  });
+  test("alignAxis: 'min' kerüli a küszöb alatti csíkot", () => {
+    // 3 lappal 44 mm-es csík < 100 → 2 lap: csík = (1000-600-9)/2 = 195.5
+    near(alignAxis(1000, 300, 3, "min", 100), 198.5, 1e-9, "eltolás");
+  });
+  test("tilesNeededForCuts: a maradék újrahasznosul", () => {
+    // két 300×250-es darab egy 300×600-as lapból kijön
+    eq(tilesNeededForCuts([{ w: 300, h: 250 }, { w: 300, h: 250 }], 300, 600), 1, "lapszám");
+    // két 300×400-as már nem
+    eq(tilesNeededForCuts([{ w: 300, h: 400 }, { w: 300, h: 400 }], 300, 600), 2, "lapszám");
+  });
+  test("clipPolygonRect: L-alak és téglalap metszete", () => {
+    const pts = L_SHAPE.map(([x, y]) => ({ x, y }));
+    const piece = clipPolygonRect(pts, 2000, 1500, 3000, 2500);
+    let a = 0;
+    for (let i = 0; i < piece.length; i++) { const p = piece[i], q = piece[(i + 1) % piece.length]; a += p.x * q.y - q.x * p.y; }
+    // a 1000×1000-es ablakból a belső sarok miatt 1000×500 + 500×500 esik bele
+    near(Math.abs(a) / 2, 750000, 1e-6, "terület");
+  });
+
+  // ---- computeLayout ---------------------------------------------------------
+  test("egyenes: kézzel ellenőrzött kis helyiség (3 egész + 1 vágott)", () => {
+    // 1203×603 mm, 300×600-as lap, 3 mm fuga, 0 eltolás:
+    // x = 0, 303, 606 teljes; 909-től 1203-ig 294 mm-es vágott lap
+    setup(RECT(1203, 603));
+    const r = computeLayout();
+    eq(r.stats.whole, 3, "egész"); eq(r.stats.cut, 1, "vágott"); eq(r.stats.tilesNeeded, 4, "szükséges");
+    eq(r.cutLabels.length, 1, "vágott darabok");
+    near(r.cutLabels[0].w, 294, 1e-6, "vágott szélesség"); near(r.cutLabels[0].h, 600, 1e-6, "vágott magasság");
+    near(r.stats.areaMm2, 1203 * 603, 1e-6, "terület");
+  });
+  test("egyenes: kivágás csökkenti a területet és vágott lapot okoz", () => {
+    setup(RECT(1203, 603), { cutouts: [{ x: 0, y: 0, w: 150, h: 150 }] });
+    const r = computeLayout();
+    near(r.stats.areaMm2, 1203 * 603 - 150 * 150, 1e-6, "terület");
+    eq(r.stats.whole, 2, "egész"); eq(r.stats.cut, 2, "vágott");
+  });
+
+  const PATTERNS = [
+    ["straight", {}], ["offset", { offsetPct: 33 }], ["diagonal", {}],
+    ["herringbone", {}], ["herringbone", { herringboneTilted: true }],
+  ];
+  PATTERNS.forEach(([pattern, extra]) => {
+    const label = pattern + (extra.herringboneTilted ? " (45°)" : "");
+    test(`${label}: alap-invariánsok L-alakú helyiségen`, () => {
+      setup(L_SHAPE, { cutouts: [{ x: 500, y: 700, w: 600, h: 800 }], layout: Object.assign({ pattern }, extra) });
+      const r = computeLayout();
+      const s = r.stats;
+      eq(s.whole + s.cut, s.total, "egész + vágott = összes");
+      eq(r.tiles.length, s.total, "lerakott lapok száma");
+      eq(r.cutLabels.length >= s.cut, true, "minden vágott laphoz van felirat");
+      ok(s.tilesNeeded >= s.whole, "szükséges ≥ egész");
+      ok(s.tilesNeeded <= s.total, "szükséges ≤ lerakott (újrahasznosítás nem növel)");
+      ok(s.groutAreaMm2 >= 0, "fuga-terület nem negatív");
+      const byTypeNeeded = Object.values(s.byType).reduce((a, t) => a + t.needed, 0);
+      eq(byTypeNeeded, s.tilesNeeded, "típusonkénti szükséglet összege");
+    });
+  });
+
+  test("halszálka: a vágott darabok a lap tájolásában (hosszú × rövid) számolódnak", () => {
+    // az álló (V) lapok darabjait elforgatva kell az újrahasznosításnak átadni,
+    // különben pl. egy 50×500-as darab nem fér egy 600×300-as lapba
+    [false, true].forEach((tilted) => {
+      setup(L_SHAPE, { layout: { pattern: "herringbone", herringboneTilted: tilted } });
+      const r = computeLayout();
+      ok(r.needPieces.length === r.stats.cut, "minden vágott laphoz egy darab");
+      r.needPieces.forEach((p) => {
+        ok(p.w <= 600 + 0.5 && p.h <= 300 + 0.5, `darab ${p.w.toFixed(0)}×${p.h.toFixed(0)} nem fér a 600×300-as lapba`);
+      });
+    });
+  });
+
+  test("négyzetes lap halszálkában: degenerált eredmény, nincs statisztika", () => {
+    setup(RECT(2000, 2000), { tileW: 300, tileH: 300, layout: { pattern: "herringbone" } });
+    const r = computeLayout();
+    eq(r.degenerate, true, "degenerált"); eq(r.stats, null, "statisztika");
+  });
+
+  // ---- gyorsítótár --------------------------------------------------------
+  test("getLayout: nézet-váltás (zoom/pan) nem számol újra, geometria-változás igen", () => {
+    setup(RECT(3000, 2000));
+    const a = getLayout();
+    state.view.scale *= 2; state.view.ox += 50;
+    eq(getLayout(), a, "ugyanaz az eredmény-objektum nézetváltás után");
+    state.points[1].x += 100;
+    ok(getLayout() !== a, "új eredmény pont-mozgatás után");
+    const b = getLayout();
+    state.layout.overrides["0_0"] = state.tiles.baseId;
+    ok(getLayout() !== b, "új eredmény festés után");
+  });
+
+  // ---- 6. hiba: elrejtett kiosztás is számít ---------------------------------
+  test("elrejtett kiosztás (show=false) is bekerül az anyagszámításba", () => {
+    setup(RECT(3000, 2000));
+    render();
+    const s = project.surfaces[project.activeIndex];
+    const visibleNeeded = s.lastTilesNeeded;
+    ok(visibleNeeded > 0, "látható kiosztásnál van szükséglet");
+    state.layout.show = false;
+    render();
+    eq(s.lastTilesNeeded, visibleNeeded, "elrejtve is ugyanannyi");
+    ok(lastStats && lastStats.tilesNeeded === visibleNeeded, "export-statisztika is megvan");
+    recomputeAllSurfacesMaterial();
+    eq(project.surfaces[project.activeIndex].lastTilesNeeded, visibleNeeded, "projekt-szintű újraszámolás után is");
+    state.layout.show = true;
+  });
+
+  window.__tileTestResults = results;
+})();

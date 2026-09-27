@@ -182,14 +182,9 @@
     labelRects = [];
     cutoutLabelRects = [];
     drawGrid();
-    if (shouldDrawLayout()) {
-      drawLayout();
-    } else {
-      setLayoutCounts(null);
-      updateMaterialReport(null);
-      lastStats = null;
-      lastCutPieces = [];
-    }
+    const layoutRes = canComputeLayout() ? getLayout() : null;
+    if (layoutRes && state.layout.show) drawLayoutResult(layoutRes);
+    publishLayoutStats(layoutRes);
     drawCutouts();
     drawSnapGuides();
     drawPolygon();

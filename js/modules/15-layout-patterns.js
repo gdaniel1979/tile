@@ -124,24 +124,100 @@
     return true;
   }
 
-  function drawLayout() {
+  // =======================================================================
+  //  Kiosztás: SZÁMÍTÁS és RAJZOLÁS külön.
+  //  computeLayout() nem nyúl a vászonhoz és a DOM-hoz: a lapok világ-
+  //  koordinátás listáját, a vágott darabok feliratait és a statisztikát adja
+  //  vissza. A render, az export, a 3D és a projekt-szintű anyagszámítás mind
+  //  ezt használja; a nézet (zoom/pan) nem befolyásolja, ezért felületenként
+  //  gyorsítótárazzuk (getLayout).
+  //  Eredmény: { g, tiles: [{ typeId, rect:{x,y,w,h} | quad:[4 pont] }],
+  //              cutLabels: [{ x, y, w, h, text }], needPieces: [{ w, h }],
+  //              stats, degenerate? }
+  // =======================================================================
+
+  function newLayoutAcc() {
+    return { total: 0, whole: 0, cut: 0, tilesAreaSumMm2: 0, tiles: [], cutLabels: [], needPieces: [], byType: {} };
+  }
+
+  // típusonkénti aggregáció (vízszintes/függőleges base, override-olt is)
+  function bumpType(byType, typeObj, isWhole, areaMm2, dims) {
+    const id = typeObj.id;
+    if (!byType[id]) byType[id] = { id, name: typeObj.name || "lap", area: 0, whole: 0, cut: 0, cutLabels: [] };
+    const t = byType[id];
+    t.area += areaMm2;
+    if (isWhole) t.whole++; else t.cut++;
+    if (dims) t.cutLabels.push(dims);
+  }
+
+  // Anyagkimutatás (reális újrahasznosítással) – a burkolt terület a kivágások
+  // nélkül. needW × needH: a lap mérete, amihez a needPieces darabjai igazodnak.
+  function finishLayout(g, acc, needW, needH) {
+    const tileAreaMm2 = needW * needH;
+    const areaMm2 = Math.max(0, shoelaceAreaMm2() - cutoutsAreaMm2());
+    const tilesNeeded = acc.whole + tilesNeededForCuts(acc.needPieces, needW, needH);
+    // típusonkénti szükséges lap-számok (újrahaszn. a típus saját cut-darabjaira)
+    const byType = {};
+    Object.keys(acc.byType).forEach((id) => {
+      const t = acc.byType[id];
+      const needed = t.whole + tilesNeededForCuts(t.cutLabels, needW, needH);
+      byType[id] = { id: t.id, name: t.name, area: t.area, whole: t.whole, cut: t.cut, needed, tileAreaMm2 };
+    });
+    // fuga geometriailag: a burkolt területből levonjuk a lerakott lap-darabok összesített területét
+    const groutAreaMm2 = Math.max(0, areaMm2 - acc.tilesAreaSumMm2);
+    return {
+      g, tiles: acc.tiles, cutLabels: acc.cutLabels,
+      needPieces: acc.needPieces, // a vágott darabok a lap (needW × needH) tájolásában
+      stats: { total: acc.total, whole: acc.whole, cut: acc.cut, tilesNeeded, areaMm2, tileAreaMm2, groutAreaMm2, byType },
+    };
+  }
+
+  function overrideType(key, base) {
+    const ovId = state.layout.overrides[key];
+    return ovId ? (state.tiles.types.find((t) => t.id === ovId) || base) : base;
+  }
+
+  function computeLayout() {
     const g = computeGrid();
-    if (!g) { setLayoutCounts(null); updateMaterialReport(null); return; }
-    const { base, minX, minY, maxX, maxY, tileW, tileH, pitchX, pitchY, originX, originY, offX, offY } = g;
+    return g ? computeLayoutFromGrid(g) : null;
+  }
+
+  function computeLayoutFromGrid(g) {
+    if (state.layout.pattern === "diagonal") return computeDiagonalLayout(g);
+    if (state.layout.pattern === "herringbone") return computeHerringboneLayout(g);
+    return computeStraightLayout(g);
+  }
+
+  // Felületenkénti gyorsítótár: csak akkor számolunk újra, ha a kiosztást
+  // meghatározó adatok változtak (a képek, színek a rajzoláskor olvasódnak).
+  const layoutCache = new Map(); // felület-id -> { key, res }
+  function layoutCacheKey(g) {
+    const L = state.layout;
+    return JSON.stringify([
+      g.base.id, g.minX, g.minY, g.maxX, g.maxY, g.grout, g.tileW, g.tileH, g.originX, g.originY,
+      state.points, state.closed, (state.cutouts || []).map((c) => [c.x, c.y, c.w, c.h]),
+      L.pattern, L.offsetPct, L.herringboneTilted, L.overrides,
+      state.tiles.types.map((t) => [t.id, t.name]), state.unit,
+    ]);
+  }
+  function getLayout() {
+    const g = computeGrid();
+    if (!g) return null;
+    const s = project && project.surfaces ? project.surfaces[project.activeIndex] : null;
+    const sid = s ? s.id : "_";
+    const key = layoutCacheKey(g);
+    const hit = layoutCache.get(sid);
+    if (hit && hit.key === key) return hit.res;
+    const res = computeLayoutFromGrid(g);
+    layoutCache.set(sid, { key, res });
+    return res;
+  }
+
+  // EGYENES / ELTOLT (téglakötés) kiosztás
+  function computeStraightLayout(g) {
+    const { base, minX, minY, maxX, maxY, tileW, tileH, pitchX, pitchY, originX, originY } = g;
     const p = state.points;
-    const scale = state.view.scale;
-
-    // aktív szél-igazításnál a letiltott kézi mezőkben a számolt érték
-    if (state.layout.alignMode !== "none") {
-      if (el.offX.disabled) el.offX.value = fromMm(offX).toFixed(state.unit === "cm" ? 1 : 0);
-      if (el.offY.disabled) el.offY.value = fromMm(offY).toFixed(state.unit === "cm" ? 1 : 0);
-    }
-
-    // átlós minta: külön (elforgatott) renderelő ág
-    if (state.layout.pattern === "diagonal") { drawDiagonalLayout(g); return; }
-    // halszálka (herringbone): saját elrendezés ferde rácsra L-párokkal
-    if (state.layout.pattern === "herringbone") { drawHerringboneLayout(g); return; }
-
+    const cutouts = state.cutouts || [];
     // kötésminta: eltolt (téglakötés) soronkénti x-eltolás
     const offFrac = state.layout.pattern === "offset" ? (state.layout.offsetPct || 0) / 100 : 0;
 
@@ -150,38 +226,7 @@
     const j0 = Math.floor((minY - originY) / pitchY) - 1;
     const j1 = Math.ceil((maxY - originY) / pitchY) + 1;
 
-    const cutouts = state.cutouts || [];
-    ctx.save();
-    polygonScreenPath();
-    // a kivágásokat lyukként adjuk a path-hoz (evenodd kitöltési szabály)
-    cutouts.forEach((c) => {
-      const a = worldToScreen({ x: c.x, y: c.y });
-      const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
-      ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
-    });
-    ctx.clip("evenodd");
-
-    // fuga háttér (a clip miatt csak a sokszögön belül látszik)
-    const tl = worldToScreen({ x: minX, y: minY });
-    const br = worldToScreen({ x: maxX, y: maxY });
-    ctx.fillStyle = state.tiles.groutColor;
-    ctx.fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
-
-    let total = 0, whole = 0, cut = 0;
-    let tilesAreaSumMm2 = 0; // a ténylegesen lerakott (esetleg vágott) lapok területének összege
-    const cutLabels = []; // { x, y, w, h } – világkoordinátában, a vágott darabokhoz
-    const types = state.tiles.types;
-    const overrides = state.layout.overrides;
-    const byType = {}; // typeId -> { id, name, area, whole, cut, cutLabels[] }
-    const bumpType = (typeObj, isWhole, areaMm2, labelDims) => {
-      const id = typeObj.id;
-      if (!byType[id]) byType[id] = { id, name: typeObj.name || "lap", area: 0, whole: 0, cut: 0, cutLabels: [] };
-      const g = byType[id];
-      g.area += areaMm2;
-      if (isWhole) g.whole++; else g.cut++;
-      if (labelDims) g.cutLabels.push(labelDims);
-    };
-
+    const acc = newLayoutAcc();
     for (let j = j0; j <= j1; j++) {
       const rowShift = offFrac ? (((j * offFrac) % 1) * pitchX) : 0;
       for (let i = i0; i <= i1; i++) {
@@ -196,22 +241,21 @@
         let area = 0;
         for (const s of subs) area += s.w * s.h;
         if (area < tileW * tileH * 0.004) continue; // gyakorlatilag nincs burkolható rész → kihagyjuk
-        tilesAreaSumMm2 += area;
+        acc.tilesAreaSumMm2 += area;
 
         // egyedi felülírás: a cellához rendelt típus megjelenése, ha van
-        const ovId = overrides[i + "_" + j];
-        const type = ovId ? (types.find((t) => t.id === ovId) || base) : base;
+        const type = overrideType(i + "_" + j, base);
 
-        total++;
+        acc.total++;
         const isWhole = subs.length === 1 && subs[0].w >= tileW - 0.5 && subs[0].h >= tileH - 0.5;
-        const typeCutDims = []; // ehhez a laphoz tartozó cut-darabok (újrahaszn. szám.)
         if (isWhole) {
-          whole++;
+          acc.whole++;
+          bumpType(acc.byType, type, true, area, null);
         } else {
-          cut++;
+          acc.cut++;
           // a darabokat összefüggő komponensekre csoportosítjuk
           const comps = groupConnected(subs);
-          for (const comp of comps) {
+          comps.forEach((comp, idx) => {
             let cbx0 = Infinity, cby0 = Infinity, cbx1 = -Infinity, cby1 = -Infinity, cArea = 0, big = comp[0];
             for (const r of comp) {
               const a = r.w * r.h; cArea += a;
@@ -222,63 +266,28 @@
             const cbw = cbx1 - cbx0, cbh = cby1 - cby0;
             const rectangular = cArea >= cbw * cbh - Math.max(1, cbw * cbh * 0.002);
             const text = rectangular ? fmtDim(cbw, cbh) : ("L " + fmtDim(cbw, cbh) + " / " + fmtDim(big.w, big.h));
-            cutLabels.push({ x: big.x + big.w / 2, y: big.y + big.h / 2, w: cbw, h: cbh, text });
-            typeCutDims.push({ w: cbw, h: cbh });
-          }
+            acc.cutLabels.push({ x: big.x + big.w / 2, y: big.y + big.h / 2, w: cbw, h: cbh, text });
+            acc.needPieces.push({ w: cbw, h: cbh });
+            bumpType(acc.byType, type, false, idx === 0 ? area : 0, { w: cbw, h: cbh });
+          });
         }
-        // típusonkénti aggregáció (vízszintes/függőleges base, override-olt is)
-        if (isWhole) bumpType(type, true, area, null);
-        else typeCutDims.forEach((d, idx) => bumpType(type, false, idx === 0 ? area : 0, d));
-
-        const s0 = worldToScreen({ x: x0, y: y0 });
-        const sw = tileW * scale, sh = tileH * scale;
-        drawTileFill(type, s0.x, s0.y, sw, sh);
+        acc.tiles.push({ typeId: type.id, rect: { x: x0, y: y0, w: tileW, h: tileH } });
       }
     }
-
-    ctx.restore();
-
-    // vágott darabok méret-feliratai (a clip-en kívül, a lapok fölé)
-    cutLabels.forEach((c) => {
-      const s = worldToScreen({ x: c.x, y: c.y });
-      drawCutLabel(c.text || fmtDim(c.w, c.h), s.x, s.y);
-    });
-
-    setLayoutCounts({ total, whole, cut });
-
-    // anyagkimutatás (reális újrahasznosítással) – a burkolt terület a kivágások nélkül
-    const cutTilesNeeded = tilesNeededForCuts(cutLabels, tileW, tileH);
-    const areaMm2 = Math.max(0, shoelaceAreaMm2() - cutoutsAreaMm2());
-    const tilesNeeded = whole + cutTilesNeeded;
-    // típusonkénti szükséges lap-számok (újrahaszn. a típus saját cut-darabjaira)
-    const byTypeOut = {};
-    Object.keys(byType).forEach((id) => {
-      const g = byType[id];
-      const needed = g.whole + tilesNeededForCuts(g.cutLabels, tileW, tileH);
-      byTypeOut[id] = { id: g.id, name: g.name, area: g.area, whole: g.whole, cut: g.cut, needed, tileAreaMm2: tileW * tileH };
-    });
-    // fuga geometriailag: a burkolt területből levonjuk a lerakott lap-darabok összesített területét
-    const groutAreaMm2 = Math.max(0, areaMm2 - tilesAreaSumMm2);
-    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH, groutAreaMm2, whole, cut, byType: byTypeOut });
-
-    // statisztikák megőrzése export/nyomtatáshoz
-    lastStats = { whole, cut, tilesNeeded, areaMm2, tileAreaMm2: tileW * tileH, groutAreaMm2 };
-    lastCutPieces = cutLabels.map((c) => ({ w: c.w, h: c.h }));
+    return finishLayout(g, acc, tileW, tileH);
   }
 
   // ÁTLÓS (45°) kiosztás – elforgatott rács. A vágási méret a lap saját
   // tengelye mentén (közelítő a kivágásoknál és a kontúr ferde éleinél).
-  function drawDiagonalLayout(g) {
+  function computeDiagonalLayout(g) {
     const { base, minX, minY, maxX, maxY, tileW, tileH, grout } = g;
     const p = state.points;
-    const scale = state.view.scale;
     const th = Math.PI / 4;
     const ux = Math.cos(th), uy = Math.sin(th);   // lap-szélesség tengely
     const vx = -Math.sin(th), vy = Math.cos(th);  // lap-magasság tengely
     const pU = tileW + grout, pV = tileH + grout;
     const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
     const cutouts = state.cutouts || [];
-    const types = state.tiles.types, overrides = state.layout.overrides;
     const inCutPt = (px, py) => { for (const c of cutouts) if (px > c.x && px < c.x + c.w && py > c.y && py < c.y + c.h) return true; return false; };
 
     // i,j tartomány a bbox lefedéséhez
@@ -292,27 +301,7 @@
     iMin = Math.floor(iMin) - 1; iMax = Math.ceil(iMax) + 1;
     jMin = Math.floor(jMin) - 1; jMax = Math.ceil(jMax) + 1;
 
-    ctx.save();
-    polygonScreenPath();
-    cutouts.forEach((c) => { const a = worldToScreen({ x: c.x, y: c.y }), b = worldToScreen({ x: c.x + c.w, y: c.y + c.h }); ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y); });
-    ctx.clip("evenodd");
-    const tl = worldToScreen({ x: minX, y: minY }), br = worldToScreen({ x: maxX, y: maxY });
-    ctx.fillStyle = state.tiles.groutColor;
-    ctx.fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
-
-    let total = 0, whole = 0, cut = 0;
-    let tilesAreaSumMm2 = 0;
-    const cutLabels = [];
-    const byType = {};
-    const bumpType = (typeObj, isWhole, areaMm2, labelDims) => {
-      const id = typeObj.id;
-      if (!byType[id]) byType[id] = { id, name: typeObj.name || "lap", area: 0, whole: 0, cut: 0, cutLabels: [] };
-      const g = byType[id];
-      g.area += areaMm2;
-      if (isWhole) g.whole++; else g.cut++;
-      if (labelDims) g.cutLabels.push(labelDims);
-    };
-
+    const acc = newLayoutAcc();
     for (let j = jMin; j <= jMax; j++) {
       for (let i = iMin; i <= iMax; i++) {
         const Ax = cx + i * pU * ux + j * pV * vx;
@@ -340,12 +329,16 @@
         for (let k = 0; k < piece.length; k++) { const a = piece[k], b = piece[(k + 1) % piece.length]; pieceArea += a.x * b.y - b.x * a.y; }
         pieceArea = Math.abs(pieceArea) / 2;
         if (pieceArea < tileW * tileH * 0.004) continue;
-        tilesAreaSumMm2 += pieceArea;
+        acc.tilesAreaSumMm2 += pieceArea;
 
         const touchesCut = centerCut || cornersInCut > 0;
         const isWhole = pieceArea >= tileW * tileH * 0.985 && !touchesCut;
-        let label = null;
-        if (!isWhole) {
+        const type = overrideType(i + "_" + j, base);
+        acc.total++;
+        if (isWhole) {
+          acc.whole++;
+          bumpType(acc.byType, type, true, pieceArea, null);
+        } else {
           let lu0 = Infinity, lu1 = -Infinity, lv0 = Infinity, lv1 = -Infinity, pcx = 0, pcy = 0;
           piece.forEach((q) => {
             const rx = q.x - Ax, ry = q.y - Ay;
@@ -355,36 +348,15 @@
           });
           pcx /= piece.length; pcy /= piece.length;
           const pw = Math.max(0, lu1 - lu0), ph = Math.max(0, lv1 - lv0);
-          label = { x: pcx, y: pcy, w: pw, h: ph, text: "~" + fmtDim(pw, ph) };
+          acc.cut++;
+          acc.cutLabels.push({ x: pcx, y: pcy, w: pw, h: ph, text: "~" + fmtDim(pw, ph) });
+          acc.needPieces.push({ w: pw, h: ph });
+          bumpType(acc.byType, type, false, pieceArea, { w: pw, h: ph });
         }
-
-        total++;
-        if (isWhole) whole++; else { cut++; cutLabels.push(label); }
-
-        const ovId = overrides[i + "_" + j];
-        const type = ovId ? (types.find((t) => t.id === ovId) || base) : base;
-        if (isWhole) bumpType(type, true, pieceArea, null);
-        else bumpType(type, false, pieceArea, label ? { w: label.w, h: label.h } : null);
-        drawQuadFill(type, quad);
+        acc.tiles.push({ typeId: type.id, quad });
       }
     }
-    ctx.restore();
-
-    cutLabels.forEach((c) => { const s = worldToScreen({ x: c.x, y: c.y }); drawCutLabel(c.text, s.x, s.y); });
-    setLayoutCounts({ total, whole, cut });
-    const cutTilesNeeded = tilesNeededForCuts(cutLabels.map((c) => ({ w: c.w, h: c.h })), tileW, tileH);
-    const areaMm2 = Math.max(0, shoelaceAreaMm2() - cutoutsAreaMm2());
-    const tilesNeeded = whole + cutTilesNeeded;
-    const byTypeOut = {};
-    Object.keys(byType).forEach((id) => {
-      const g = byType[id];
-      const needed = g.whole + tilesNeededForCuts(g.cutLabels, tileW, tileH);
-      byTypeOut[id] = { id: g.id, name: g.name, area: g.area, whole: g.whole, cut: g.cut, needed, tileAreaMm2: tileW * tileH };
-    });
-    const groutAreaMm2 = Math.max(0, areaMm2 - tilesAreaSumMm2);
-    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: tileW * tileH, groutAreaMm2, whole, cut, byType: byTypeOut });
-    lastStats = { whole, cut, tilesNeeded, areaMm2, tileAreaMm2: tileW * tileH, groutAreaMm2 };
-    lastCutPieces = cutLabels.map((c) => ({ w: c.w, h: c.h }));
+    return finishLayout(g, acc, tileW, tileH);
   }
 
   // HALSZÁLKA (herringbone) — pgg-konstrukció ferde 2D-rácson, cellánként 4 lap.
@@ -396,18 +368,13 @@
   //   V2 (sx+W, sy+W, w, h), H2 (sx+2W, sy+W, h, w).
   // 45°-os elforgatás (herringboneTilted): a teljes minta elfordul a felület
   // középpontja körül; a u1, u2 vektorok és a lap saját tengelyei is rotálva.
-  function drawHerringboneLayout(g) {
+  function computeHerringboneLayout(g) {
     const { base, minX, minY, maxX, maxY, grout, tileW, tileH } = g;
     const p = state.points;
-    const scale = state.view.scale;
-    let w = Math.min(tileW, tileH);
-    let h = Math.max(tileW, tileH);
-    if (Math.abs(h - w) < 0.01) {
-      // négyzetes lap → halszálka degenerál; egyszerű rács szebb
-      setLayoutCounts({ total: 0, whole: 0, cut: 0 });
-      updateMaterialReport(null);
-      return;
-    }
+    const w = Math.min(tileW, tileH);
+    const h = Math.max(tileW, tileH);
+    // négyzetes lap → halszálka degenerál; egyszerű rács szebb
+    if (Math.abs(h - w) < 0.01) return { g, tiles: [], cutLabels: [], stats: null, degenerate: true };
     const W = w + grout;
     const H = h + grout;
     // Elforgatás: a teljes minta a felület közepe körül 45°-ban
@@ -425,33 +392,6 @@
     // Forgatás középpontja: a felület bbox-közepe
     const ctrX = (minX + maxX) / 2, ctrY = (minY + maxY) / 2;
     const cutouts = state.cutouts || [];
-    const types = state.tiles.types;
-    const overrides = state.layout.overrides;
-
-    ctx.save();
-    polygonScreenPath();
-    cutouts.forEach((c) => {
-      const a = worldToScreen({ x: c.x, y: c.y });
-      const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
-      ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
-    });
-    ctx.clip("evenodd");
-    const tl = worldToScreen({ x: minX, y: minY }), br = worldToScreen({ x: maxX, y: maxY });
-    ctx.fillStyle = state.tiles.groutColor;
-    ctx.fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
-
-    let total = 0, whole = 0, cut = 0;
-    let tilesAreaSumMm2 = 0;
-    const cutLabels = [];
-    const byType = {};
-    const bumpType = (typeObj, isWhole, areaMm2, labelDims) => {
-      const id = typeObj.id;
-      if (!byType[id]) byType[id] = { id, name: typeObj.name || "lap", area: 0, whole: 0, cut: 0, cutLabels: [] };
-      const gr = byType[id];
-      gr.area += areaMm2;
-      if (isWhole) gr.whole++; else gr.cut++;
-      if (labelDims) gr.cutLabels.push(labelDims);
-    };
     const inCutPt = (px, py) => { for (const c of cutouts) if (px > c.x && px < c.x + c.w && py > c.y && py < c.y + c.h) return true; return false; };
 
     // Iteráció (i, j) tartománya: invertáljuk az u1World, u2World mátrixot a
@@ -471,6 +411,7 @@
     // lokális → világ-koord transzformáció (a felület közepe körül forgatva)
     const toWorld = (lx, ly) => ({ x: ctrX + lx * ax + ly * bx, y: ctrY + lx * ay + ly * by });
 
+    const acc = newLayoutAcc();
     for (let j = jMin; j <= jMax; j++) {
       for (let i = iMin; i <= iMax; i++) {
         const slx = i * (H + W) + j * (W - H);
@@ -507,20 +448,17 @@
           }
           pieceArea = Math.abs(pieceArea) / 2;
           if (pieceArea < t.tw * t.th * 0.004) return;
-          tilesAreaSumMm2 += pieceArea;
+          acc.tilesAreaSumMm2 += pieceArea;
 
-          const tileArea = t.tw * t.th;
-          const isWhole = pieceArea >= tileArea * 0.985;
-          total++;
-          const ovKey = i + "_" + j + "_" + idx;
-          const ovId = overrides[ovKey];
-          const type = ovId ? (types.find((x) => x.id === ovId) || base) : base;
+          const isWhole = pieceArea >= t.tw * t.th * 0.985;
+          acc.total++;
+          const type = overrideType(i + "_" + j + "_" + idx, base);
 
           if (isWhole) {
-            whole++;
-            bumpType(type, true, pieceArea, null);
+            acc.whole++;
+            bumpType(acc.byType, type, true, pieceArea, null);
           } else {
-            cut++;
+            acc.cut++;
             // a vágott darab méretét a lap SAJÁT tengelyei mentén mérjük (forgatott rendszerben)
             // origó: a lap bal-felső sarka (quad[0]) világ-koordinátában.
             let lu0 = Infinity, lu1 = -Infinity, lv0 = Infinity, lv1 = -Infinity, pcx = 0, pcy = 0;
@@ -534,30 +472,89 @@
             });
             pcx /= piece.length; pcy /= piece.length;
             const pw = Math.max(0, lu1 - lu0), ph = Math.max(0, lv1 - lv0);
-            cutLabels.push({ x: pcx, y: pcy, w: pw, h: ph, text: (tilted ? "~" : "") + fmtDim(pw, ph) });
-            bumpType(type, false, pieceArea, { w: pw, h: ph });
+            acc.cutLabels.push({ x: pcx, y: pcy, w: pw, h: ph, text: (tilted ? "~" : "") + fmtDim(pw, ph) });
+            // Az újrahasznosítás-számítás a lapot h × w (hosszú × rövid) tájolásban
+            // nézi: az álló (V) lapok darabjait ehhez elforgatva adjuk át.
+            const dims = t.tw === w ? { w: ph, h: pw } : { w: pw, h: ph };
+            acc.needPieces.push(dims);
+            bumpType(acc.byType, type, false, pieceArea, dims);
           }
-          drawQuadFill(type, quad);
+          acc.tiles.push({ typeId: type.id, quad });
         });
       }
     }
+    return finishLayout(g, acc, h, w);
+  }
+
+  // ---- Rajzolás: egy computeLayout-eredmény kirajzolása a (bármely) ctx-re ----
+  function drawLayoutResult(res) {
+    if (!res || res.degenerate) return;
+    const { minX, minY, maxX, maxY } = res.g;
+    const scale = state.view.scale;
+    const base = baseTile();
+    const typeById = new Map(state.tiles.types.map((t) => [t.id, t]));
+
+    ctx.save();
+    polygonScreenPath();
+    // a kivágásokat lyukként adjuk a path-hoz (evenodd kitöltési szabály)
+    (state.cutouts || []).forEach((c) => {
+      const a = worldToScreen({ x: c.x, y: c.y });
+      const b = worldToScreen({ x: c.x + c.w, y: c.y + c.h });
+      ctx.rect(a.x, a.y, b.x - a.x, b.y - a.y);
+    });
+    ctx.clip("evenodd");
+
+    // fuga háttér (a clip miatt csak a sokszögön belül látszik)
+    const tl = worldToScreen({ x: minX, y: minY });
+    const br = worldToScreen({ x: maxX, y: maxY });
+    ctx.fillStyle = state.tiles.groutColor;
+    ctx.fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+
+    res.tiles.forEach((t) => {
+      const type = typeById.get(t.typeId) || base;
+      if (t.quad) {
+        drawQuadFill(type, t.quad);
+      } else {
+        const s0 = worldToScreen({ x: t.rect.x, y: t.rect.y });
+        drawTileFill(type, s0.x, s0.y, t.rect.w * scale, t.rect.h * scale);
+      }
+    });
     ctx.restore();
 
-    cutLabels.forEach((c) => { const s = worldToScreen({ x: c.x, y: c.y }); drawCutLabel(c.text, s.x, s.y); });
-    setLayoutCounts({ total, whole, cut });
-    const cutTilesNeeded = tilesNeededForCuts(cutLabels.map((c) => ({ w: c.w, h: c.h })), h, w);
-    const areaMm2 = Math.max(0, shoelaceAreaMm2() - cutoutsAreaMm2());
-    const tilesNeeded = whole + cutTilesNeeded;
-    const byTypeOut = {};
-    Object.keys(byType).forEach((id) => {
-      const gr = byType[id];
-      const needed = gr.whole + tilesNeededForCuts(gr.cutLabels, h, w);
-      byTypeOut[id] = { id: gr.id, name: gr.name, area: gr.area, whole: gr.whole, cut: gr.cut, needed, tileAreaMm2: w * h };
+    // vágott darabok méret-feliratai (a clip-en kívül, a lapok fölé)
+    res.cutLabels.forEach((c) => {
+      const s = worldToScreen({ x: c.x, y: c.y });
+      drawCutLabel(c.text || fmtDim(c.w, c.h), s.x, s.y);
     });
-    const groutAreaMm2 = Math.max(0, areaMm2 - tilesAreaSumMm2);
-    updateMaterialReport({ areaMm2, tilesNeeded, tileAreaMm2: w * h, groutAreaMm2, whole, cut, byType: byTypeOut });
-    lastStats = { whole, cut, tilesNeeded, areaMm2, tileAreaMm2: w * h, groutAreaMm2 };
-    lastCutPieces = cutLabels.map((c) => ({ w: c.w, h: c.h }));
+  }
+
+  // Kirajzolás a jelenlegi ctx-re (export, 3D-textúra); a statisztikát nem közli.
+  function drawLayout() {
+    const res = getLayout();
+    drawLayoutResult(res);
+    return res;
+  }
+
+  // A (látható) aktív felület kiosztás-eredményének közlése: Kiosztás fül
+  // számai, anyagkimutatás + felület-cache, export-statisztika.
+  function publishLayoutStats(res) {
+    // aktív szél-igazításnál a letiltott kézi mezőkben a számolt érték
+    if (res && state.layout.alignMode !== "none") {
+      if (el.offX.disabled) el.offX.value = fromMm(res.g.offX).toFixed(state.unit === "cm" ? 1 : 0);
+      if (el.offY.disabled) el.offY.value = fromMm(res.g.offY).toFixed(state.unit === "cm" ? 1 : 0);
+    }
+    const st = res && res.stats;
+    if (!st) {
+      setLayoutCounts(res && res.degenerate ? { total: 0, whole: 0, cut: 0 } : null);
+      updateMaterialReport(null);
+      lastStats = null;
+      lastCutPieces = [];
+      return;
+    }
+    setLayoutCounts(st);
+    updateMaterialReport(st);
+    lastStats = { whole: st.whole, cut: st.cut, tilesNeeded: st.tilesNeeded, areaMm2: st.areaMm2, tileAreaMm2: st.tileAreaMm2, groutAreaMm2: st.groutAreaMm2 };
+    lastCutPieces = res.cutLabels.map((c) => ({ w: c.w, h: c.h }));
   }
 
   // Festő-paletta (egyedi lapok): „Alap" (radír) + a könyvtár típusai

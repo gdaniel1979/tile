@@ -185,26 +185,21 @@
     if (!project || !Array.isArray(project.surfaces)) return;
     saveActiveSurface(); // a jelenlegi felület mentése
     const savedIndex = project.activeIndex;
-    const savedCtx = ctx;
-    const savedView = state.view;
-    const off = document.createElement("canvas");
-    off.width = 100; off.height = 100;
     const wasSuppress = suppressHistory, wasInDrag = inDrag;
     suppressHistory = true; inDrag = true; // ne pusholjon history-t / ne ment-tárazzon
-    ctx = off.getContext("2d");
-    state.view = { scale: 1, ox: 0, oy: 0 }; // a koord-rendszer a cache-elt mm-értékeket nem érinti
     try {
+      // csak számítás (computeLayout), rajzolás nélkül — az elrejtett kiosztás is számít
       for (let i = 0; i < project.surfaces.length; i++) {
         project.activeIndex = i;
         loadActiveSurface();
-        if (shouldDrawLayout()) drawLayout();
-        else cacheActiveSurfaceMaterial(null);
+        const res = canComputeLayout() ? getLayout() : null;
+        cacheActiveSurfaceMaterial(res && res.stats ? res.stats : null);
       }
-    } catch (_) { /* swallow */ }
+    } catch (e) {
+      console.error("Projekt-szintű anyagszámítás hiba:", e);
+    }
     project.activeIndex = savedIndex;
     loadActiveSurface();
-    ctx = savedCtx;
-    state.view = savedView;
     render(); // a látható vászon visszaáll (ezalatt is suppressHistory aktív)
     updateProjectMaterialReport();
     // a frissített cache-t mentjük (history nélkül), hogy reload után is megmaradjon

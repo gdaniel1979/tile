@@ -1,6 +1,12 @@
 "use strict";
+  // Kiszámítható-e a kiosztás (zárt sokszög + van alap laptípus). A
+  // megjelenítés (layout.show) ettől független: elrejtett kiosztás is számít
+  // az anyagszükségletbe.
+  function canComputeLayout() {
+    return state.closed && state.points.length >= 3 && !!baseTile();
+  }
   function shouldDrawLayout() {
-    return state.layout.show && state.closed && state.points.length >= 3 && !!baseTile();
+    return state.layout.show && canComputeLayout();
   }
 
   // ---- Kivágások (nem burkolt téglalapok) ------------------------------
