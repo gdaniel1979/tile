@@ -209,6 +209,11 @@
     });
   });
 
+  test("normLayout: a vágási kódok kapcsoló mentődik, alapból ki", () => {
+    eq(normLayout({}).showCodes, false, "alap");
+    eq(normLayout({ showCodes: true }).showCodes, true, "bekapcsolva");
+  });
+
   // ---- gyorsítótár --------------------------------------------------------
   test("getLayout: nézet-váltás (zoom/pan) nem számol újra, geometria-változás igen", () => {
     setup(RECT(3000, 2000));

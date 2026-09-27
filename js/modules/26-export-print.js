@@ -46,7 +46,7 @@
   }
 
   function exportPNG() {
-    const img = buildPlanImage(2000);
+    const img = buildPlanImage(2000, { codes: !!state.layout.showCodes });
     if (!img) { alert("Előbb rajzolj egy (zárt) alaprajzot."); return; }
     triggerDownload("lapkiosztas.png", img.url);
   }
@@ -98,7 +98,7 @@
       const s = project.surfaces[i];
       let img = null, m = null, cuts = [], plan = null;
       if (s.points.length >= 2) {
-        img = buildPlanImage(1000, { codes: true }); // render → drawLayout → lastStats beáll
+        img = buildPlanImage(1000, { codes: true, compact: true }); // render → drawLayout → lastStats beáll
         m = materialNumbers();
         cuts = groupedCutList();
         const res = canComputeLayout() ? getLayout() : null;

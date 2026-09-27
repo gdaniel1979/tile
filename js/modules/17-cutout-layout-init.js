@@ -65,6 +65,9 @@
       el.offsetPct.value = Math.round(state.layout.offsetPct);
       render(); save();
     });
+    el.layoutCodes.addEventListener("change", () => {
+      state.layout.showCodes = el.layoutCodes.checked; render(); save();
+    });
     el.layoutShow.addEventListener("change", () => {
       state.layout.show = el.layoutShow.checked; render(); save();
     });

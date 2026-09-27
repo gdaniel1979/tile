@@ -559,7 +559,8 @@
   }
 
   // ---- Rajzolás: egy computeLayout-eredmény kirajzolása a (bármely) ctx-re ----
-  // opts.codes: a vágott darabok feliratában a vágási terv kódja is (PDF)
+  // opts.codes: a vágott darabok feliratában a vágási terv kódja is
+  // opts.compact: L-darabnál csak a befoglaló méret (a zsúfolt PDF-rajzhoz)
   function drawLayoutResult(res, opts) {
     if (!res || res.degenerate) return;
     const { minX, minY, maxX, maxY } = res.g;
@@ -603,13 +604,13 @@
     ctx.restore();
 
     // vágott darabok méret-feliratai (a clip-en kívül, a lapok fölé)
-    const withCodes = !!(opts && opts.codes);
+    const withCodes = !!(opts && opts.codes), compact = !!(opts && opts.compact);
     res.cutLabels.forEach((c) => {
       const s = worldToScreen({ x: c.x, y: c.y });
       const text = c.text || fmtDim(c.w, c.h);
-      // kódos (PDF) feliratban L-darabnál csak a befoglaló méret — a teljes
+      // tömör (PDF) feliratban L-darabnál csak a befoglaló méret — a teljes
       // „L a×b / c×d” méret a vágási terv ábrája alatt szerepel
-      if (withCodes && c.code) drawCodeCutLabel(c.code, text.split(" / ")[0], s.x, s.y);
+      if (withCodes && c.code) drawCodeCutLabel(c.code, compact ? text.split(" / ")[0] : text, s.x, s.y);
       else drawCutLabel(text, s.x, s.y);
     });
   }

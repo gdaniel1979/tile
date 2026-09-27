@@ -29,6 +29,7 @@
     addTile: document.getElementById("addTileBtn"),
     // 3. fázis
     layoutShow: document.getElementById("layoutShow"),
+    layoutCodes: document.getElementById("layoutCodes"),
     tileRotate: document.getElementById("tileRotate"),
     linkToFloor: document.getElementById("linkToFloor"),
     linkToFloorRow: document.getElementById("linkToFloorRow"),

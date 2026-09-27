@@ -11,6 +11,7 @@
       pattern: ["straight", "offset", "diagonal", "herringbone"].includes(d.pattern) ? d.pattern : "straight",
       offsetPct: typeof d.offsetPct === "number" ? Math.max(0, Math.min(100, d.offsetPct)) : 50,
       show: d.show !== false,
+      showCodes: !!d.showCodes, // vágási kódok (pl. 3a) a vásznon és a PNG-n
       offXmm: typeof d.offXmm === "number" ? d.offXmm : 0,
       offYmm: typeof d.offYmm === "number" ? d.offYmm : 0,
       rotated: !!d.rotated,

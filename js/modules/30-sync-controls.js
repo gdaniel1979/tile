@@ -14,6 +14,7 @@
     el.offsetPct.value = Math.round(state.layout.offsetPct);
     applyPatternUIState();
     el.layoutShow.checked = state.layout.show;
+    el.layoutCodes.checked = !!state.layout.showCodes;
     el.tileRotate.checked = state.layout.rotated;
     // Padló-rácshoz illesztés: csak generált falon látszik
     if (el.linkToFloorRow && el.linkToFloor && project) {

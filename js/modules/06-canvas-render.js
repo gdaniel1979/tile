@@ -183,7 +183,7 @@
     cutoutLabelRects = [];
     drawGrid();
     const layoutRes = canComputeLayout() ? getLayout() : null;
-    if (layoutRes && state.layout.show) drawLayoutResult(layoutRes);
+    if (layoutRes && state.layout.show) drawLayoutResult(layoutRes, { codes: !!state.layout.showCodes });
     publishLayoutStats(layoutRes);
     drawCutouts();
     drawSnapGuides();
