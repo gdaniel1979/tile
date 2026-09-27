@@ -28,25 +28,29 @@
     try { saved = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY), 10); } catch (_) {}
     if (saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) el.sidebar.style.width = saved + "px";
     let dragging = false, startX = 0, startW = 0;
-    el.sidebarResizer.addEventListener("mousedown", (e) => {
+    // Pointer Events: egérrel és ujjal (tablet) is húzható
+    el.sidebarResizer.addEventListener("pointerdown", (e) => {
+      if (el.sidebarResizer.setPointerCapture) el.sidebarResizer.setPointerCapture(e.pointerId);
       dragging = true; startX = e.clientX; startW = el.sidebar.getBoundingClientRect().width;
       el.sidebarResizer.classList.add("dragging");
       document.body.style.userSelect = "none";
       e.preventDefault();
     });
-    window.addEventListener("mousemove", (e) => {
+    window.addEventListener("pointermove", (e) => {
       if (!dragging) return;
       const w = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startW + (e.clientX - startX)));
       el.sidebar.style.width = w + "px";
       resizeCanvas();
     });
-    window.addEventListener("mouseup", () => {
+    const endDrag = () => {
       if (!dragging) return;
       dragging = false;
       el.sidebarResizer.classList.remove("dragging");
       document.body.style.userSelect = "";
       try { localStorage.setItem(SIDEBAR_WIDTH_KEY, Math.round(el.sidebar.getBoundingClientRect().width)); } catch (_) {}
-    });
+    };
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
   }
 
   function drawGrid() {

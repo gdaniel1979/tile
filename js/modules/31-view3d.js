@@ -342,6 +342,36 @@
       drag3d = null;
       el.board3d.classList.remove("dragging");
     });
+    // Érintés (tablet): egy ujj = forgatás, két ujj = csípéses nagyítás + mozgatás
+    let t3 = null; // { x, y } egy ujj, vagy { dist, mx, my } két ujj
+    const pinch3 = (ts) => ({
+      dist: Math.max(1, Math.hypot(ts[1].clientX - ts[0].clientX, ts[1].clientY - ts[0].clientY)),
+      mx: (ts[0].clientX + ts[1].clientX) / 2, my: (ts[0].clientY + ts[1].clientY) / 2,
+    });
+    const t3start = (e) => {
+      e.preventDefault();
+      t3 = e.touches.length >= 2 ? pinch3(e.touches) : e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+    };
+    el.board3d.addEventListener("touchstart", t3start, { passive: false });
+    el.board3d.addEventListener("touchend", t3start, { passive: false });    // ujjszám-váltáskor újraindul
+    el.board3d.addEventListener("touchcancel", t3start, { passive: false });
+    el.board3d.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      if (!t3) return;
+      if (e.touches.length >= 2 && t3.dist) {
+        const cur = pinch3(e.touches);
+        cam3d.zoom = Math.max(0.15, Math.min(10, cam3d.zoom * (cur.dist / t3.dist)));
+        cam3d.panX += cur.mx - t3.mx; cam3d.panY += cur.my - t3.my;
+        t3 = cur;
+      } else if (e.touches.length === 1 && t3.x != null) {
+        const x = e.touches[0].clientX, y = e.touches[0].clientY;
+        rotateBasis3D(-(x - t3.x) * 0.006, -(y - t3.y) * 0.006);
+        t3 = { x, y };
+      } else {
+        return;
+      }
+      render3D();
+    }, { passive: false });
     el.board3d.addEventListener("wheel", (e) => {
       e.preventDefault();
       const f = e.deltaY > 0 ? 0.9 : 1 / 0.9;

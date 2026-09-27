@@ -21,7 +21,7 @@
   // átfedő kivágások ne "nyeljék el" egymás (vagy a felület) elől a kattintást.
   function activeCutoutAt(sx, sy) {
     if (selectedCutout < 0) return -1;
-    const pad = 4;
+    const pad = 4 * touchHitBoost;
     // csoport esetén bármelyik darabja reagál — felülről lefelé (utolsó index a legfelül)
     const indices = cutoutGroupIndices(selectedCutout);
     for (let k = indices.length - 1; k >= 0; k--) {
@@ -319,4 +319,103 @@
       afterSelectionChange();
     }
   });
+
+  // ---- Érintés (tablet) ----------------------------------------------------
+  // Az ujjmozdulatokat a fenti egér-kezelők által értett eseményekké fordítjuk,
+  // így minden szerkesztő funkció ugyanúgy működik ujjal is:
+  //   koppintás = kattintás, dupla koppintás = dupla kattintás,
+  //   húzás pontról/élről/kivágásról (vagy festés/kivágás-rajzolás módban) =
+  //   ugyanaz, mint egérrel húzva; húzás üres területen = nézet mozgatása;
+  //   két ujj = csípéses nagyítás + mozgatás.
+  const TOUCH_HIT_BOOST = 2.2;  // ujjnál ennyiszer nagyobb elkapási terület
+  const TAP_MOVE_PX = 8;        // ennél kisebb elmozdulás még koppintás
+  const DOUBLE_TAP_MS = 350, DOUBLE_TAP_PX = 30;
+  let touch1 = null;   // { id, x0, y0, x, y, moved, panning } — egyujjas művelet
+  let pinch = null;    // { dist, mx, my } — kétujjas csípés
+  let lastTap = null;  // { t, x, y } — dupla koppintás felismeréséhez
+
+  function fireMouse(target, type, x, y, button) {
+    target.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, button: button || 0, bubbles: true, cancelable: true }));
+  }
+  function withTouchHit(fn) {
+    touchHitBoost = TOUCH_HIT_BOOST;
+    try { fn(); } finally { touchHitBoost = 1; }
+  }
+  function pinchOf(ts) {
+    const a = ts[0], b = ts[1];
+    return { dist: Math.max(1, Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)), mx: (a.clientX + b.clientX) / 2, my: (a.clientY + b.clientY) / 2 };
+  }
+  function touchById(list, id) {
+    for (let i = 0; i < list.length; i++) if (list[i].identifier === id) return list[i];
+    return null;
+  }
+
+  function endTouch1(asTap) {
+    const t = touch1;
+    touch1 = null;
+    fireMouse(window, "mouseup", t.x, t.y, t.panning ? 2 : 0);
+    if (!asTap || t.moved) return;
+    const now = performance.now();
+    withTouchHit(() => {
+      fireMouse(canvas, "click", t.x0, t.y0);
+      if (lastTap && now - lastTap.t < DOUBLE_TAP_MS && Math.hypot(t.x0 - lastTap.x, t.y0 - lastTap.y) < DOUBLE_TAP_PX) {
+        fireMouse(canvas, "dblclick", t.x0, t.y0);
+        lastTap = null;
+      } else {
+        lastTap = { t: now, x: t.x0, y: t.y0 };
+      }
+    });
+  }
+
+  canvas.addEventListener("touchstart", (e) => {
+    e.preventDefault(); // nincs görgetés/zoom és „utánzott” egéresemény
+    // mint egérkattintásnál: a nyitott mező (pl. felirat-szerkesztő) elveszti a fókuszt → mentődik
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && typeof ae.blur === "function") ae.blur();
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      touch1 = { id: t.identifier, x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY, moved: false, panning: false };
+      withTouchHit(() => fireMouse(canvas, "mousedown", t.clientX, t.clientY, 0));
+    } else if (e.touches.length === 2) {
+      if (touch1) endTouch1(false); // a második ujj lezárja az egyujjas műveletet
+      pinch = pinchOf(e.touches);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    if (pinch && e.touches.length >= 2) {
+      const cur = pinchOf(e.touches);
+      const r = canvas.getBoundingClientRect();
+      state.view.ox += cur.mx - pinch.mx;
+      state.view.oy += cur.my - pinch.my;
+      zoomAt(cur.mx - r.left, cur.my - r.top, cur.dist / pinch.dist); // rajzol is
+      pinch = cur;
+      return;
+    }
+    if (!touch1) return;
+    const t = touchById(e.touches, touch1.id);
+    if (!t) return;
+    touch1.x = t.clientX; touch1.y = t.clientY;
+    if (!touch1.moved && Math.hypot(t.clientX - touch1.x0, t.clientY - touch1.y0) > TAP_MOVE_PX) {
+      touch1.moved = true;
+      if (!drag) {
+        // semmit nem fogtunk meg (üres terület) → a nézet mozgatása
+        touch1.panning = true;
+        fireMouse(canvas, "mousedown", touch1.x0, touch1.y0, 2);
+      }
+    }
+    if (touch1.moved) fireMouse(window, "mousemove", t.clientX, t.clientY);
+  }, { passive: false });
+
+  function onTouchEnd(e) {
+    e.preventDefault();
+    if (pinch) {
+      if (e.touches.length < 2) pinch = null; // a maradó ujj új érintésig nem csinál semmit
+      return;
+    }
+    if (touch1 && !touchById(e.touches, touch1.id)) endTouch1(e.type === "touchend");
+  }
+  canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+  canvas.addEventListener("touchcancel", onTouchEnd, { passive: false });
 

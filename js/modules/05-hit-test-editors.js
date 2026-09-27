@@ -2,11 +2,14 @@
   // ---- Hit-test ----------------------------------------------------------
   const VERTEX_HIT_PX = 11;
   const EDGE_HIT_PX = 7;
+  // Ujjal nagyobb az elkapási terület (az érintés-kezelő állítja az adott
+  // koppintás/húzás kezdetének idejére).
+  let touchHitBoost = 1;
 
   function vertexAt(sx, sy) {
     for (let i = 0; i < state.points.length; i++) {
       const s = worldToScreen(state.points[i]);
-      if (Math.hypot(s.x - sx, s.y - sy) <= VERTEX_HIT_PX) return i;
+      if (Math.hypot(s.x - sx, s.y - sy) <= VERTEX_HIT_PX * touchHitBoost) return i;
     }
     return -1;
   }
@@ -25,7 +28,7 @@
     for (let i = 0; i < edgeCount(); i++) {
       const [a, b] = edgeEndpoints(i);
       const A = worldToScreen(a), B = worldToScreen(b);
-      if (segDistPx(sx, sy, A, B) <= EDGE_HIT_PX) return i;
+      if (segDistPx(sx, sy, A, B) <= EDGE_HIT_PX * touchHitBoost) return i;
     }
     return -1;
   }
