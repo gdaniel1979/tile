@@ -184,7 +184,78 @@
       const plan = packGuillotine(pieces, idx.slice().sort((a, b) => cmp(a, b) || a - b), tileW, tileH, o);
       if (!best || plan.length < best.length) best = plan;
     }
+    // Elforgatott minták (átlós, 45°-os halszálka): ha minden darab valódi alakja
+    // (poly) ismert, a sokszög-párosítást is kipróbáljuk — pl. két fél-háromszög
+    // egy lapból —, és a kevesebb lapot adó terv nyer.
+    if (pieces.length && pieces.every((p) => Array.isArray(p.poly) && p.poly.length >= 3)) {
+      const byArea = idx.slice().sort((a, b) => polyArea(pieces[b].poly) - polyArea(pieces[a].poly) || a - b);
+      for (const ord of [byArea, idx.slice().sort((a, b) => orders[1](a, b) || a - b)]) {
+        const plan = packPolygons(pieces, ord, tileW, tileH, o);
+        if (plan.length < best.length) best = plan;
+      }
+    }
     return best;
+  }
+
+  // ---- Sokszög-darabok párosítása egy lapon belül -------------------------
+  // A darab a lap saját keretében, a „természetes” helyén (poly) van; a lapon
+  // belül csak a lapot önmagába vivő forgatásokkal mozdítható: 0°, 180°, és
+  // négyzetes + forgatható lapnál 90°/270° (óramutató szerint). Eltolás nincs —
+  // így a darab lap-széli (gyári) oldalai a lap szélén maradnak. Két darab akkor
+  // fér egy lapra, ha nem fedik egymást.
+  function transformPoly(poly, rot, W, H) {
+    if (rot === 180) return poly.map((q) => ({ x: W - q.x, y: H - q.y }));
+    if (rot === 90) return poly.map((q) => ({ x: H - q.y, y: q.x }));   // négyzetes lapnál W = H
+    if (rot === 270) return poly.map((q) => ({ x: q.y, y: W - q.x }));
+    return poly;
+  }
+  function convexHull(pts) {
+    const p = pts.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+    if (p.length < 3) return p;
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const lower = [], upper = [];
+    for (const q of p) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop(); lower.push(q); }
+    for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop(); upper.push(q); }
+    return lower.slice(0, -1).concat(upper.slice(0, -1));
+  }
+  // átfedés: a ∩ conv(b) területe (b konvex burkával — óvatos, sosem enged átfedést)
+  const OVERLAP_MM2 = 1;
+  function polysOverlap(a, b) {
+    if (a.x1 <= b.x0 + CUT_TOL || b.x1 <= a.x0 + CUT_TOL || a.y1 <= b.y0 + CUT_TOL || b.y1 <= a.y0 + CUT_TOL) return false;
+    if (b.hull.length < 3) return false;
+    const inter = clipPolygonByConvex(a.poly, b.hull);
+    return inter.length >= 3 && polyArea(inter) > OVERLAP_MM2;
+  }
+  function polyShape(poly) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    poly.forEach((q) => { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); });
+    return { poly, hull: convexHull(poly), area: polyArea(poly), x0, y0, x1, y1 };
+  }
+  function packPolygons(pieces, order, W, H, o) {
+    const rots = [0, 180].concat(o.rotate && Math.abs(W - H) <= CUT_TOL ? [90, 270] : []);
+    const tiles = [];
+    for (const i of order) {
+      const pc = pieces[i];
+      const cands = rots.map((rot) => ({ rot, ...polyShape(transformPoly(pc.poly, rot, W, H)) }));
+      let pick = null;
+      tiles.forEach((t) => cands.forEach((c) => {
+        if (c.area > t.freeArea + OVERLAP_MM2) return;          // területre sem férne el
+        if (pick && t.freeArea - c.area >= pick.rest) return;
+        if (t.shapes.some((q) => polysOverlap(c, q) || polysOverlap(q, c))) return;
+        pick = { t, c, rest: t.freeArea - c.area };
+      }));
+      if (!pick) {
+        const t = { shapes: [], pieces: [], freeArea: W * H };
+        tiles.push(t);
+        pick = { t, c: cands[0] };
+      }
+      const c = pick.c;
+      pick.t.shapes.push(c);
+      pick.t.freeArea -= c.area;
+      pick.t.pieces.push({ i, x: c.x0, y: c.y0, w: c.x1 - c.x0, h: c.y1 - c.y0, rot: c.rot, poly: c.poly,
+        fe: rotateEdges((o.factoryEdges && pc.fe) || NO_EDGES, c.rot) });
+    }
+    return tiles.map((t) => ({ pieces: t.pieces, free: [] }));
   }
 
   const NO_EDGES = { t: false, r: false, b: false, l: false };

@@ -283,15 +283,33 @@
       svg += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" fill="#fff" stroke="#666" stroke-width="${sw}" stroke-dasharray="${sw * 4} ${sw * 3}"/>`;
     });
     const rot90 = (pc) => pc.rot === 90 || pc.rot === 270;
+    const feOn = project.factoryEdges !== false, fw = sw * 3.2;
+    const feLine = (ax, ay, bx, by) => `<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="#1f5fbf" stroke-width="${fw}" stroke-linecap="square"/>`;
     tile.pieces.forEach((pc) => {
-      svg += `<rect x="${pc.x}" y="${pc.y}" width="${pc.w}" height="${pc.h}" fill="#dce7f3" stroke="#222" stroke-width="${sw}"/>`;
-      // gyári élt igénylő oldalak (a szomszédos lap felé kerülnek): vastag vonal
-      const fe = pc.fe || {}, x0 = pc.x, y0 = pc.y, x1 = pc.x + pc.w, y1 = pc.y + pc.h, fw = sw * 3.2;
-      [[fe.t, x0, y0, x1, y0], [fe.r, x1, y0, x1, y1], [fe.b, x0, y1, x1, y1], [fe.l, x0, y0, x0, y1]].forEach(([on, ax, ay, bx, by]) => {
-        if (on) svg += `<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="#1f5fbf" stroke-width="${fw}" stroke-linecap="square"/>`;
-      });
-      if (Math.min(pc.w, pc.h) > fs * 1.15) {
-        svg += `<text x="${pc.x + pc.w / 2}" y="${pc.y + pc.h / 2}" font-size="${fs}" font-weight="700" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif">${pc.code}${rot90(pc) ? " ↻" : ""}</text>`;
+      let lx = pc.x + pc.w / 2, ly = pc.y + pc.h / 2, room = Math.min(pc.w, pc.h);
+      if (pc.poly && pc.poly.length >= 3) {
+        // valódi alakú darab (átlós / 45°-os minta): sokszög; a lap szélére eső
+        // oldalai gyári élek (a darab a lapon belül csak fordul, nem csúszik)
+        svg += `<polygon points="${pc.poly.map((q) => q.x.toFixed(1) + "," + q.y.toFixed(1)).join(" ")}" fill="#dce7f3" stroke="#222" stroke-width="${sw}" stroke-linejoin="round"/>`;
+        if (feOn) {
+          const onB = (a, b) => (Math.abs(a.x) < 0.6 && Math.abs(b.x) < 0.6) || (Math.abs(a.y) < 0.6 && Math.abs(b.y) < 0.6) ||
+            (Math.abs(a.x - W) < 0.6 && Math.abs(b.x - W) < 0.6) || (Math.abs(a.y - H) < 0.6 && Math.abs(b.y - H) < 0.6);
+          pc.poly.forEach((a, k) => { const b = pc.poly[(k + 1) % pc.poly.length]; if (onB(a, b) && Math.hypot(b.x - a.x, b.y - a.y) > 0.6) svg += feLine(a.x, a.y, b.x, b.y); });
+        }
+        // felirat a súlypontba
+        let A = 0, cx = 0, cy = 0;
+        pc.poly.forEach((a, k) => { const b = pc.poly[(k + 1) % pc.poly.length], cr = a.x * b.y - b.x * a.y; A += cr; cx += (a.x + b.x) * cr; cy += (a.y + b.y) * cr; });
+        if (Math.abs(A) > 1e-6) { lx = cx / (3 * A); ly = cy / (3 * A); room = Math.sqrt(Math.abs(A) / 2) * 0.8; }
+      } else {
+        svg += `<rect x="${pc.x}" y="${pc.y}" width="${pc.w}" height="${pc.h}" fill="#dce7f3" stroke="#222" stroke-width="${sw}"/>`;
+        // gyári élt igénylő oldalak (a szomszédos lap felé kerülnek): vastag vonal
+        const fe = pc.fe || {}, x0 = pc.x, y0 = pc.y, x1 = pc.x + pc.w, y1 = pc.y + pc.h;
+        [[fe.t, x0, y0, x1, y0], [fe.r, x1, y0, x1, y1], [fe.b, x0, y1, x1, y1], [fe.l, x0, y0, x0, y1]].forEach(([on, ax, ay, bx, by]) => {
+          if (on) svg += feLine(ax, ay, bx, by);
+        });
+      }
+      if (room > fs * 1.15) {
+        svg += `<text x="${lx}" y="${ly}" font-size="${fs}" font-weight="700" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif">${pc.code}${rot90(pc) ? " ↻" : ""}</text>`;
       }
     });
     svg += "</svg>";

@@ -76,6 +76,20 @@
     eq(plan.length, 2, "szabállyal");
     ok(plan.every((t) => t.pieces.some((p) => p.rot === 180)), "a második csík 180°-kal fordítva, a lap másik végéből");
   });
+  test("planCuts sokszöggel: két fél-háromszög egy lapból (180°-kal fordítva)", () => {
+    // 300×300-as lap átlója mentén levágott alsó-bal fél: befoglalója a teljes lap
+    const tri = () => ({ w: 300, h: 300, poly: [{ x: 0, y: 0 }, { x: 0, y: 300 }, { x: 300, y: 300 }] });
+    eq(tilesNeededForCuts([tri(), tri()], 300, 300), 1, "két félháromszög egy lap");
+    eq(tilesNeededForCuts([tri(), tri(), tri()], 300, 300), 2, "három félháromszög két lap");
+    // alak nélkül (csak befoglaló) továbbra is darabonként egy lap
+    eq(tilesNeededForCuts([{ w: 300, h: 300 }, { w: 300, h: 300 }], 300, 300), 2, "befoglalóval");
+  });
+  test("átlós minta 30×30-as lappal 3×2 m-en: közel az elméleti minimumhoz", () => {
+    setup(RECT(3000, 2000), { tileW: 300, tileH: 300, grout: 3, layout: { pattern: "diagonal" } });
+    const s = computeLayout().stats;
+    const min = Math.ceil(s.areaMm2 / (300 * 300));
+    ok(s.tilesNeeded <= min * 1.1, `szükséges ${s.tilesNeeded}, elméleti minimum ${min} (+10% felett)`);
+  });
   test("rotateEdges: 90/180/270° forgatás", () => {
     const fe = { t: true, r: false, b: false, l: false };
     eq(JSON.stringify(rotateEdges(fe, 90)), JSON.stringify({ t: false, r: true, b: false, l: false }), "90°: fent → jobb");
@@ -214,6 +228,13 @@
           ok(a.x >= -0.01 && a.y >= -0.01 && a.x + a.w <= p.tileW + 0.51 && a.y + a.h <= p.tileH + 0.51, `${a.code} kilóg a lapból`);
           ok(r.needPieces[a.li].typeId === p.typeId, `${a.code} más típusú lapból van vágva`);
           t.pieces.slice(i + 1).forEach((b) => {
+            if (a.poly && b.poly) {
+              // valódi alakú (sokszög) darabok: a tényleges metszet-terület számít,
+              // a mindkét irányú konvex-burok vágással (bármelyik konkáv is lehet)
+              const A = polyShape(a.poly), B = polyShape(b.poly);
+              ok(!polysOverlap(A, B) && !polysOverlap(B, A), `${a.code} és ${b.code} (sokszög) átfedik egymást`);
+              return;
+            }
             const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
             const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
             ok(!(ox > 0.51 && oy > 0.51), `${a.code} és ${b.code} átfedik egymást`);

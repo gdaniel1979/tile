@@ -178,7 +178,7 @@
           const li = idxs[pc.i]; // a darab indexe a cutLabels / needPieces tömbben
           const code = tileNo + String.fromCharCode(97 + k);
           acc.cutLabels[li].code = code;
-          return { code, li, x: pc.x, y: pc.y, w: pc.w, h: pc.h, rot: pc.rot, fe: pc.fe };
+          return { code, li, x: pc.x, y: pc.y, w: pc.w, h: pc.h, rot: pc.rot, fe: pc.fe, poly: pc.poly || null };
         });
         return { no: tileNo, pieces, free: t.free };
       });
@@ -391,6 +391,11 @@
   // amelyik oldala az eredeti lap széle volt, az a kiosztásban egy szomszédos
   // lap mellé kerül (fugával) — a befelé eső, vágott oldal falhoz/kivágáshoz.
   const EDGE_TOL = 0.5;
+  // A darab (világ-koordinátás sokszög) a lap saját keretében: origó o, tengelyek (ax,ay) és (bx,by).
+  // A vágási terv sokszög-párosítása ezt használja (pl. két fél-háromszög egy lapból).
+  function toTileFrame(piece, o, ax, ay, bx, by) {
+    return piece.map((q) => { const rx = q.x - o.x, ry = q.y - o.y; return { x: rx * ax + ry * ay, y: rx * bx + ry * by }; });
+  }
   function factoryEdgesOf(u0, u1, v0, v1, tw, th) {
     return { t: v0 < EDGE_TOL, r: u1 > tw - EDGE_TOL, b: v1 > th - EDGE_TOL, l: u0 < EDGE_TOL };
   }
@@ -452,7 +457,8 @@
           acc.cut++;
           acc.cutLabels.push({ x: rest.cx, y: rest.cy, w: pw, h: ph, text: "~" + fmtDim(pw, ph) });
           const fe = factoryEdgesOf(rest.lu0, rest.lu1, rest.lv0, rest.lv1, tileW, tileH);
-          acc.needPieces.push({ w: pw, h: ph, typeId: type.id, fe });
+          const poly = toTileFrame(piece, c0, ux, uy, vx, vy);
+          acc.needPieces.push({ w: pw, h: ph, typeId: type.id, fe, poly });
           bumpType(acc.byType, type, false, rest.area);
         }
         acc.tiles.push({ key, typeId: type.id, quad });
@@ -566,7 +572,10 @@
             const upright = t.tw === w;
             const dims = upright ? { w: ph, h: pw } : { w: pw, h: ph };
             const fe = upright ? { t: fe0.r, r: fe0.b, b: fe0.l, l: fe0.t } : fe0;
-            acc.needPieces.push({ w: dims.w, h: dims.h, typeId: type.id, fe });
+            // valódi alak ugyanebben a (fekvő) keretben: álló lapnál (u,v) → (v, w − u)
+            const poly0 = toTileFrame(piece, quad[0], ax, ay, bx, by);
+            const poly = upright ? poly0.map((q) => ({ x: q.y, y: t.tw - q.x })) : poly0;
+            acc.needPieces.push({ w: dims.w, h: dims.h, typeId: type.id, fe, poly });
             bumpType(acc.byType, type, false, rest.area);
           }
           acc.tiles.push({ key, typeId: type.id, quad });
