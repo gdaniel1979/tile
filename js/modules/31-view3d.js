@@ -284,7 +284,7 @@
     const w = r.width, h = r.height;
     c3.clearRect(0, 0, w, h);
     if (!textures3D || !textures3D.length) {
-      c3.fillStyle = "rgba(255,255,255,0.5)";
+      c3.fillStyle = CV.text;
       c3.font = "13px sans-serif";
       c3.fillText("Nincs megjeleníthető felület (rajzolj egy zárt padlót).", 20, 30);
       return;

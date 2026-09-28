@@ -55,8 +55,7 @@
     cutoutMode = false;
     selectedCutout = -1;
     pendingCutout = null;
-    el.cutoutDraw.classList.remove("active-mode");
-    el.cutoutDraw.textContent = "+ Kivágás rajzolása";
+    setCutoutDrawUI();
     el.untiledColor.value = (project && project.untiledColor) || "#8a8f98";
     [...el.cutoutKindSeg.children].forEach((c) => c.classList.toggle("active", c.dataset.kind === newCutoutKind));
     renderCutoutList();

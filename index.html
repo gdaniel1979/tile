@@ -5,699 +5,632 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lapkiosztás tervező</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <!-- a téma a CSS betöltése ELŐTT, hogy ne villanjon (a mentett választás vagy a Windows beállítása) -->
+  <script>
+    (function () {
+      var t = "system";
+      try { t = localStorage.getItem("tile-planner-theme") || "system"; } catch (e) {}
+      if (t === "system") t = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <main class="app-main">
-    <!-- Bal oldali vezérlőpanel -->
-    <aside class="sidebar">
-      <div class="side-title-row">
-        <div class="side-title">Lapkiosztás tervező</div>
-        <button class="title-btn" id="fitBtn" title="Nézet igazítása az alaprajzhoz" aria-label="Nézet igazítása">⛶</button>
-        <button class="title-btn" id="histUndo" title="Visszavonás (Ctrl+Z)" aria-label="Visszavonás" disabled>↶</button>
-        <button class="title-btn" id="histRedo" title="Újra (Ctrl+Y)" aria-label="Újra" disabled>↷</button>
-        <button class="title-btn" id="exportMenuBtn" title="Mentés / Export" aria-label="Mentés / Export">💾</button>
-        <button class="title-btn" id="helpBtn" title="Súgó" aria-label="Súgó">?</button>
+  <div class="app" id="app">
+
+    <!-- ===== Menüszalag ===== -->
+    <nav class="ribbon">
+      <div class="ribbon-top">
+      <div class="ribbon-tabs" id="tabs" role="tablist">
+        <button data-tab="file" role="tab">Fájl</button>
+        <button data-tab="plan" role="tab" class="active">Rajzolás</button>
+        <button data-tab="tiles" role="tab">Burkolat</button>
+        <button data-tab="layout" role="tab">Kiosztás</button>
+        <button data-tab="material" role="tab">Anyag</button>
+        <button data-tab="quote" role="tab">Ajánlat</button>
+        <button data-tab="view" role="tab">Nézet</button>
+      </div>
+      <span id="canvasTitle" class="tb-doc"></span>
+      <div class="tb-quick">
+        <button class="qbtn" id="histUndo" title="Visszavonás (Ctrl+Z)" aria-label="Visszavonás" disabled><i class="ic" data-ic="undo"></i></button>
+        <button class="qbtn" id="histRedo" title="Újra (Ctrl+Y)" aria-label="Újra" disabled><i class="ic" data-ic="redo"></i></button>
+        <button class="qbtn" data-click="#saveLinkedBtn" title="Mentés a csatolt fájlba (Ctrl+S)" aria-label="Mentés"><i class="ic" data-ic="save"></i></button>
+        <span class="tb-div"></span>
+        <button class="qbtn" id="ribbonCollapseBtn" title="Menüszalag összecsukása / kinyitása (Ctrl+F1, vagy dupla kattintás egy fülön)" aria-label="Menüszalag összecsukása"><i class="ic" data-ic="chevron"></i></button>
+        <button class="qbtn" id="focusModeBtn" title="Teljes vászon: menüszalag és oldalpanelek elrejtése (F11 helyett: Ctrl+Shift+F)" aria-label="Teljes vászon"><i class="ic" data-ic="fullscreen"></i></button>
+        <button class="qbtn" data-theme-cycle title="Téma váltása (rendszer / világos / sötét)" aria-label="Téma"><i class="ic" data-ic="system"></i></button>
+        <button class="qbtn" id="helpBtn" title="Súgó" aria-label="Súgó"><i class="ic" data-ic="help"></i></button>
+      </div>
       </div>
 
-      <!-- Mentés / Export lenyíló panel (a 💾 gomb nyitja) -->
-      <div class="export-menu" id="exportMenu" hidden>
-      <section class="panel">
-        <h2>Csatolt fájl (élő mentés)</h2>
-        <button class="btn btn-secondary full" id="saveLinkedBtn" disabled>💾 Mentés a csatolt fájlba (Ctrl+S)</button>
-        <div class="mat-row" style="margin-top:8px"><span>Csatolt fájl:</span> <strong id="linkedFileName">—</strong></div>
-        <button class="btn btn-ghost full" id="linkJsonBtn" style="margin-top:8px">Tár megnyitása írhatóan…</button>
-        <button class="btn btn-ghost full" id="unlinkJsonBtn" style="margin-top:8px" hidden>Csatolás megszüntetése</button>
-        <p class="hint">Válaszd ki a tár JSON-fájlját (pl. a OneDrive mappádból) — ezután a 💾 gombbal vagy <strong>Ctrl+S</strong>-sel közvetlenül felülírható. A csatolás reload után is megmarad.</p>
-        <p class="hint" id="fsaUnsupported" hidden style="color: var(--danger)">Az élő mentés nem érhető el ezen az URL-en. A funkció csak <strong>HTTPS</strong> vagy <strong>localhost</strong> kontextusban működik, és <strong>Chrome / Edge</strong> böngészőt igényel. Megoldás: <a href="https://gdaniel1979.github.io/tile/" target="_blank" rel="noopener">https://gdaniel1979.github.io/tile/</a>, vagy futtasd helyben (<code>http://localhost</code>).</p>
-      </section>
-      <section class="panel">
-        <h2>Projekt</h2>
-        <div class="control-row">
-          <label for="projName">Név</label>
-          <input type="text" id="projName" class="tile-name" value="Projekt" />
-        </div>
-      </section>
-      <section class="panel">
-        <h2>Kép & PDF</h2>
-        <button class="btn btn-secondary full" id="exportPng">PNG (aktív felület)</button>
-        <button class="btn btn-ghost full" id="exportPdf" style="margin-top:8px">PDF / nyomtatás (egész projekt)</button>
-        <p class="hint">A PNG az aktív felületet menti. A PDF az egész projektet tartalmazza: felületenként egy szakasz (rajz, számok, vágási terv) + összesítő oldal. A böngésző nyomtatási ablakából menthető („Cél: Mentés PDF-ként").</p>
-      </section>
-      <section class="panel">
-        <h2>Mentés fájlba</h2>
-        <button class="btn btn-ghost full" id="saveProjJson">Aktív projekt mentése (JSON)</button>
-        <button class="btn btn-ghost full" id="saveStoreJson" style="margin-top:8px">Összes projekt mentése (JSON)</button>
-        <button class="btn btn-ghost full" id="loadJsonBtn" style="margin-top:8px">Betöltés (JSON)</button>
-        <input type="file" id="loadJsonInput" accept="application/json,.json" hidden />
-        <p class="hint">Egy projekt fájlja megosztáshoz/folytatáshoz; az „összes" egy teljes biztonsági mentés. Betöltéskor a program felismeri, hogy egy projektet (hozzáadja) vagy a teljes tárat (visszaállítja) töltöd be.</p>
-      </section>
-      </div><!-- /export-menu -->
+      <div class="ribbon-body">
 
-      <div class="proj-tree-wrap">
-        <div class="proj-tree-head">
-          <span>Projektek</span>
-          <button id="addProject" title="Új projekt">+ Projekt</button>
+        <!-- FÁJL -->
+        <div class="ribbon-panel" data-rtab="file" hidden>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <button class="rbtn big" id="addProject" title="Új, üres projekt létrehozása"><i class="ic" data-ic="new"></i><span>Új projekt</span></button>
+              <div class="rcol">
+                <label class="rfield wide"><span>Név</span><input type="text" id="projName" value="Projekt" /></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Projekt</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <button class="rbtn big" id="saveLinkedBtn" disabled title="Mentés a csatolt JSON-fájlba (Ctrl+S) — előbb csatolj egyet"><i class="ic" data-ic="save"></i><span class="lbl">Mentés</span></button>
+              <div class="rcol">
+                <div class="rrow">
+                  <button class="rbtn" id="linkJsonBtn" title="Válaszd ki a tár JSON-fájlját (pl. a OneDrive mappádból) — ezután Ctrl+S-sel közvetlenül felülírható. A csatolás újratöltés után is megmarad."><i class="ic" data-ic="link"></i><span>Tár megnyitása írhatóan…</span></button>
+                  <button class="rbtn" id="unlinkJsonBtn" hidden><i class="ic" data-ic="unlink"></i><span>Csatolás bontása</span></button>
+                </div>
+                <div class="rrow">
+                  <span class="rnote">Csatolt: <strong id="linkedFileName">—</strong></span>
+                  <span class="rnote warn" id="fsaUnsupported" hidden title="Az élő mentés csak HTTPS vagy localhost alatt, Chrome/Edge böngészőben működik: https://gdaniel1979.github.io/tile/">Élő mentés itt nem elérhető</span>
+                </div>
+              </div>
+            </div>
+            <div class="rgroup-label">Csatolt fájl (élő mentés)</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <div class="rrow">
+                  <button class="rbtn" id="saveProjJson" title="Az aktív projekt mentése JSON-fájlba (megosztáshoz, folytatáshoz)"><i class="ic" data-ic="download"></i><span>Projekt mentése</span></button>
+                  <button class="rbtn" id="saveStoreJson" title="Az összes projekt mentése egy fájlba (teljes biztonsági mentés)"><i class="ic" data-ic="download"></i><span>Összes projekt mentése</span></button>
+                </div>
+                <button class="rbtn" id="loadJsonBtn" title="Egy projekt (hozzáadja) vagy a teljes tár (visszaállítja) betöltése JSON-fájlból"><i class="ic" data-ic="upload"></i><span>Betöltés…</span></button>
+                <input type="file" id="loadJsonInput" accept="application/json,.json" hidden />
+              </div>
+            </div>
+            <div class="rgroup-label">Fájl (JSON)</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <button class="rbtn big" id="exportPdf" title="Az egész projekt nyomtatása / PDF: felületenként rajz, számok és vágási terv + összesítő"><i class="ic" data-ic="print"></i><span>PDF terv</span></button>
+              <button class="rbtn big" id="exportPng" title="Az aktív felület rajza PNG-képként"><i class="ic" data-ic="image"></i><span>PNG kép</span></button>
+              <button class="rbtn big" data-click="#qPrint" title="Nyomtatható árajánlat (az Ajánlat fül adataiból)"><i class="ic" data-ic="quote"></i><span>Árajánlat</span></button>
+            </div>
+            <div class="rgroup-label">Exportálás</div>
+          </div>
         </div>
-        <div class="proj-tree" id="projTree"></div>
+
+        <!-- RAJZOLÁS -->
+        <div class="ribbon-panel" data-rtab="plan">
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <div class="segmented" id="modeSegmented" title="Az aktív felület típusa">
+                  <button data-mode="floor" class="active">Padló</button>
+                  <button data-mode="wall">Fal</button>
+                </div>
+                <div class="segmented" id="unitSegmented" title="Mértékegység (a projekt egészére)">
+                  <button data-unit="cm" class="active">cm</button>
+                  <button data-unit="mm">mm</button>
+                </div>
+              </div>
+            </div>
+            <div class="rgroup-label">Felület</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <label class="rfield"><span>Szélesség</span><span class="input-with-unit"><input type="number" id="rectW" min="1" step="1" value="400" /><span class="unit-suffix rect-unit">cm</span></span></label>
+                <label class="rfield"><span>Mélység</span><span class="input-with-unit"><input type="number" id="rectH" min="1" step="1" value="300" /><span class="unit-suffix rect-unit">cm</span></span></label>
+              </div>
+              <button class="rbtn big" id="makeRectBtn" title="Téglalap alaprajz a megadott méretekkel (a mostani rajz helyére)"><i class="ic" data-ic="rect"></i><span>Téglalap</span></button>
+              <button class="rbtn big" id="clearBtn" title="Az alaprajz törlése és újrakezdése"><i class="ic" data-ic="delete"></i><span>Törlés</span></button>
+            </div>
+            <div class="rgroup-label">Alaprajz</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <button class="rbtn big toggle" id="cutoutDraw" title="Kivágás rajzolása: húzz egy téglalapot a vásznon"><i class="ic" data-ic="cutout"></i><span class="lbl">Kivágás</span></button>
+              <div class="rcol">
+                <div class="segmented" id="cutoutKindSeg" title="A következő rajzolt kivágás típusa">
+                  <button data-kind="opening" class="active">Nyílás</button>
+                  <button data-kind="untiled">Nem burkolt</button>
+                </div>
+                <label class="rfield"><span>Nem burkolt szín</span><input type="color" id="untiledColor" value="#8a8f98" /></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Kivágások</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <div class="rrow">
+                  <label class="rcheck" title="A sarokpontok, élek és kivágások a segédrácshoz „pattannak” (nincs köze a lapmérethez)"><input type="checkbox" id="snapToggle" checked /><span>Rácsra illesztés</span></label>
+                  <label class="rfield" title="A rajzoló segédrács lépésköze"><span class="input-with-unit"><input type="number" id="gridSize" min="1" step="1" value="10" /><span class="unit-suffix" id="gridUnit">cm</span></span></label>
+                </div>
+                <label class="rcheck"><input type="checkbox" id="orthoToggle" /><span>Csak vízsz./függ. élek</span></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Segédeszközök</div>
+          </div>
+          <div class="rgroup" id="floorWallsPanel">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <label class="rfield"><span>Falmagasság</span><span class="input-with-unit"><input type="number" id="wallHeight" min="1" step="1" value="270" /><span class="unit-suffix rect-unit">cm</span></span></label>
+              </div>
+              <button class="rbtn big" id="genWalls" title="A zárt padló minden éléhez egy fal-felület (szélesség = élhossz); a falak az élek neveit kapják"><i class="ic" data-ic="walls"></i><span>Falak</span></button>
+            </div>
+            <div class="rgroup-label">Falak generálása</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <button class="rbtn big" data-show-panel="#preWallPanel" title="Előtétfal az aktív fal-felületre (a beállítások a Tulajdonságok panelen)"><i class="ic" data-ic="prewall"></i><span>Előtétfal</span></button>
+              <button class="rbtn big" data-show-panel="#stairsPanel" title="Lépcső felületei (a beállítások a Tulajdonságok panelen)"><i class="ic" data-ic="stairs"></i><span>Lépcső</span></button>
+            </div>
+            <div class="rgroup-label">Elemek</div>
+          </div>
+        </div>
+
+        <!-- BURKOLAT -->
+        <div class="ribbon-panel" data-rtab="tiles" hidden>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <button class="rbtn big" id="addTileBtn" title="Új laptípus a könyvtárba (a Tulajdonságok panelen szerkeszthető)"><i class="ic" data-ic="tileadd"></i><span>Új laptípus</span></button>
+              <span class="rnote tall">A laptípusok a jobb oldali <strong>Tulajdonságok</strong> panelen szerkeszthetők.</span>
+            </div>
+            <div class="rgroup-label">Laptípusok</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <label class="rfield"><span>Vastagság</span><span class="input-with-unit"><input type="number" id="groutW" min="0" step="0.5" value="3" /><span class="unit-suffix">mm</span></span></label>
+                <label class="rfield"><span>Szín</span><input type="color" id="groutColor" value="#cfcfcf" /></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Fuga</div>
+          </div>
+        </div>
+
+        <!-- KIOSZTÁS -->
+        <div class="ribbon-panel" data-rtab="layout" hidden>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <label class="rcheck" title="Kikapcsolva csak a rajz rejtett — a lapszükséglet továbbra is számít"><input type="checkbox" id="layoutShow" checked /><span>Kiosztás</span></label>
+                <label class="rcheck" title="A vágott darabokon a vágási terv kódja (pl. 3a = a 3. lapból vágott „a” darab), mint a PDF-ben"><input type="checkbox" id="layoutCodes" /><span>Vágási kódok</span></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Megjelenítés</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <select id="patternSel" class="rselect" title="Kötésminta">
+                  <option value="straight">Egyenes (hálós)</option>
+                  <option value="offset">Eltolt / téglakötés</option>
+                  <option value="diagonal">Átlós (45°)</option>
+                  <option value="herringbone">Halszálka</option>
+                </select>
+                <div class="rrow">
+                  <label class="rfield" id="offsetRow"><span>Sor-eltolás</span><span class="input-with-unit"><input type="number" id="offsetPct" min="0" max="100" step="1" value="50" /><span class="unit-suffix">%</span></span></label>
+                  <div class="rrow" id="offsetQuick">
+                    <button class="rbtn mini" data-off="50">½</button>
+                    <button class="rbtn mini" data-off="33.33">⅓</button>
+                  </div>
+                  <label class="rcheck" id="herringboneTiltRow" hidden><input type="checkbox" id="herringboneTilt" /><span>45°-osan elforgatva</span></label>
+                </div>
+              </div>
+            </div>
+            <div class="rgroup-label">Minta</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <label class="rcheck"><input type="checkbox" id="tileRotate" /><span>Lap elforgatása 90°</span></label>
+                <label class="rcheck" id="linkToFloorRow" hidden title="A fal függőleges fugavonalai a padló fugavonalaihoz igazodnak (csak vízszintes/függőleges padló-élnél)"><input type="checkbox" id="linkToFloor" /><span>Padló-rácshoz illesztve</span></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Lap</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <div class="segmented" id="alignSeg" title="Szél-igazítás: automatikusan elkerüli a túl keskeny szélső csíkokat">
+                  <button data-align="none" class="active">Nincs</button>
+                  <button data-align="center">Középre</button>
+                  <button data-align="min">Min. csík</button>
+                </div>
+                <label class="rfield"><span>Min. szélső csík</span><span class="input-with-unit"><input type="number" id="thr" min="0" step="1" value="10" /><span class="unit-suffix off-unit">cm</span></span></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Szél-igazítás</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <label class="rfield" title="A teljes laprács eltolása vízszintesen"><span>X</span><span class="input-with-unit"><input type="number" id="offX" step="1" value="0" /><span class="unit-suffix off-unit">cm</span></span></label>
+                <label class="rfield" title="A teljes laprács eltolása függőlegesen"><span>Y</span><span class="input-with-unit"><input type="number" id="offY" step="1" value="0" /><span class="unit-suffix off-unit">cm</span></span></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Rács eltolása</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <label class="rbtn big toggle" title="Festés mód: kattints vagy húzz a lapokon a kiválasztott típussal"><input type="checkbox" id="paintMode" class="sr-only" /><i class="ic" data-ic="paint"></i><span>Festés</span></label>
+              <div id="paintPalette" class="paint-palette"></div>
+              <button class="rbtn" id="clearOverrides" title="Az összes egyedi lapfestés törlése"><i class="ic" data-ic="eraser"></i><span>Törlés</span></button>
+            </div>
+            <div class="rgroup-label">Egyedi lapok</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <label class="rcheck" title="A vágott darab szomszédos lap felé eső éle gyári él legyen, vágott él csak falhoz/kivágáshoz kerüljön (az egész projektre)"><input type="checkbox" id="layoutFactoryEdges" /><span>Gyári él a szomszéd felé</span></label>
+                <label class="rfield" title="A lapokhoz és a fugához hozzáadódik (törésre, vágási hibára) — az egész projektre"><span>Tartalék</span><span class="input-with-unit"><input type="number" id="overage" min="0" step="1" value="10" /><span class="unit-suffix">%</span></span></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Vágási terv</div>
+          </div>
+        </div>
+
+        <!-- ANYAG -->
+        <div class="ribbon-panel" data-rtab="material" hidden>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <select id="gluePreset" class="rselect" title="EN 12004 osztály; a fogyasztás átlagérték vékony és közepes ágyazáshoz">
+                  <option value="c1">C1 cementes (~4 kg/m²)</option>
+                  <option value="c2">C2 flexibilis (~5 kg/m²)</option>
+                  <option value="c2s1">C2 S1 deformálható (~5 kg/m²)</option>
+                </select>
+                <div class="rrow">
+                  <label class="rfield"><span>Tartalék</span><span class="input-with-unit"><input type="number" id="glueWaste" min="0" step="1" value="10" /><span class="unit-suffix">%</span></span></label>
+                  <label class="rfield"><span>Ár (25 kg)</span><span class="input-with-unit"><input type="number" id="gluePricePack" min="0" step="100" value="0" /><span class="unit-suffix">Ft</span></span></label>
+                </div>
+              </div>
+            </div>
+            <div class="rgroup-label">Ragasztó</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <select id="groutPreset" class="rselect" title="A sűrűség a fugatérfogat → tömeg átszámításához kell">
+                  <option value="cg1">Cementes CG1 (5 kg/zsák)</option>
+                  <option value="cg2">Cementes CG2 (5 kg/zsák)</option>
+                  <option value="epoxy">Mapei Kerapoxy Easy Design (3 kg)</option>
+                </select>
+                <label class="rfield"><span>Ár (csomag)</span><span class="input-with-unit"><input type="number" id="groutPricePack" min="0" step="100" value="0" /><span class="unit-suffix">Ft</span></span></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Fuga</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <div class="rrow">
+                  <label class="rfield"><span>Hézag</span><span class="input-with-unit"><input type="number" id="silWidth" min="1" step="0.5" value="5" title="Hézag szélessége" /><span class="unit-suffix">mm</span></span></label>
+                  <label class="rfield"><span>×</span><span class="input-with-unit"><input type="number" id="silDepth" min="1" step="0.5" value="5" title="Hézag mélysége" /><span class="unit-suffix">mm</span></span></label>
+                  <label class="rfield"><span>Kartus</span><span class="input-with-unit"><input type="number" id="silTube" min="50" step="10" value="310" /><span class="unit-suffix">ml</span></span></label>
+                </div>
+                <div class="rrow">
+                  <label class="rfield"><span>Tartalék</span><span class="input-with-unit"><input type="number" id="silWaste" min="0" step="1" value="15" /><span class="unit-suffix">%</span></span></label>
+                  <label class="rfield"><span>Ár (kartus)</span><span class="input-with-unit"><input type="number" id="silPriceTube" min="0" step="100" value="0" /><span class="unit-suffix">Ft</span></span></label>
+                </div>
+              </div>
+            </div>
+            <div class="rgroup-label">Szilikon</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <label class="rfield"><span>Ár (folyóméter)</span><span class="input-with-unit"><input type="number" id="edgingPricePerM" min="0" step="100" value="0" /><span class="unit-suffix">Ft/m</span></span></label>
+                <span class="rnote" title="Élvédő a Rajzolás fül élek-listájában és a kivágásoknál jelölhető">Jelölés: Rajzolás → élek listája</span>
+              </div>
+            </div>
+            <div class="rgroup-label">Élvédő profil</div>
+          </div>
+        </div>
+
+        <!-- AJÁNLAT -->
+        <div class="ribbon-panel" data-rtab="quote" hidden>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <select id="qVat" data-q="vat" class="rselect" title="ÁFA-kezelés">
+                  <option value="27">27% ÁFA (nettó + ÁFA + bruttó)</option>
+                  <option value="aam">Alanyi adómentes (AAM)</option>
+                </select>
+                <label class="rcheck" title="Az anyagok az Anyag fül számaival és áraival kerülnek be; ár nélküli anyag kimarad"><input type="checkbox" id="qInclMat" data-q="includeMaterial" /><span>Anyagköltség az ajánlatban</span></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Beállítások</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <button class="rbtn big" id="qPrint" title="Nyomtatható árajánlat (a böngésző nyomtatási ablakából PDF-be menthető)"><i class="ic" data-ic="quote"></i><span>Árajánlat PDF</span></button>
+              <span class="rnote tall">Megrendelő, munkadíj, tételek: a jobb oldali <strong>Tulajdonságok</strong> panelen.</span>
+            </div>
+            <div class="rgroup-label">Árajánlat</div>
+          </div>
+        </div>
+
+        <!-- NÉZET -->
+        <div class="ribbon-panel" data-rtab="view" hidden>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <button class="rbtn big" data-click='#viewToggle [data-view="2d"]' title="Alaprajz (2D) nézet"><i class="ic" data-ic="view2d"></i><span>2D</span></button>
+              <button class="rbtn big" data-click='#viewToggle [data-view="3d"]' title="Térbeli (3D) nézet"><i class="ic" data-ic="view3d"></i><span>3D</span></button>
+              <button class="rbtn big" data-click="#fitBtn" title="Nézet igazítása az alaprajzhoz"><i class="ic" data-ic="fit"></i><span>Igazítás</span></button>
+            </div>
+            <div class="rgroup-label">Nézet</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <label class="rcheck" title="A jobb oldali panel (Tulajdonságok, Projekt és rétegek)"><input type="checkbox" data-pane="right" checked /><span>Oldalpanel</span></label>
+                <label class="rcheck"><input type="checkbox" data-pane="hints" checked /><span>Vászon-tippek</span></label>
+              </div>
+            </div>
+            <div class="rgroup-label">Panelek</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <div class="segmented" id="themeSeg" title="Színséma">
+                  <button data-theme="system">Rendszer</button>
+                  <button data-theme="light">Világos</button>
+                  <button data-theme="dark">Sötét</button>
+                </div>
+              </div>
+            </div>
+            <div class="rgroup-label">Téma</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <button class="rbtn big" data-click="#helpBtn" title="Súgó"><i class="ic" data-ic="help"></i><span>Súgó</span></button>
+            </div>
+            <div class="rgroup-label">Súgó</div>
+          </div>
+        </div>
+
+      </div>
+    </nav>
+
+    <!-- ===== Munkaterület ===== -->
+    <main class="workspace">
+
+      <!-- Vászon -->
+      <div class="canvas-wrap" id="canvasWrap">
+        <div id="wallWarn" class="wall-warn" hidden>
+          <span id="wallWarnText"></span>
+          <span class="ww-actions">
+            <button class="btn" id="wallWarnRegen">Falak frissítése</button>
+            <button class="btn" id="wallWarnHide">Elrejtés</button>
+          </span>
+        </div>
+        <div class="canvas-tools">
+          <div class="view-toggle" id="viewToggle">
+            <button data-view="2d" class="active">2D</button>
+            <button data-view="3d">3D</button>
+          </div>
+          <button class="qbtn" id="fitBtn" title="Nézet igazítása az alaprajzhoz" aria-label="Nézet igazítása"><i class="ic" data-ic="fit"></i></button>
+          <button class="qbtn" id="view3dResetBtn" title="3D nézet visszaállítása" aria-label="3D nézet visszaállítása"><i class="ic" data-ic="reset"></i></button>
+        </div>
+        <div class="compass3d" id="compass3d" hidden>
+          <button data-az="-135" title="Északnyugat felől">ÉNY</button>
+          <button data-az="-90" title="Észak felől">É</button>
+          <button data-az="-45" title="Északkelet felől">ÉK</button>
+          <button data-az="180" title="Nyugat felől">NY</button>
+          <button data-top="1" title="Felülnézet">⬒</button>
+          <button data-az="0" title="Kelet felől">K</button>
+          <button data-az="135" title="Délnyugat felől">DNY</button>
+          <button data-az="90" title="Dél felől">D</button>
+          <button data-az="45" title="Délkelet felől">DK</button>
+        </div>
+        <canvas id="board"></canvas>
+        <canvas id="board3d"></canvas>
+        <div class="canvas-help" id="canvasHelp2d">
+          <span>Görgő: nagyítás</span>
+          <span>Jobb gomb + húzás: mozgatás</span>
+          <span>Pont / él húzása: áthelyezés</span>
+          <span>Felirat: átírás</span>
+          <span>Dupla katt. pontra: törlés, élre: új pont</span>
+        </div>
+        <div class="canvas-help" id="canvasHelp3d">
+          <span>Húzás: forgatás</span>
+          <span>Jobb gomb / Shift + húzás: mozgatás</span>
+          <span>Görgő: nagyítás</span>
+        </div>
       </div>
 
-      <div class="tabs-layout">
-      <div class="tabs" id="tabs">
-        <button data-tab="plan" class="active" title="Alaprajz"><span class="tab-ico">✎</span>Alaprajz</button>
-        <button data-tab="tiles" title="Burkolat"><span class="tab-ico">▦</span>Burkolat</button>
-        <button data-tab="layout" title="Kiosztás"><span class="tab-ico">▣</span>Kiosztás</button>
-        <button data-tab="material" title="Anyag"><span class="tab-ico">Σ</span>Anyag</button>
-        <button data-tab="quote" title="Árajánlat"><span class="tab-ico">Ft</span>Ajánlat</button>
-      </div>
-      <div class="tab-panels">
-
-      <!-- ALAPRAJZ FÜL -->
-      <div class="tab-panel" data-tabpanel="plan">
-      <section class="panel">
-        <h2>Felület</h2>
-        <div class="control-row">
-          <label>Típus</label>
-          <div class="segmented" id="modeSegmented">
-            <button data-mode="floor" class="active">Padló</button>
-            <button data-mode="wall">Fal</button>
+      <div class="sidebar-resizer" id="layersResizer"></div>
+      <!-- Jobb panel: Tulajdonságok (a menüszalag aktív lapjához tartozó részletek) -->
+      <aside class="props-pane pane" id="propsPane">
+        <div class="pane-tabs" id="paneTabs" role="tablist">
+          <button data-pane-page="props" class="active" role="tab">Tulajdonságok</button>
+          <button data-pane-page="project" role="tab">Projekt és rétegek</button>
+        </div>
+        <div class="pane-page" data-page="project" hidden>
+        <section class="pane-section">
+          <div class="pane-head">
+            <span>Projektek</span>
+            <button class="qbtn small" data-click="#addProject" title="Új projekt"><i class="ic" data-ic="add"></i></button>
           </div>
+          <div class="proj-tree" id="projTree"></div>
+        </section>
+        <section class="pane-section" id="layersPanel">
+          <div class="pane-head"><span>Rétegek</span></div>
+          <div class="layers-list" id="layersList"></div>
+          <div class="layers-group-bar" id="layersGroupBar" hidden></div>
+          <p class="hint">Kattints egy rétegre — csak az szerkeszthető a vásznon. 2+ kivágást a négyzetekkel csoportba foghatsz.</p>
+        </section>
         </div>
-        <div class="control-row">
-          <label>Mértékegység</label>
-          <div class="segmented" id="unitSegmented">
-            <button data-unit="cm" class="active">cm</button>
-            <button data-unit="mm">mm</button>
-          </div>
-        </div>
-      </section>
+        <div class="pane-page" data-page="props">
+        <div class="pane-title" id="propsTitle">Tulajdonságok</div>
 
-      <section class="panel">
-        <h2>Rajzolás</h2>
-        <div class="control-row checkbox-row">
-          <label for="snapToggle">Rácsra illesztés</label>
-          <input type="checkbox" id="snapToggle" checked />
+        <!-- Rajzolás -->
+        <div class="tab-panel" data-tabpanel="plan">
+          <section class="panel">
+            <h2>Élek</h2>
+            <div id="edgeList" class="edge-list">
+              <p class="empty-note">Még nincs él. Kattints a vászonra a sarokpontok lerakásához; a kezdőpontra kattintva zárhatod a sokszöget.</p>
+            </div>
+          </section>
+          <section class="panel">
+            <h2>Kivágások</h2>
+            <div id="cutoutList" class="cutout-list"></div>
+            <p class="hint">Rajzolás: menüszalag → Kivágás, majd húzz egy téglalapot. Kijelölés: kattints a kivágásra ebben a listában (vagy a Projekt és rétegek fülön); utána a vásznon húzással mozgatható, a méretfeliratra kattintva pontosítható. A ⤧ gomb a felületre illeszti.</p>
+          </section>
+          <section class="panel" id="preWallPanel" hidden>
+            <h2>Előtétfal az aktív falra</h2>
+            <label class="pfield"><span>Név</span><input type="text" id="pwName" value="Előtétfal" /></label>
+            <label class="pfield"><span>Bal szélétől</span><span class="input-with-unit"><input type="number" id="pwX" min="0" step="1" value="0" /><span class="unit-suffix rect-unit">cm</span></span></label>
+            <label class="pfield"><span>Alja a padlótól</span><span class="input-with-unit"><input type="number" id="pwBottom" min="0" step="1" value="0" /><span class="unit-suffix rect-unit">cm</span></span></label>
+            <label class="pfield"><span>Szélesség</span><span class="input-with-unit"><input type="number" id="pwWidth" min="1" step="1" value="60" /><span class="unit-suffix rect-unit">cm</span></span></label>
+            <label class="pfield"><span>Magasság</span><span class="input-with-unit"><input type="number" id="pwHeight" min="1" step="1" value="110" /><span class="unit-suffix rect-unit">cm</span></span></label>
+            <label class="pfield"><span>Mélység</span><span class="input-with-unit"><input type="number" id="pwDepth" min="1" step="1" value="10" /><span class="unit-suffix rect-unit">cm</span></span></label>
+            <button class="btn btn-secondary full" id="genPreWall">Előtétfal létrehozása</button>
+            <p class="hint">A falon egy „nem burkolt” kivágás + négy gyermek-felület (eleje, két oldala, teteje) jön létre, külön burkolhatók.</p>
+          </section>
+          <section class="panel" id="stairsPanel">
+            <h2>Lépcső</h2>
+            <label class="pfield"><span>Név</span><input type="text" id="stName" value="Lépcső" /></label>
+            <label class="pfield"><span>Fokszám</span><span class="input-with-unit"><input type="number" id="stSteps" min="1" step="1" value="3" /><span class="unit-suffix">db</span></span></label>
+            <label class="pfield"><span>Szélesség</span><span class="input-with-unit"><input type="number" id="stWidth" min="1" step="1" value="90" /><span class="unit-suffix rect-unit">cm</span></span></label>
+            <label class="pfield"><span>Fok-mélység</span><span class="input-with-unit"><input type="number" id="stDepth" min="1" step="1" value="30" /><span class="unit-suffix rect-unit">cm</span></span></label>
+            <label class="pfield"><span>Fok-magasság</span><span class="input-with-unit"><input type="number" id="stRise" min="1" step="1" value="17" /><span class="unit-suffix rect-unit">cm</span></span></label>
+            <button class="btn btn-secondary full" id="genStairs">Lépcső létrehozása</button>
+            <p class="hint">Fokonként egy homloklap és egy lépőlap készül, közös csoportban.</p>
+          </section>
         </div>
-        <div class="control-row" id="gridSizeRow">
-          <label for="gridSize">Rácsméret</label>
-          <div class="input-with-unit">
-            <input type="number" id="gridSize" min="1" step="1" value="10" />
-            <span class="unit-suffix" id="gridUnit">cm</span>
-          </div>
-        </div>
-        <p class="hint">A rajzoló segédrács lépésköze: a sarokpontok, élek és kivágások ehhez „pattannak". <strong>Nincs köze a lapmérethez</strong> (a lapkiosztás rácsát a lapméret + fuga adja). Tipp: a méreteid pontosságához igazítsd — pl. 10 cm általános, 1–5 cm a finomabb rajzhoz.</p>
-        <div class="control-row checkbox-row">
-          <label for="orthoToggle">Csak vízsz./függ. élek</label>
-          <input type="checkbox" id="orthoToggle" />
-        </div>
-        <p class="hint" id="drawHint">Kattints a vászonra a sarokpontok lehelyezéséhez. A kör alakú kezdőpontra kattintva zárhatod a sokszöget. A rajzon megjelenő élhossz-feliratra kattintva közvetlenül átírhatod az adott él hosszát.</p>
-      </section>
 
-      <section class="panel">
-        <h2>Gyors téglalap</h2>
-        <div class="control-row two-cols">
-          <div class="input-with-unit">
-            <input type="number" id="rectW" min="1" step="1" value="400" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
-          <span class="times">×</span>
-          <div class="input-with-unit">
-            <input type="number" id="rectH" min="1" step="1" value="300" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
+        <!-- Burkolat -->
+        <div class="tab-panel" data-tabpanel="tiles" hidden>
+          <section class="panel">
+            <h2>Laptípusok</h2>
+            <div id="tileList" class="tile-list"></div>
+            <p class="hint">Az „alap” típus mérete határozza meg a kiosztás rácsát; a többi típus a festéshez (egyedi lapok) használható.</p>
+          </section>
         </div>
-        <button class="btn btn-secondary full" id="makeRectBtn">Téglalap létrehozása</button>
-      </section>
 
-      <section class="panel">
-        <h2>Kivágások (nem burkolt részek)</h2>
-        <div class="control-row">
-          <label>Típus</label>
-          <div class="segmented" id="cutoutKindSeg">
-            <button data-kind="opening" class="active">Nyílás</button>
-            <button data-kind="untiled">Nem burkolt</button>
-          </div>
+        <!-- Kiosztás -->
+        <div class="tab-panel" data-tabpanel="layout" hidden>
+          <section class="panel summary">
+            <h2>Aktív felület</h2>
+            <div class="mat-row"><span>Burkolt terület:</span> <strong id="matArea">–</strong></div>
+            <div class="mat-row"><span>Lapok összesen:</span> <strong id="tileTotal">–</strong></div>
+            <div class="mat-row"><span>Egész lap:</span> <strong id="tileWhole">–</strong></div>
+            <div class="mat-row"><span>Vágott helyek:</span> <strong id="tileCut">–</strong></div>
+            <div class="mat-row"><span>Szükséges lap (újrahaszn.):</span> <strong id="matTiles">–</strong></div>
+            <div class="mat-row"><span>Hulladék:</span> <strong id="matWaste">–</strong></div>
+            <div class="mat-row"><span><strong>Lap tartalékkal:</strong></span> <strong id="matFinal">–</strong></div>
+          </section>
+          <section class="panel">
+            <p class="hint" id="layoutHint">Az „alap” laptípus mérete + a fuga adja a rácsot; a felület szélén a lapok valósághűen levágva jelennek meg.</p>
+            <p class="hint" id="linkToFloorHint" hidden>Padló-rácshoz illesztve: a fal függőleges fugavonalai a padló fugavonalaihoz igazodnak; a kézi rács-eltolás ilyenkor nem hat.</p>
+            <p class="hint" id="offHint">Aktív szél-igazításnál a rácsot a program állítja; a kézi eltolás le van tiltva.</p>
+            <p class="hint">Egyedi lapok: kapcsold be a Festés módot, válassz típust a menüszalag palettájáról („Alap” = visszaállítás), majd kattints vagy húzz a lapokon.</p>
+          </section>
         </div>
-        <div class="control-row">
-          <label for="untiledColor">„Nem burkolt" szín</label>
-          <input type="color" id="untiledColor" value="#8a8f98" />
-        </div>
-        <button class="btn btn-ghost full" id="cutoutDraw">+ Kivágás rajzolása</button>
-        <div id="cutoutList" class="cutout-list"></div>
-        <p class="hint">Válaszd a típust, kapcsold be a rajzolást, majd húzz egy téglalapot a vásznon. A kivágás oldalán a méretre kattintva pontosíthatod (mint az éleknél). A felső, nem burkolt sávot is így add meg — több téglalappal egy falon belül eltérő burkolási magasság is kialakítható.</p>
-        <p class="hint">Kattintással kijelölheted a kivágást (sárga keret + méret-feliratok), majd <strong>fogd meg és húzd át</strong> máshova, vagy <strong>Delete</strong>-tel töröld. Ha az átméretezés után lelóg a felületről, kattints az adott kivágás <strong>⤧</strong> gombjára — automatikusan beilleszti (szükség esetén lekicsinyíti a felület méretére).</p>
-      </section>
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Élek</h2>
-          <span class="readout" id="closedState">nyitott</span>
+        <!-- Anyag -->
+        <div class="tab-panel" data-tabpanel="material" hidden>
+          <section class="panel summary">
+            <h2>Burkolat</h2>
+            <div class="mat-row"><span>Burkolt terület:</span> <strong id="prArea">–</strong></div>
+            <div id="prTilesByType"></div>
+          </section>
+          <section class="panel summary">
+            <h2>Ragasztó</h2>
+            <div class="mat-row"><span>Terület:</span> <strong id="prGlueArea">–</strong></div>
+            <div class="mat-row"><span>Tömeg:</span> <strong id="prGlueMass">–</strong></div>
+            <div class="mat-row"><span>Zsák:</span> <strong id="prGluePacks">–</strong></div>
+          </section>
+          <section class="panel summary">
+            <h2>Fuga</h2>
+            <div class="mat-row"><span>Fuga területe:</span> <strong id="prGroutArea">–</strong></div>
+            <div class="mat-row"><span>Tömeg:</span> <strong id="prMass">–</strong></div>
+            <div class="mat-row"><span>Csomag:</span> <strong id="prGroutPacks">–</strong></div>
+          </section>
+          <section class="panel summary">
+            <h2>Szilikon és élvédő</h2>
+            <div class="mat-row"><span>Padló–fal sarok:</span> <strong id="prSilH">–</strong></div>
+            <div class="mat-row"><span>Fal–fal sarok:</span> <strong id="prSilV">–</strong></div>
+            <div class="mat-row"><span>Szilikon összesen:</span> <strong id="prSilTot">–</strong></div>
+            <div class="mat-row"><span>Kartus:</span> <strong id="prTubes">–</strong></div>
+            <div class="mat-row"><span>Élvédő profil:</span> <strong id="prEdging">–</strong></div>
+            <p class="hint">Szilikon a padlóból generált falak sarkaiba kerül; az élvédő az élek listájában és a kivágásoknál jelölhető (a vásznon piros vonal).</p>
+          </section>
+          <section class="panel summary">
+            <h2>Költség</h2>
+            <div class="mat-row"><span>Lap:</span> <strong id="prCostTiles">–</strong></div>
+            <div class="mat-row"><span>Ragasztó:</span> <strong id="prCostGlue">–</strong></div>
+            <div class="mat-row"><span>Fuga:</span> <strong id="prCostGrout">–</strong></div>
+            <div class="mat-row"><span>Szilikon:</span> <strong id="prCostSil">–</strong></div>
+            <div class="mat-row"><span>Élvédő:</span> <strong id="prCostEdging">–</strong></div>
+            <div class="mat-row total-row"><span><strong>Összesen:</strong></span> <strong id="prCostTotal">–</strong></div>
+            <p class="hint">Egységárak: laptípusonként (Burkolat), a többi a menüszalagon. A „–” azt jelenti, hogy nincs megadva ár.</p>
+          </section>
         </div>
-        <div id="edgeList" class="edge-list">
-          <p class="empty-note">Még nincs él. Kezdj el rajzolni a vásznon.</p>
-        </div>
-      </section>
 
-      <section class="panel" id="floorWallsPanel">
-        <h2>Falak generálása</h2>
-        <div class="control-row">
-          <label for="wallHeight">Falmagasság</label>
-          <div class="input-with-unit">
-            <input type="number" id="wallHeight" min="1" step="1" value="270" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
+        <!-- Ajánlat -->
+        <div class="tab-panel" data-tabpanel="quote" hidden>
+          <section class="panel">
+            <h2>Megrendelő</h2>
+            <div class="q-field"><label for="qCustName">Név</label><input type="text" id="qCustName" data-q="customer.name" /></div>
+            <div class="q-field"><label for="qCustAddr">Cím</label><input type="text" id="qCustAddr" data-q="customer.address" /></div>
+            <div class="q-field"><label for="qCustPhone">Telefon</label><input type="text" id="qCustPhone" data-q="customer.phone" /></div>
+            <div class="q-field"><label for="qCustEmail">E-mail</label><input type="text" id="qCustEmail" data-q="customer.email" /></div>
+          </section>
+          <section class="panel">
+            <h2>Ajánlat</h2>
+            <div class="q-field"><label for="qNumber">Szám</label><input type="text" id="qNumber" data-q="number" placeholder="pl. 2026/014" /></div>
+            <div class="q-field"><label for="qDate">Kelt</label><input type="date" id="qDate" data-q="date" /></div>
+            <div class="q-field"><label for="qValid">Érvényes (nap)</label><input type="number" id="qValid" data-q="validDays" min="1" step="1" /></div>
+            <p class="hint">Üres kelt = a nyomtatás napja.</p>
+          </section>
+          <section class="panel">
+            <h2>Munkadíj</h2>
+            <div class="q-labor"><span class="q-labor-name">Padlóburkolás</span><span class="q-labor-qty" data-qty="floorM2"></span><input type="number" min="0" step="any" data-q="labor.floorM2" /><span class="u">Ft/m²</span></div>
+            <div class="q-labor"><span class="q-labor-name">Falburkolás</span><span class="q-labor-qty" data-qty="wallM2"></span><input type="number" min="0" step="any" data-q="labor.wallM2" /><span class="u">Ft/m²</span></div>
+            <div class="q-labor"><span class="q-labor-name">Élvédő</span><span class="q-labor-qty" data-qty="edgingM"></span><input type="number" min="0" step="any" data-q="labor.edgingM" /><span class="u">Ft/fm</span></div>
+            <div class="q-labor"><span class="q-labor-name">Szilikonozás</span><span class="q-labor-qty" data-qty="siliconeM"></span><input type="number" min="0" step="any" data-q="labor.siliconeM" /><span class="u">Ft/fm</span></div>
+            <p class="hint">A mennyiségek a tervből jönnek. 0 Ft = a sor kimarad.</p>
+          </section>
+          <section class="panel">
+            <h2>Egyedi tételek</h2>
+            <div id="qItems"></div>
+            <button class="btn full" id="qAddItem" style="margin-top:8px">+ Tétel</button>
+          </section>
+          <section class="panel">
+            <h2>Megjegyzés</h2>
+            <textarea id="qNote" data-q="note" rows="3" class="q-note" placeholder="pl. fizetési feltételek, kezdés várható ideje"></textarea>
+          </section>
+          <section class="panel">
+            <h2>Ajánlatadó (minden projektnél)</h2>
+            <div class="q-field"><label for="qCName">Név / cég</label><input type="text" id="qCName" data-c="name" /></div>
+            <div class="q-field"><label for="qCAddr">Cím</label><input type="text" id="qCAddr" data-c="address" /></div>
+            <div class="q-field"><label for="qCTax">Adószám</label><input type="text" id="qCTax" data-c="taxNo" /></div>
+            <div class="q-field"><label for="qCPhone">Telefon</label><input type="text" id="qCPhone" data-c="phone" /></div>
+            <div class="q-field"><label for="qCEmail">E-mail</label><input type="text" id="qCEmail" data-c="email" /></div>
+            <div class="q-field"><label for="qCBank">Bankszámla</label><input type="text" id="qCBank" data-c="bank" /></div>
+          </section>
+          <section class="panel summary">
+            <h2>Összesítő</h2>
+            <div id="qSummary"></div>
+          </section>
         </div>
-        <button class="btn btn-ghost full" id="genWalls">Falak generálása ebből a padlóból</button>
-        <p class="hint">Az aktív <strong>padló</strong> minden éléhez egy fal-felület készül (szélesség = élhossz, a megadott magassággal). Csak zárt padló-alaprajzra; a falak az „Élek" neveit kapják.</p>
-      </section>
+        </div>
+      </aside>
+    </main>
 
-      <section class="panel" id="preWallPanel" hidden>
-        <h2>Előtétfal generálása</h2>
-        <div class="control-row">
-          <label for="pwName">Név</label>
-          <input type="text" id="pwName" class="tile-name" value="Előtétfal" />
-        </div>
-        <div class="control-row two-cols">
-          <div class="input-with-unit">
-            <label class="u" style="font-size:11px">Bal szélétől</label>
-            <input type="number" id="pwX" min="0" step="1" value="0" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
-        </div>
-        <div class="control-row two-cols">
-          <div class="input-with-unit">
-            <label class="u" style="font-size:11px">Alja a padlótól</label>
-            <input type="number" id="pwBottom" min="0" step="1" value="0" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
-        </div>
-        <div class="control-row two-cols">
-          <div class="input-with-unit">
-            <label class="u" style="font-size:11px">Szélesség</label>
-            <input type="number" id="pwWidth" min="1" step="1" value="60" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
-        </div>
-        <div class="control-row two-cols">
-          <div class="input-with-unit">
-            <label class="u" style="font-size:11px">Magasság</label>
-            <input type="number" id="pwHeight" min="1" step="1" value="110" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
-        </div>
-        <div class="control-row two-cols">
-          <div class="input-with-unit">
-            <label class="u" style="font-size:11px">Mélység</label>
-            <input type="number" id="pwDepth" min="1" step="1" value="10" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
-        </div>
-        <button class="btn btn-ghost full" id="genPreWall">Előtétfal létrehozása (4 felület)</button>
-        <p class="hint">Az aktív fal-felületen jön létre: a fal megfelelő helyén egy „nem-burkolt" kivágás (mert ott az előtétfal áll), és négy gyermek-felület — eleje, bal oldal, jobb oldal, teteje — a fal alá szervezve a projekt-fában. Mindegyik felületet külön burkolhatod tetszőleges laptípussal és kötésmintával.</p>
-      </section>
-
-      <section class="panel">
-        <h2>Lépcső generálása</h2>
-        <div class="control-row">
-          <label for="stName">Név</label>
-          <input type="text" id="stName" class="tile-name" value="Lépcső" />
-        </div>
-        <div class="control-row two-cols">
-          <div class="input-with-unit">
-            <label class="u" style="font-size:11px">Fokszám</label>
-            <input type="number" id="stSteps" min="1" step="1" value="3" />
-            <span class="unit-suffix">db</span>
-          </div>
-        </div>
-        <div class="control-row two-cols">
-          <div class="input-with-unit">
-            <label class="u" style="font-size:11px">Szélesség</label>
-            <input type="number" id="stWidth" min="1" step="1" value="90" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
-        </div>
-        <div class="control-row two-cols">
-          <div class="input-with-unit">
-            <label class="u" style="font-size:11px">Fok-mélység</label>
-            <input type="number" id="stDepth" min="1" step="1" value="30" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
-        </div>
-        <div class="control-row two-cols">
-          <div class="input-with-unit">
-            <label class="u" style="font-size:11px">Fok-magasság</label>
-            <input type="number" id="stRise" min="1" step="1" value="17" />
-            <span class="unit-suffix rect-unit">cm</span>
-          </div>
-        </div>
-        <button class="btn btn-ghost full" id="genStairs">Lépcső létrehozása (homloklap + lépőlap fokonként)</button>
-        <p class="hint">Minden fokhoz egy homloklap (szélesség × fok-magasság) és egy lépőlap (szélesség × fok-mélység) jön létre, együtt egy „<em>Lépcső N: …</em>" csoportban.</p>
-      </section>
-
-      <section class="panel summary">
-        <div class="summary-row"><span>Terület</span><strong id="areaOut">– m²</strong></div>
-        <div class="summary-row"><span>Kerület</span><strong id="perimOut">–</strong></div>
-      </section>
-
-      <section class="panel actions">
-        <button class="btn btn-danger full" id="clearBtn">Törlés / újrakezdés</button>
-      </section>
-      </div><!-- /plan -->
-
-      <!-- BURKOLAT FÜL -->
-      <div class="tab-panel" data-tabpanel="tiles" hidden>
-      <section class="panel">
-        <h2>Fuga</h2>
-        <div class="control-row">
-          <label for="groutW">Vastagság</label>
-          <div class="input-with-unit">
-            <input type="number" id="groutW" min="0" step="0.5" value="3" />
-            <span class="unit-suffix">mm</span>
-          </div>
-        </div>
-        <div class="control-row">
-          <label for="groutColor">Fuga színe</label>
-          <input type="color" id="groutColor" value="#cfcfcf" />
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Laptípusok</h2>
-          <button class="btn btn-secondary" id="addTileBtn">+ Új</button>
-        </div>
-        <div id="tileList" class="tile-list"></div>
-        <p class="hint">Az „alap" típus mérete határozza meg a kiosztás rácsát (3. fázis). A többi típust a későbbi egyedi lapokhoz használhatod.</p>
-      </section>
-      </div><!-- /tiles -->
-
-      <!-- KIOSZTÁS FÜL -->
-      <div class="tab-panel" data-tabpanel="layout" hidden>
-      <section class="panel">
-        <div class="control-row checkbox-row">
-          <label for="layoutShow">Kiosztás megjelenítése</label>
-          <input type="checkbox" id="layoutShow" checked />
-        </div>
-        <div class="control-row checkbox-row">
-          <label for="layoutCodes" title="A vágott darabokon a vágási terv kódja is látszik (pl. 3a = a 3. lapból vágott „a” darab) — ugyanaz, mint a PDF vágási tervében">Vágási kódok a rajzon (pl. 3a)</label>
-          <input type="checkbox" id="layoutCodes" />
-        </div>
-        <div class="control-row checkbox-row">
-          <label for="layoutFactoryEdges" title="A vágott darab szomszédos lap felé eső éle gyári él legyen, vágott él csak falhoz/kivágáshoz kerülhet. Az egész projektre érvényes.">Gyári él a szomszédos lap felé</label>
-          <input type="checkbox" id="layoutFactoryEdges" />
-        </div>
-        <div class="control-row checkbox-row">
-          <label for="tileRotate">Lap elforgatása 90°</label>
-          <input type="checkbox" id="tileRotate" />
-        </div>
-        <div class="control-row checkbox-row" id="linkToFloorRow" hidden>
-          <label for="linkToFloor">Padló-rácshoz illesztve</label>
-          <input type="checkbox" id="linkToFloor" />
-        </div>
-        <p class="hint" id="layoutHint">Az „alap" laptípus mérete + a fuga adja a rácsot. A felület szélén a lapok valósághűen levágva jelennek meg.</p>
-        <p class="hint" id="linkToFloorHint" hidden>Bekapcsolva a fal függőleges fugavonalai a padló-csempék fugavonalaihoz igazodnak a padló-fal találkozás mentén (csak vízszintes/függőleges padló-élnél). A kézi „Rács eltolása" ilyenkor nincs hatással.</p>
-      </section>
-
-      <section class="panel">
-        <h2>Mintázat (kötés)</h2>
-        <div class="control-row">
-          <label for="patternSel">Minta</label>
-          <select id="patternSel" class="full-select">
-            <option value="straight">Egyenes (hálós)</option>
-            <option value="offset">Eltolt / téglakötés</option>
-            <option value="diagonal">Átlós (45°)</option>
-            <option value="herringbone">Halszálka</option>
-          </select>
-        </div>
-        <div class="control-row" id="offsetRow">
-          <label for="offsetPct">Sor-eltolás</label>
-          <div class="input-with-unit">
-            <input type="number" id="offsetPct" min="0" max="100" step="1" value="50" />
-            <span class="unit-suffix">%</span>
-          </div>
-        </div>
-        <div class="control-row" id="offsetQuick">
-          <button class="btn btn-ghost" data-off="50">½ (50%)</button>
-          <button class="btn btn-ghost" data-off="33.33">⅓ (33%)</button>
-        </div>
-        <div class="control-row checkbox-row" id="herringboneTiltRow" hidden>
-          <label for="herringboneTilt">45°-osan elforgatva</label>
-          <input type="checkbox" id="herringboneTilt" />
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2>Szél-igazítás (esztétikus szélek)</h2>
-        <div class="control-row">
-          <label>Mód</label>
-          <div class="segmented" id="alignSeg">
-            <button data-align="none" class="active">Nincs</button>
-            <button data-align="center">Középre</button>
-            <button data-align="min">Min. csík</button>
-          </div>
-        </div>
-        <div class="control-row" id="thrRow">
-          <label for="thr">Min. szélső csík</label>
-          <div class="input-with-unit">
-            <input type="number" id="thr" min="0" step="1" value="10" />
-            <span class="unit-suffix off-unit">cm</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2>Rács eltolása</h2>
-        <p class="hint">A teljes laprácsot tologatja vízszintesen/függőlegesen. Ezzel állítod, hova essenek a fugavonalak, és mekkorák legyenek a szélső (vágott) lapok — pl. ha a szélen csúnya, túl keskeny csík maradna, eltolással szélesebbé teheted. (A „Szél-igazítás" ezt automatikusan is be tudja állítani.)</p>
-        <div class="control-row">
-          <label for="offX">Vízszintes (X)</label>
-          <div class="input-with-unit">
-            <input type="number" id="offX" step="1" value="0" />
-            <span class="unit-suffix off-unit">cm</span>
-          </div>
-        </div>
-        <div class="control-row">
-          <label for="offY">Függőleges (Y)</label>
-          <div class="input-with-unit">
-            <input type="number" id="offY" step="1" value="0" />
-            <span class="unit-suffix off-unit">cm</span>
-          </div>
-        </div>
-        <p class="hint" id="offHint">Aktív szél-igazításnál a rácsot a program állítja; a kézi eltolás ilyenkor letiltva.</p>
-      </section>
-
-      <section class="panel summary">
-        <h2>Burkolat — aktív felület</h2>
-        <div class="mat-row"><span>Burkolt terület:</span> <strong id="matArea">–</strong></div>
-        <div class="mat-row"><span>Lapok összesen:</span> <strong id="tileTotal">–</strong></div>
-        <div class="mat-row"><span>Egész lap:</span> <strong id="tileWhole">–</strong></div>
-        <div class="mat-row"><span>Vágott helyek:</span> <strong id="tileCut">–</strong></div>
-        <div class="mat-row"><span>Szükséges lap (újrahaszn.):</span> <strong id="matTiles">–</strong></div>
-        <div class="mat-row"><span>Hulladék:</span> <strong id="matWaste">–</strong></div>
-        <div class="mat-row"><span><strong>Lap tartalékkal:</strong></span> <strong id="matFinal">–</strong></div>
-        <p class="hint">Csak ezen a felületen szükséges burkolat. Tartalék % beállítása az Anyag fülön; ott a projekt összes felületére vonatkozó összesítést is megtalálod.</p>
-      </section>
-
-      <section class="panel">
-        <h2>Egyedi lapok</h2>
-        <div class="control-row checkbox-row">
-          <label for="paintMode">Festés mód</label>
-          <input type="checkbox" id="paintMode" />
-        </div>
-        <div id="paintPalette" class="paint-palette"></div>
-        <button class="btn btn-ghost full" id="clearOverrides">Összes egyedi törlése</button>
-        <p class="hint">Kapcsold be a festés módot, válassz egy típust (vagy „Alap" = visszaállítás), majd kattints vagy húzz a lapokon. Új típusokat a Burkolat fülön vehetsz fel.</p>
-      </section>
-      </div><!-- /layout -->
-
-      <!-- ANYAG FÜL -->
-      <div class="tab-panel" data-tabpanel="material" hidden>
-
-      <!-- BURKOLAT (lap) -->
-      <section class="panel">
-        <h2>Burkolat — beállítások</h2>
-        <div class="control-row">
-          <label for="overage">Tartalék</label>
-          <div class="input-with-unit">
-            <input type="number" id="overage" min="0" step="1" value="10" />
-            <span class="unit-suffix">%</span>
-          </div>
-        </div>
-        <p class="hint">A tartalék a lapok és a fuga mennyiségéhez hozzáadódik (törésre, vágási hibára). A lap mérete és vastagsága a Burkolat fülön; kötésminta a Kiosztás fülön.</p>
-      </section>
-
-      <section class="panel summary">
-        <h2>Burkolat — egész projekt</h2>
-        <div class="mat-row"><span>Burkolt terület (összes felület):</span> <strong id="prArea">–</strong></div>
-        <div id="prTilesByType"></div>
-        <p class="hint">Laptípusonként külön bontva (a felületek a saját „alap" típusukkal számolódnak). A többi felület értéke akkor frissül, amikor rákattintasz / kiosztást készítesz hozzá, vagy PDF-be exportálsz. A „reális" újrahasznosítás a vágott darabokat úgy osztja el a lapok között, hogy a maradékok (akár többször is) újra felhasználódjanak — egy lapból több keskeny szélső csík is kijöhet. Pontosan ez látszik a PDF vágási tervében. A vágókorong vastagságát nem számolja.</p>
-      </section>
-
-      <!-- RAGASZTÓ -->
-      <section class="panel">
-        <h2>Ragasztó — beállítások</h2>
-        <div class="control-row">
-          <label for="gluePreset">Típus</label>
-          <select id="gluePreset" class="full-select">
-            <option value="c1">C1 cementes (~4 kg/m², 25 kg/zsák)</option>
-            <option value="c2">C2 flexibilis (~5 kg/m², 25 kg/zsák)</option>
-            <option value="c2s1">C2 S1 deformálható (~5 kg/m², 25 kg/zsák)</option>
-          </select>
-        </div>
-        <div class="control-row">
-          <label for="glueWaste">Ragasztó tartalék</label>
-          <div class="input-with-unit">
-            <input type="number" id="glueWaste" min="0" step="1" value="10" />
-            <span class="unit-suffix">%</span>
-          </div>
-        </div>
-        <div class="control-row">
-          <label for="gluePricePack">Egységár (25 kg zsák)</label>
-          <div class="input-with-unit">
-            <input type="number" id="gluePricePack" min="0" step="100" value="0" />
-            <span class="unit-suffix">Ft/zs.</span>
-          </div>
-        </div>
-        <p class="hint">EN 12004 szerinti osztály-jelölés. A fogyasztás (kg/m²) a fogazatlap-méret függvénye; ezek átlagértékek vékony és közepes ágyazáshoz. Az S1 osztály a deformálható (rugalmas) ragasztókat jelöli — pl. padlófűtéses padlóhoz, vékony nagyméretű lapokhoz.</p>
-      </section>
-
-      <section class="panel summary">
-        <h2>Ragasztó — egész projekt</h2>
-        <div class="mat-row"><span>Burkolt terület (összes):</span> <strong id="prGlueArea">–</strong></div>
-        <div class="mat-row"><span><strong>Ragasztó tömege:</strong></span> <strong id="prGlueMass">–</strong></div>
-        <div class="mat-row"><span><strong>Zsák szükséglet:</strong></span> <strong id="prGluePacks">–</strong></div>
-        <p class="hint">A burkolt terület × kg/m² × (1 + tartalék%). A tartalék a tipikus 5–15% (vágási veszteség, vastagabb ágyazás).</p>
-      </section>
-
-      <!-- FUGA -->
-      <section class="panel">
-        <h2>Fuga — beállítások</h2>
-        <div class="control-row">
-          <label for="groutPreset">Típus</label>
-          <select id="groutPreset" class="full-select">
-            <option value="cg1">Cementes CG1 (~1,5 g/cm³, 5 kg/zsák)</option>
-            <option value="cg2">Cementes CG2 (~1,7 g/cm³, 5 kg/zsák)</option>
-            <option value="epoxy">Mapei Kerapoxy Easy Design (1,55 g/cm³, 3 kg/vödör)</option>
-          </select>
-        </div>
-        <div class="control-row">
-          <label for="groutPricePack">Egységár (csomag)</label>
-          <div class="input-with-unit">
-            <input type="number" id="groutPricePack" min="0" step="100" value="0" />
-            <span class="unit-suffix">Ft/cs.</span>
-          </div>
-        </div>
-        <p class="hint">A sűrűség a fugatérfogat → tömeg átszámításához kell; az epoxi adatok a <em>Mapei Kerapoxy Easy Design</em> műszaki adatlapja alapján. A vastagság laptípusonként a Burkolat fülön állítható.</p>
-      </section>
-
-      <section class="panel summary">
-        <h2>Fuga — egész projekt</h2>
-        <div class="mat-row"><span>Fuga által lefedett terület (összes):</span> <strong id="prGroutArea">–</strong></div>
-        <div class="mat-row"><span><strong>Fuga tömege (összes):</strong></span> <strong id="prMass">–</strong></div>
-        <div class="mat-row"><span><strong>Csomag szükséglet:</strong></span> <strong id="prGroutPacks">–</strong></div>
-        <p class="hint">Minden felület (padló + falak) fugájának összege. A felületek értéke akkor frissül, amikor rákattintasz / kiosztást készítesz hozzá, vagy PDF-be exportálsz.</p>
-      </section>
-
-      <!-- SZILIKON -->
-      <section class="panel">
-        <h2>Szilikon — beállítások</h2>
-        <div class="control-row">
-          <label for="silWidth">Hézag szélesség</label>
-          <div class="input-with-unit">
-            <input type="number" id="silWidth" min="1" step="0.5" value="5" />
-            <span class="unit-suffix">mm</span>
-          </div>
-        </div>
-        <div class="control-row">
-          <label for="silDepth">Hézag mélység</label>
-          <div class="input-with-unit">
-            <input type="number" id="silDepth" min="1" step="0.5" value="5" />
-            <span class="unit-suffix">mm</span>
-          </div>
-        </div>
-        <div class="control-row">
-          <label for="silTube">Kartus térfogat</label>
-          <div class="input-with-unit">
-            <input type="number" id="silTube" min="50" step="10" value="310" />
-            <span class="unit-suffix">ml</span>
-          </div>
-        </div>
-        <div class="control-row">
-          <label for="silWaste">Szilikon tartalék</label>
-          <div class="input-with-unit">
-            <input type="number" id="silWaste" min="0" step="1" value="15" />
-            <span class="unit-suffix">%</span>
-          </div>
-        </div>
-        <div class="control-row">
-          <label for="silPriceTube">Egységár (kartus)</label>
-          <div class="input-with-unit">
-            <input type="number" id="silPriceTube" min="0" step="100" value="0" />
-            <span class="unit-suffix">Ft/k.</span>
-          </div>
-        </div>
-        <p class="hint">A negatív sarkokba (padló-fal találkozás, fal-fal függőleges él) szilikon kerül, nem fuga. A számítás projekt-szintű: minden generált fal alja + a fallal érintett padló-csúcsoknál függőleges sarkok × falmagasság.</p>
-      </section>
-
-      <section class="panel summary">
-        <h2>Szilikon — egész projekt</h2>
-        <div class="mat-row"><span>Padló–fal sarok hossza:</span> <strong id="prSilH">–</strong></div>
-        <div class="mat-row"><span>Fal–fal sarok hossza:</span> <strong id="prSilV">–</strong></div>
-        <div class="mat-row"><span><strong>Szilikon összesen:</strong></span> <strong id="prSilTot">–</strong></div>
-        <div class="mat-row"><span><strong>Kartus szükséglet:</strong></span> <strong id="prTubes">–</strong></div>
-        <p class="hint">Csak akkor van értéke, ha a projektben padlóból generált falak vannak (az Alaprajz fülön a „Falak generálása ebből a padlóból" gombbal). Üres projekten „–" jelenik meg.</p>
-      </section>
-
-      <section class="panel summary">
-        <h2>Élvédő profil — egész projekt</h2>
-        <div class="mat-row"><span><strong>Élvédő szükséglet:</strong></span> <strong id="prEdging">–</strong></div>
-        <div class="control-row" style="margin-top:8px">
-          <label for="edgingPricePerM">Egységár (folyóméter)</label>
-          <div class="input-with-unit">
-            <input type="number" id="edgingPricePerM" min="0" step="100" value="0" />
-            <span class="unit-suffix">Ft/m</span>
-          </div>
-        </div>
-        <p class="hint">Az élvédő a burkolat tényleges szegélyén jelölhető. Két helyen tehető:
-          <br>• <strong>Felület éleire</strong> — az Alaprajz fül „Élek" listájában az adott él alatti jelölőnégyzettel (pl. fal felső éle = befejező profil, fal alsó éle = padló-fal találkozás szilikon helyett).
-          <br>• <strong>Kivágás éleire</strong> — az „Élek" panelben/listában minden kivágás (ajtó, ablak, nem-burkolt sáv) alatt 4 jelölőnégyzet (fent / jobb / lent / bal). Itt jelölheted pl. egy ajtónyílás körüli profilt, vagy a felső csonkolt burkolat-él befejezését.
-          <br>A megjelölt élek a vásznon piros vastag vonallal látszanak; a szilikon-számítás kihagyja a fal-éleken jelölt szakaszokat.</p>
-      </section>
-
-      <!-- KÖLTSÉG -->
-      <section class="panel summary">
-        <h2>Költség — egész projekt</h2>
-        <div class="mat-row"><span>Lap (típusonként):</span> <strong id="prCostTiles">–</strong></div>
-        <div class="mat-row"><span>Ragasztó:</span> <strong id="prCostGlue">–</strong></div>
-        <div class="mat-row"><span>Fuga:</span> <strong id="prCostGrout">–</strong></div>
-        <div class="mat-row"><span>Szilikon:</span> <strong id="prCostSil">–</strong></div>
-        <div class="mat-row"><span>Élvédő:</span> <strong id="prCostEdging">–</strong></div>
-        <div class="mat-row" style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border)"><span><strong>ÖSSZESEN:</strong></span> <strong id="prCostTotal">–</strong></div>
-        <p class="hint">Az egységárak: laptípusonként Ft/db a Burkolat fülön, a többi anyagra az itt felül levő ár-mezőkben. A „–" akkor jelenik meg, ha még nincs ár megadva. Az árak tájékoztató jellegűek — az aktuális bolti egységárakkal pontosan számolható projekt-szintű ajánlat.</p>
-      </section>
-      </div><!-- /material -->
-
-      <!-- AJÁNLAT FÜL -->
-      <div class="tab-panel" data-tabpanel="quote" hidden>
-      <section class="panel">
-        <h2>Megrendelő</h2>
-        <div class="q-field"><label for="qCustName">Név</label><input type="text" id="qCustName" data-q="customer.name" /></div>
-        <div class="q-field"><label for="qCustAddr">Cím</label><input type="text" id="qCustAddr" data-q="customer.address" /></div>
-        <div class="q-field"><label for="qCustPhone">Telefon</label><input type="text" id="qCustPhone" data-q="customer.phone" /></div>
-        <div class="q-field"><label for="qCustEmail">E-mail</label><input type="text" id="qCustEmail" data-q="customer.email" /></div>
-      </section>
-
-      <section class="panel">
-        <h2>Ajánlat</h2>
-        <div class="q-field"><label for="qNumber">Ajánlat száma</label><input type="text" id="qNumber" data-q="number" placeholder="pl. 2026/014" /></div>
-        <div class="q-field"><label for="qDate">Kelt</label><input type="date" id="qDate" data-q="date" /></div>
-        <div class="q-field"><label for="qValid">Érvényesség (nap)</label><input type="number" id="qValid" data-q="validDays" min="1" step="1" /></div>
-        <div class="q-field"><label for="qVat">ÁFA</label>
-          <select id="qVat" data-q="vat"><option value="27">27% ÁFA (nettó + ÁFA + bruttó)</option><option value="aam">Alanyi adómentes (AAM)</option></select></div>
-        <div class="control-row checkbox-row">
-          <label for="qInclMat">Anyagköltség az ajánlatban</label>
-          <input type="checkbox" id="qInclMat" data-q="includeMaterial" />
-        </div>
-        <p class="hint">Üres kelt = a nyomtatás napja. Az anyagok az Anyag fül számaival és áraival kerülnek be (laptípusonként, tartalékkal); ár nélküli anyag kimarad.</p>
-      </section>
-
-      <section class="panel">
-        <h2>Munkadíj</h2>
-        <div class="q-labor"><span class="q-labor-name">Padlóburkolás</span><span class="q-labor-qty" data-qty="floorM2"></span><input type="number" min="0" step="any" data-q="labor.floorM2" /><span class="u">Ft/m²</span></div>
-        <div class="q-labor"><span class="q-labor-name">Falburkolás</span><span class="q-labor-qty" data-qty="wallM2"></span><input type="number" min="0" step="any" data-q="labor.wallM2" /><span class="u">Ft/m²</span></div>
-        <div class="q-labor"><span class="q-labor-name">Élvédő elhelyezése</span><span class="q-labor-qty" data-qty="edgingM"></span><input type="number" min="0" step="any" data-q="labor.edgingM" /><span class="u">Ft/fm</span></div>
-        <div class="q-labor"><span class="q-labor-name">Szilikonozás</span><span class="q-labor-qty" data-qty="siliconeM"></span><input type="number" min="0" step="any" data-q="labor.siliconeM" /><span class="u">Ft/fm</span></div>
-        <p class="hint">A mennyiségek a tervből jönnek: a kiosztott padló- és falfelületek burkolt területe, az élvédős élek és a szilikonos sarkok hossza. 0 Ft = a sor kimarad.</p>
-      </section>
-
-      <section class="panel">
-        <h2>Egyedi tételek</h2>
-        <div id="qItems"></div>
-        <button class="btn btn-ghost full" id="qAddItem" style="margin-top:8px">+ Tétel</button>
-      </section>
-
-      <section class="panel">
-        <h2>Megjegyzés</h2>
-        <textarea id="qNote" data-q="note" rows="3" class="q-note" placeholder="pl. fizetési feltételek, kezdés várható ideje"></textarea>
-      </section>
-
-      <section class="panel">
-        <h2>Ajánlatadó (minden projektnél)</h2>
-        <div class="q-field"><label for="qCName">Név / cég</label><input type="text" id="qCName" data-c="name" /></div>
-        <div class="q-field"><label for="qCAddr">Cím</label><input type="text" id="qCAddr" data-c="address" /></div>
-        <div class="q-field"><label for="qCTax">Adószám</label><input type="text" id="qCTax" data-c="taxNo" /></div>
-        <div class="q-field"><label for="qCPhone">Telefon</label><input type="text" id="qCPhone" data-c="phone" /></div>
-        <div class="q-field"><label for="qCEmail">E-mail</label><input type="text" id="qCEmail" data-c="email" /></div>
-        <div class="q-field"><label for="qCBank">Bankszámla</label><input type="text" id="qCBank" data-c="bank" /></div>
-      </section>
-
-      <section class="panel summary">
-        <h2>Összesítő</h2>
-        <div id="qSummary"></div>
-        <button class="btn btn-secondary full" id="qPrint" style="margin-top:10px">Árajánlat PDF / nyomtatás</button>
-      </section>
-      </div><!-- /quote -->
-
-      </div><!-- /tab-panels -->
-      </div><!-- /tabs-layout -->
-    </aside>
-
-    <div class="sidebar-resizer" id="sidebarResizer"></div>
-
-    <!-- Vászon -->
-    <div class="canvas-wrap" id="canvasWrap">
-      <div class="canvas-title-bar" id="canvasTitleBar">
-        <span id="canvasTitle" class="canvas-title-text"></span>
-        <div class="view-toggle" id="viewToggle">
-          <button data-view="2d" class="active">2D</button>
-          <button data-view="3d">3D</button>
-        </div>
-        <button class="title-btn" id="view3dResetBtn" title="3D nézet visszaállítása" aria-label="3D nézet visszaállítása" hidden>⛶</button>
-      </div>
-      <div id="wallWarn" class="wall-warn" hidden>
-        <span id="wallWarnText"></span>
-        <span class="ww-actions">
-          <button class="btn" id="wallWarnRegen">Falak frissítése</button>
-          <button class="btn" id="wallWarnHide">Elrejtés</button>
-        </span>
-      </div>
-      <div class="compass3d" id="compass3d" hidden>
-        <button data-az="-135" title="Északnyugat felől">ÉNY</button>
-        <button data-az="-90" title="Észak felől">É</button>
-        <button data-az="-45" title="Északkelet felől">ÉK</button>
-        <button data-az="180" title="Nyugat felől">NY</button>
-        <button data-top="1" title="Felülnézet">⬒</button>
-        <button data-az="0" title="Kelet felől">K</button>
-        <button data-az="135" title="Délnyugat felől">DNY</button>
-        <button data-az="90" title="Dél felől">D</button>
-        <button data-az="45" title="Délkelet felől">DK</button>
-      </div>
-      <canvas id="board"></canvas>
-      <canvas id="board3d" hidden></canvas>
-      <div class="canvas-help" id="canvasHelp2d">
-        <span>Görgő: nagyítás</span>
-        <span>Jobb gomb + húzás: nézet mozgatás</span>
-        <span>Pont húzása: áthelyezés</span>
-        <span>Él húzása: eltolás</span>
-        <span>Élhossz-feliratra katt.: átírás</span>
-        <span>Dupla katt. pontra / Delete: törlés</span>
-      </div>
-      <div class="canvas-help" id="canvasHelp3d" hidden>
-        <span>Húzás: forgatás (bármely irányba)</span>
-        <span>Jobb gomb / Shift + húzás: mozgatás</span>
-        <span>Görgő: nagyítás</span>
-      </div>
-    </div>
-
-    <div class="sidebar-resizer" id="layersResizer"></div>
-
-    <!-- Rétegek panel: a felület + a rajta lévő kivágások, mint Photoshop-rétegek -->
-    <aside class="layers-panel" id="layersPanel">
-      <div class="layers-panel-head">Rétegek</div>
-      <div class="layers-list" id="layersList"></div>
-      <div class="layers-group-bar" id="layersGroupBar" hidden></div>
-      <p class="hint">Kattints egy rétegre — csak az lesz szerkeszthető a vásznon (a többi nem reagál a kattintásra), amíg másikra nem váltasz. Átnevezheted a kivágásokat is. Jelölj be 2+ kivágást a kis négyzetekkel, hogy egy néven, egy csoportként kezelhesd őket.</p>
-    </aside>
-  </main>
+    <!-- ===== Állapotsor ===== -->
+    <footer class="statusbar">
+      <span>Terület: <strong id="areaOut">– m²</strong></span>
+      <span>Kerület: <strong id="perimOut">–</strong></span>
+      <span>Sokszög: <strong id="closedState">nyitott</strong></span>
+      <span>Szükséges lap: <strong id="sbTiles">–</strong></span>
+      <span>Hulladék: <strong id="sbWaste">–</strong></span>
+      <span class="sb-right" id="sbUnit">cm</span>
+      <span id="sbZoom">100 %</span>
+    </footer>
+  </div>
 
   <!-- Nyomtatási/PDF nézet (csak nyomtatáskor látszik) -->
   <div id="printArea" hidden>
@@ -706,56 +639,58 @@
     <div id="printInfo"></div>
   </div>
 
-  <!-- Súgó modal -->
+  <!-- Súgó -->
   <div class="modal-overlay" id="helpModal" hidden>
-    <div class="modal-content">
+    <div class="modal-content" role="dialog" aria-labelledby="helpTitle">
       <div class="modal-head">
-        <h2>Súgó</h2>
-        <button class="title-btn" id="helpCloseBtn" aria-label="Bezárás">×</button>
+        <h2 id="helpTitle">Súgó</h2>
+        <button class="qbtn" id="helpCloseBtn" aria-label="Bezárás"><i class="ic" data-ic="dismiss"></i></button>
       </div>
       <div class="modal-body">
 
-        <h3>1. Alaprajz és szerkesztés</h3>
-        <p>Kattints a vászonra a sarokpontok lehelyezéséhez. A kör alakú kezdőpontra kattintva zárhatod a sokszöget. A rajzon megjelenő élhossz-feliratra kattintva közvetlenül átírhatod az adott él hosszát.</p>
-        <p><strong>Pont húzása:</strong> áthelyezés. <strong>Él húzása:</strong> az egész él eltolása. <strong>Dupla kattintás egy pontra</strong> vagy <strong>Delete</strong>: a kijelölt pont törlése. <strong>Dupla kattintás egy él közepébe:</strong> új töréspont beszúrása pontosan a kattintás helyén — ezzel egy egyenes oldalból trapéz alakú szakaszt hozhatsz létre (pl. zuhanyzó lejtés a falon), a két új szakasz hossza egymástól függetlenül állítható az Élek listában.</p>
-        <p>A rajzoló segédrács lépésköze: a sarokpontok, élek és kivágások ehhez „pattannak”. Nincs köze a lapmérethez (a lapkiosztás rácsát a lapméret + fuga adja).</p>
-        <p><strong>Kivágások</strong> (ajtó, ablak, nem burkolt sáv): válaszd a típust, kapcsold be a rajzolást, húzz egy téglalapot. Kijelölés után fogd meg és húzd át, vagy Delete-tel törld. A ⤧ gomb automatikusan beilleszti, ha lelóg a felületről.</p>
+        <h3>A felület</h3>
+        <p>Felül a <strong>menüszalag</strong>: a füleken (Fájl, Rajzolás, Burkolat, Kiosztás, Anyag, Ajánlat, Nézet) csoportokba rendezve minden művelet és beállítás megtalálható; a gombok (és a csoportok) fölé víve az egeret rövid magyarázat jelenik meg. A jobb oldali panel két lapja: a <strong>Tulajdonságok</strong> az aktív menüszalag-fül részleteivel (élek, kivágások, laptípusok, összesítők, ajánlat-adatok — menüszalag-fül váltásakor magától erre vált), és a <strong>Projekt és rétegek</strong> a projektek fájával és az aktív felület rétegeivel. Alul az <strong>állapotsor</strong> mutatja a területet, a kerületet és a szükséges lapszámot. A fülek sorának jobb oldalán: az aktív projekt és felület neve, visszavonás, újra, mentés, a <strong>menüszalag összecsukása</strong> (Ctrl+F1 vagy dupla kattintás egy fülön — összecsukva a fülre kattintva a menüszalag a vászon fölé nyílik, mellé kattintva bezárul), a <strong>teljes vászon</strong> mód (Ctrl+Shift+F — a menüszalag és az oldalpanelek elrejtése), a téma és a súgó. A panelek a Nézet fülön ki-be kapcsolhatók, a szélességük az elválasztó csíkkal húzható; a téma (rendszer / világos / sötét) a Nézet fülön vagy a gyorsgombbal váltható.</p>
 
-        <h3>2. Falak és lépcső generálása</h3>
-        <p>Az aktív padló minden éléhez egy fal-felület készül (szélesség = élhossz, megadott magassággal) — csak zárt padló-alaprajzra. A „Falak generálása” panel csak addig látszik, amíg még nincsenek generált falak: a már generált (padlóból származó) fal-felületeken és az olyan padlón, amelyből már készültek falak, nem jelenik meg. Ha a padló a generálás után megváltozik, a vászon feletti figyelmeztető sáv „Falak frissítése” gombja a falak méretét igazítja — a falakon lévő kivágások, kiosztás-beállítások, élvédők és előtétfalak megmaradnak; új élhez új fal készül, a megszűnt él fala törlődik. Csúcs beszúrásakor/törlésekor az élnevek és élvédők a helyes élen maradnak. Felület törlésekor a hozzá tartozó gyermek-felületek (pl. előtétfal) is törlődnek.</p>
-        <p><strong>Előtétfal:</strong> az aktív fal-felületen egy „nem-burkolt” kivágást és négy gyermek-felületet (eleje, bal oldal, jobb oldal, teteje) hoz létre, külön burkolhatók.</p>
-        <p><strong>Lépcső:</strong> minden fokhoz egy homloklap és egy lépőlap készül, közös csoportba rendezve.</p>
+        <h3>1. Alaprajz és szerkesztés (Rajzolás)</h3>
+        <p>Kattints a vászonra a sarokpontok lehelyezéséhez; a kör alakú kezdőpontra kattintva zárhatod a sokszöget. Gyorsabb: <strong>Rajzolás → Téglalap</strong> a megadott méretekkel. A rajzon az élhossz-feliratra kattintva közvetlenül átírhatod az él hosszát; a Tulajdonságok panel <strong>Élek</strong> listájában a hossz, a szög, az él neve és az élvédő is állítható.</p>
+        <p><strong>Pont húzása:</strong> áthelyezés. <strong>Él húzása:</strong> az egész él eltolása. <strong>Dupla kattintás egy pontra</strong> vagy <strong>Delete</strong>: a kijelölt pont törlése. <strong>Dupla kattintás egy élre:</strong> új töréspont beszúrása (pl. zuhanyzó lejtés a falon). Csúcs beszúrásakor/törlésekor az élnevek és élvédők a helyes élen maradnak.</p>
+        <p>A <strong>Segédeszközök</strong> csoport rácsa a rajzolást segíti (a pontok ehhez „pattannak”), nincs köze a lapmérethez.</p>
+        <p><strong>Kivágások</strong> (ajtó, ablak, nem burkolt sáv): válaszd a típust, kapcsold be a <strong>Kivágás</strong> gombot, és húzz egy téglalapot. Kijelölés: kattints a kivágásra a Tulajdonságok panel listájában vagy a Rétegek között; a vásznon húzással mozgatható, a méretfeliratra kattintva pontosítható. A Tulajdonságok panel kivágás-listájában a méret, az élvédő és (nyílásnál) egy kép is megadható; a ⤧ gomb a felületre illeszti.</p>
 
-        <h3>3. Burkolat (laptípusok, fuga)</h3>
-        <p>Az „alap” laptípus mérete határozza meg a kiosztás rácsát. A többi típust egyedi lapokhoz (festés mód) használhatod. A fuga szélessége és színe itt állítható. <strong>Nincs mintairány, a darab forgatható:</strong> ha be van jelölve, a vágási terv a maradékokból 90°-kal elforgatva is kivághatja a darabokat (kevesebb lap kell). Fa-, kő- vagy csíkos mintájú lapnál kapcsold ki. Alapból színes lapnál be, képes lapnál ki van kapcsolva.</p>
+        <h3>2. Falak, előtétfal, lépcső</h3>
+        <p><strong>Rajzolás → Falak:</strong> a zárt padló minden éléhez egy fal-felület készül (szélesség = élhossz, a megadott magassággal); a falak az élek neveit kapják. Ha a padló később megváltozik, a vászon tetején megjelenő sáv „Falak frissítése” gombja a falak méretét igazítja — a falakon lévő kivágások, kiosztás-beállítások, élvédők és előtétfalak megmaradnak; új élhez új fal készül, a megszűnt él fala törlődik.</p>
+        <p><strong>Előtétfal</strong> (az aktív fal-felületre) és <strong>Lépcső</strong>: a gomb a Tulajdonságok panel megfelelő részéhez visz, ott add meg a méreteket. Az előtétfal a falon egy „nem burkolt” kivágást és négy gyermek-felületet hoz létre; a lépcső fokonként egy homloklapot és egy lépőlapot. Felület törlésekor a gyermek-felületei is törlődnek.</p>
 
-        <h3>4. Kiosztás (mintázat, rács, festés mód)</h3>
-        <p>Mintázat: egyenes, eltolt (téglakötés), 45°-os, halszálka. <strong>Szél-igazítás</strong> automatikusan elkerüli a túl keskeny szélső csíkokat; kézi <strong>Rács eltolása</strong> ilyenkor letiltva. <strong>Egyedi lapok:</strong> festés mód bekapcsolása után kattintással vagy húzással cserélheted le lapról lapra a típust. A <strong>Vágási kódok a rajzon</strong> kapcsolóval a vágott darabokon a vágási terv kódja is megjelenik (pl. <strong>3a</strong> = a 3. lapból vágott „a” darab) — ugyanaz, mint a PDF vágási tervében; a PNG-exportba is bekerül. A <strong>Gyári él a szomszédos lap felé</strong> (projekt-szintű, alapból be) a vágási tervben biztosítja, hogy minden vágott darab szomszédos lap felé eső éle gyári él legyen, a vágott él csak falhoz vagy kivágáshoz kerüljön — egy lapból így pl. két szélső csík jön ki (a második a lap másik végéből, megfordítva). Kikapcsolva a takarékosabb számítás fut (egy lapból több csík is, de a középső csíkoknak mindkét oldala vágott). A <strong>Kiosztás megjelenítése</strong> kikapcsolása csak a rajzot rejti el — a felület lapszükséglete továbbra is beleszámít az anyagkimutatásba.</p>
+        <h3>3. Burkolat</h3>
+        <p><strong>Új laptípus</strong> a menüszalagon; a laptípusok (méret, vastagság, ár, szín vagy kép) a Tulajdonságok panelen szerkeszthetők. Az „alap” típus mérete határozza meg a kiosztás rácsát, a többi a festéshez (egyedi lapok) használható. <strong>Nincs mintairány, a darab forgatható:</strong> ha be van jelölve, a vágási terv a maradékokból 90°-kal elforgatva is kivághatja a darabokat (fa-, kő- vagy csíkos mintánál kapcsold ki). A fuga vastagsága és színe a Burkolat fül Fuga csoportjában.</p>
 
-        <h3>5. Anyagszükséglet és költség</h3>
-        <p>Laptípusonkénti és projekt-szintű összesítés: burkolat, ragasztó, fuga, szilikon, élvédő profil. A szilicon a negatív sarkokba kerül (padló-fal, fal-fal találkozás); az élvédő a burkolat szegélyén jelölhető (Élek lista jelölőnégyzetei). A Költség fülön egységárak adhatók meg.</p>
+        <h3>4. Kiosztás</h3>
+        <p><strong>Minta:</strong> egyenes, eltolt (téglakötés), átlós 45°, halszálka. <strong>Szél-igazítás</strong> automatikusan elkerüli a túl keskeny szélső csíkokat (ilyenkor a kézi <strong>Rács eltolása</strong> letiltva). <strong>Egyedi lapok:</strong> a Festés gomb bekapcsolása után válassz típust a palettáról („Alap” = visszaállítás), és kattints vagy húzz a lapokon. <strong>Vágási kódok:</strong> a vágott darabokon a vágási terv kódja (pl. 3a = a 3. lapból vágott „a” darab), a PNG-exportba is bekerül. A <strong>Kiosztás</strong> jelölő kikapcsolása csak a rajzot rejti el, a lapszükséglet továbbra is számít.</p>
+        <p><strong>Vágási terv</strong> csoport: a <strong>Gyári él a szomszéd felé</strong> (projekt-szintű, alapból be) biztosítja, hogy a vágott darab szomszédos lap felé eső éle gyári él legyen, a vágott él csak falhoz vagy kivágáshoz kerüljön. A <strong>Tartalék %</strong> (projekt-szintű) a lapokhoz és a fugához adódik. A Tulajdonságok panel az aktív felület lapszámait mutatja.</p>
 
-        <h3>5/b. Árajánlat (Ajánlat fül)</h3>
-        <p>Projektenként megadható a <strong>megrendelő</strong>, az ajánlat száma, kelte (üresen a nyomtatás napja) és érvényessége, valamint az <strong>ÁFA</strong>: 27% (nettó + ÁFA + bruttó) vagy alanyi adómentes (AAM). Az <strong>ajánlatadó</strong> adatait elég egyszer megadni, minden projektnél megjelennek.</p>
-        <p><strong>Munkadíj:</strong> Ft/m² padlóra és falra, Ft/fm élvédőre és szilikonozásra — a mennyiségek automatikusan a tervből jönnek (a kiosztott felületek burkolt területe, az élvédős élek és a szilikonos sarkok hossza). <strong>Egyedi tételek</strong> (pl. bontás, aljzatkiegyenlítés, kiszállás) tetszőleges mennyiséggel és egységárral adhatók hozzá. Az <strong>Anyagköltség az ajánlatban</strong> kapcsolóval az anyagok (lap típusonként tartalékkal, ragasztó, fuga, szilikon, élvédő) is bekerülnek — ugyanazokkal a számokkal és árakkal, mint az Anyag fülön; az ár nélküli anyag kimarad, erről az összesítő alatt figyelmeztetés szól.</p>
-        <p>Az <strong>Árajánlat PDF / nyomtatás</strong> gomb nyomtatható ajánlatot készít (a böngésző nyomtatási ablakából „Mentés PDF-ként”); a javasolt fájlnév az ajánlat száma és a megrendelő neve.</p>
+        <h3>5. Anyag és költség</h3>
+        <p>Projekt-szintű összesítés: burkolat laptípusonként, ragasztó, fuga, szilikon, élvédő és költség (Tulajdonságok panel). A ragasztó, a fuga, a szilikon típusa, tartaléka és egységára, valamint az élvédő folyóméter-ára a menüszalagon állítható. A szilikon a padlóból generált falak sarkaiba kerül; az élvédő az élek listájában és a kivágásoknál jelölhető (a vásznon piros vonal).</p>
 
-        <h3>6. Rétegek panel és projekt-fa</h3>
-        <p>Kattints egy rétegre — csak az lesz szerkeszthető a vásznon, amíg másikra nem váltasz. Átnevezheted a kivágásokat, és 2+ kivágást egy csoportba jelölhetsz a kis négyzetekkel. Kijelölt csoportnál a <strong>Delete</strong> az egész csoportot törli (Ctrl+Z-vel visszavonható); egy-egy darabot a kivágás-lista ✕ gombjával törölhetsz.</p>
-        <p><strong>Projektek beolvasztása:</strong> a projekt-fában egy nem-aktív projekt sorának <strong>⇒</strong> gombjával az egész projekt (összes felületével) beolvasztható az éppen aktív projektbe, mint egy 🏠 helyiség-csoport (a forrás-projekt neve lesz a helyiség neve, maga a projekt ezután törlődik). Hasznos, ha több helyiséget eredetileg külön projektként kezdtél, de egyetlen felújítás-projektbe szeretnéd összefogni őket. A 🏠 sor ✎ gombjával a helyiség neve utólag átírható; a vászon fejlécében is megjelenik ("Projekt — Helyiség — Felület").</p>
+        <h3>6. Árajánlat</h3>
+        <p>A megrendelő, az ajánlat száma, kelte (üresen a nyomtatás napja) és érvényessége, a munkadíjak (Ft/m² padlóra és falra, Ft/fm élvédőre és szilikonozásra — a mennyiségek a tervből jönnek), az egyedi tételek (pl. bontás, kiszállás) és a megjegyzés a Tulajdonságok panelen adható meg; az <strong>ajánlatadó</strong> adatait elég egyszer megadni. A menüszalagon: <strong>ÁFA</strong> (27% vagy alanyi adómentes), <strong>Anyagköltség az ajánlatban</strong> (ugyanazokkal a számokkal és árakkal, mint az Anyag fülön; ár nélküli anyag kimarad, erről figyelmeztetés szól), és az <strong>Árajánlat PDF</strong>.</p>
 
-        <h3>7. Export és mentés</h3>
-        <p>Minden mentés- és export-funkció a bal felső <strong>💾</strong> gomb lenyíló paneljében található (a korábbi Export fül megszűnt). PNG az aktív felületet menti, PDF az egész projektet (felületenként egy szakasz + összesítő). <strong>Vágási terv a PDF-ben:</strong> minden vágott darab kódot kap (pl. <strong>3a</strong> = a 3. lapból vágott „a” darab), a kód a rajzon a darab helyén is megjelenik. A tervben laponként egy ábra mutatja, melyik darab hol jön ki a lapból; a szaggatott keret a még felhasználható maradék, a vonalkázott rész hulladék, a ↻ jel pedig azt, hogy a darabot a lapból 90°-kal elforgatva kell kivágni (csak „forgatható” laptípusnál). Bekapcsolt gyári él szabálynál a darab <strong>vastag kék</strong> oldalai a gyári élek — ezek kerülnek a szomszédos lap felé. Átlós és 45°-os halszálka mintánál a ferdén vágott darabok a valódi alakjukkal szerepelnek, és a program párba állítja őket: pl. két fél-háromszög vagy egy falmenti darab és a kiegészítője egy lapból jön ki (a második 180°-kal megfordítva). A kivágások (ajtó, kád stb.) melletti darabokat óvatosságból teljes alakjukkal veszi, ezek maradéka nem hasznosul. A terv lapjainak száma + az egész lapok száma = a „Szükséges lap”. Különböző laptípusok (pl. festett dekor lapok) maradéka nem cserélhető, ezért típusonként külön terv készül. Fájlba menthető egy projekt vagy a teljes tár (biztonsági mentés). <strong>Csatolt fájl (élő mentés):</strong> a panel „Mentés a csatolt fájlba" gombjával vagy Ctrl+S-sel közvetlenül felülírható a csatolt JSON — csak HTTPS vagy localhost alatt, Chrome/Edge böngészőben működik. A panel ESC-cel vagy mellé-kattintással záródik.</p>
+        <h3>7. Projektek és rétegek</h3>
+        <p>Az oldalpanel <strong>Projekt és rétegek</strong> lapján lévő fában projektek, helyiségek és felületek; a sor gombjaival átnevezhetők, törölhetők. <strong>Projektek beolvasztása:</strong> egy nem-aktív projekt ⇒ gombjával az egész projekt beolvasztható az aktívba, mint egy 🏠 helyiség-csoport. <strong>Rétegek:</strong> kattints egy rétegre — csak az szerkeszthető a vásznon. 2+ kivágás a négyzetekkel csoportba foglalható; kijelölt csoportnál a Delete az egész csoportot törli (Ctrl+Z-vel visszavonható), egy-egy darabot a kivágás-lista ✕ gombjával törölhetsz.</p>
 
-        <h3>8. Vászon-vezérlés</h3>
-        <p>Görgő: nagyítás/kicsinyítés. Jobb gomb + húzás: nézet mozgatása. ⛶ gomb: nézet igazítása az alaprajzhoz. Ctrl+Z / Ctrl+Y: visszavonás / újra. 2D/3D gomb: nézet váltása.</p>
-        <p><strong>Érintőképernyő (tablet):</strong> koppintás = kattintás (pont lerakása, kijelölés, felirat szerkesztése), dupla koppintás = dupla kattintás (pont törlése, töréspont beszúrása az élen). Pontot, élt vagy kijelölt kivágást egy ujjal húzva mozgathatsz (ujjal nagyobb az elkapási terület); festés és kivágás-rajzolás módban a húzás fest, illetve rajzol. Egy ujjal üres területen húzva a nézet mozog, két ujjal csípve nagyít/kicsinyít és mozgat. 3D-ben egy ujj forgat, két ujj nagyít és mozgat. Az oldalsávok szélessége ujjal is húzható. Visszavonás: a ↶ / ↷ gombokkal.</p>
-        <p><strong>3D nézet:</strong> mindig az aktív felület helyiségét mutatja (helyiség- vagy felület-váltásnál automatikusan frissül). Húzással a jelenet szabadon, bármilyen irányba és szögbe forgatható; jobb gombbal vagy Shift + húzással eltolható; görgővel nagyítható. A ⛶ gomb visszaállítja az alapértelmezett nézőpontot. A jobb felső sarokban lévő iránytű-gombokkal (É, ÉK, K, DK, D, DNY, NY, ÉNY) a nézet egy kattintással a választott égtáj felőli nézőpontba fordul; a középső ⬒ gomb felülnézetet ad. Észak = az alaprajz teteje.</p>
+        <h3>8. Mentés és export (Fájl)</h3>
+        <p>A terv automatikusan mentődik a böngészőbe. <strong>Csatolt fájl (élő mentés):</strong> „Tár megnyitása írhatóan…” után a Mentés gomb vagy Ctrl+S közvetlenül felülírja a JSON-fájlt (csak HTTPS vagy localhost alatt, Chrome/Edge böngészőben). JSON-ba menthető egy projekt vagy az összes (biztonsági mentés); a Betöltés felismeri, melyiket töltöd be.</p>
+        <p><strong>PDF terv:</strong> az egész projekt, felületenként rajz, számok és <strong>vágási terv</strong> + összesítő. A vágási tervben laponként egy ábra mutatja, melyik darab hol jön ki a lapból: a szaggatott keret felhasználható maradék, a vonalkázás hulladék, a ↻ jel 90°-os forgatást jelent, a vastag kék oldal gyári él (a szomszédos lap felé kerül). Átlós és 45°-os halszálka mintánál a ferdén vágott darabok valódi alakjukkal szerepelnek és párba állnak (pl. két fél-háromszög egy lapból). A terv lapjainak száma + az egész lapok = a „Szükséges lap”; különböző laptípusok maradéka nem cserélhető. <strong>PNG kép:</strong> az aktív felület rajza.</p>
+
+        <h3>9. Vászon-vezérlés</h3>
+        <p>Görgő: nagyítás. Jobb gomb + húzás: nézet mozgatása. A vászon jobb felső sarkában: 2D/3D váltó és nézet igazítása. Ctrl+Z / Ctrl+Y: visszavonás / újra (a nézet a helyén marad).</p>
+        <p><strong>Érintőképernyő (tablet):</strong> koppintás = kattintás, dupla koppintás = dupla kattintás. Pontot, élt vagy kijelölt kivágást egy ujjal húzva mozgathatsz; festés és kivágás-rajzolás módban a húzás fest, illetve rajzol. Egy ujjal üres területen húzva a nézet mozog, két ujjal csípve nagyít és mozgat. 3D-ben egy ujj forgat, két ujj nagyít és mozgat. A panelek szélessége ujjal is húzható.</p>
+        <p><strong>3D nézet:</strong> az aktív felület helyiségét mutatja. Húzással forgatható, jobb gombbal vagy Shift + húzással eltolható, görgővel nagyítható; az iránytű-gombokkal égtáj felőli nézetbe vagy felülnézetbe (⬒) fordul, a visszaállító gomb az alapnézetet adja. Észak = az alaprajz teteje.</p>
 
       </div>
     </div>
   </div>
 
+  <script src="js/modules/00-icons.js"></script>
   <script src="js/modules/01-state.js"></script>
   <script src="js/modules/02-dom-refs.js"></script>
   <script src="js/modules/03-coords-units.js"></script>
@@ -789,6 +724,7 @@
   <script src="js/modules/31-view3d.js"></script>
   <script src="js/modules/32-layers-panel.js"></script>
   <script src="js/modules/33-quote.js"></script>
+  <script src="js/modules/33b-ui-shell.js"></script>
   <script src="js/modules/34-init.js"></script>
   <script src="js/modules/35-help-modal.js"></script>
 </body>

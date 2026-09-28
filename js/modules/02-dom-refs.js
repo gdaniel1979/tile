@@ -92,8 +92,6 @@
     prEdging: document.getElementById("prEdging"),
     // 6. fázis
     saveLinkedBtn: document.getElementById("saveLinkedBtn"),
-    exportMenuBtn: document.getElementById("exportMenuBtn"),
-    exportMenu: document.getElementById("exportMenu"),
     linkJsonBtn: document.getElementById("linkJsonBtn"),
     unlinkJsonBtn: document.getElementById("unlinkJsonBtn"),
     linkedFileName: document.getElementById("linkedFileName"),
@@ -144,11 +142,18 @@
     viewToggle: document.getElementById("viewToggle"),
     view3dResetBtn: document.getElementById("view3dResetBtn"),
     compass3d: document.getElementById("compass3d"),
-    activeTabTitle: document.getElementById("activeTabTitle"),
     sidebarResizer: document.getElementById("sidebarResizer"),
     sidebar: document.querySelector(".sidebar"),
     // 20. fázis (Rétegek panel)
     layersPanel: document.getElementById("layersPanel"),
+    // Keret (menüszalag, panelek, állapotsor)
+    propsPane: document.getElementById("propsPane"),
+    propsTitle: document.getElementById("propsTitle"),
+    themeSeg: document.getElementById("themeSeg"),
+    sbTiles: document.getElementById("sbTiles"),
+    sbWaste: document.getElementById("sbWaste"),
+    sbUnit: document.getElementById("sbUnit"),
+    sbZoom: document.getElementById("sbZoom"),
     layersResizer: document.getElementById("layersResizer"),
     layersList: document.getElementById("layersList"),
     layersGroupBar: document.getElementById("layersGroupBar"),

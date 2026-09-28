@@ -37,7 +37,13 @@
     const step = state.unit === "cm" ? "0.1" : "1";
     cuts.forEach((c, idx) => {
       const item = document.createElement("div");
-      item.className = "cutout-item";
+      item.className = "cutout-item" + (selectedCutout === idx ? " active" : "");
+      // a listában a kivágásra kattintva az lesz az aktív réteg (a vásznon mozgatható)
+      item.title = "Kattints a kijelöléshez — utána a vásznon húzással mozgatható";
+      item.addEventListener("click", (e) => {
+        if (e.target.closest("input, select, button, label, img")) return;
+        selectLayer(idx);
+      });
 
       const head = document.createElement("div");
       head.className = "cutout-head";
@@ -57,12 +63,12 @@
       kindSel.value = c.kind;
       kindSel.addEventListener("change", () => { c.kind = kindSel.value; afterGeometryChange(); });
       const fit = document.createElement("button");
-      fit.className = "fit"; fit.textContent = "⤧"; fit.title = "Felülethez igazítás (ha lelóg vagy nagyobb mint a felület)";
+      fit.className = "fit"; fit.innerHTML = iconSvg("fit"); fit.title = "Felülethez igazítás (ha lelóg vagy nagyobb mint a felület)";
       fit.addEventListener("click", () => {
         if (fitCutoutToSurface(c)) { selectedCutout = idx; afterGeometryChange(); renderCutoutList(); }
       });
       const del = document.createElement("button");
-      del.className = "del"; del.textContent = "✕"; del.title = "Kivágás törlése";
+      del.className = "del"; del.innerHTML = iconSvg("dismiss"); del.title = "Kivágás törlése";
       del.addEventListener("click", () => { removeCutouts([idx]); afterGeometryChange(); });
       head.append(sw, nameInp, kindSel, fit, del);
 

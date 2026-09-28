@@ -14,11 +14,16 @@
     el.cutoutDraw.addEventListener("click", () => {
       cutoutMode = !cutoutMode;
       if (cutoutMode) { paintMode = false; el.paintMode.checked = false; }
-      el.cutoutDraw.classList.toggle("active-mode", cutoutMode);
-      el.cutoutDraw.textContent = cutoutMode ? "✓ Rajzolás bekapcsolva (húzz egy téglalapot)" : "+ Kivágás rajzolása";
+      setCutoutDrawUI();
       pendingCutout = null;
       render();
     });
+  }
+
+  // A Kivágás gomb megjelenése a rajzolás mód szerint (bekapcsolva kiemelt)
+  function setCutoutDrawUI() {
+    el.cutoutDraw.classList.toggle("active-mode", cutoutMode);
+    el.cutoutDraw.setAttribute("aria-pressed", cutoutMode ? "true" : "false");
   }
 
   // A kötésminta szerint mutatja/rejti az eltolás-vezérlőket
@@ -112,8 +117,7 @@
       if (paintMode) {
         state.selected = null;
         cutoutMode = false; pendingCutout = null;
-        el.cutoutDraw.classList.remove("active-mode");
-        el.cutoutDraw.textContent = "+ Kivágás rajzolása";
+        setCutoutDrawUI();
       }
       canvas.style.cursor = paintMode ? "cell" : "crosshair";
       render();

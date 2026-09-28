@@ -83,9 +83,7 @@
   }
 
   function initQuoteUI() {
-    const panel = document.querySelector('[data-tabpanel="quote"]');
-    if (!panel) return;
-    panel.querySelectorAll("[data-q], [data-c]").forEach((inp) => {
+    document.querySelectorAll("[data-q], [data-c]").forEach((inp) => {
       inp.addEventListener("change", () => {
         const { obj, key } = quoteTarget(inp);
         if (inp.type === "checkbox") obj[key] = inp.checked;
@@ -107,9 +105,8 @@
 
   // Az űrlap feltöltése a projekt/tár adataiból (projektváltás, undo, fülváltás után)
   function syncQuoteUI() {
-    const panel = document.querySelector('[data-tabpanel="quote"]');
-    if (!panel || !project || !store) return;
-    panel.querySelectorAll("[data-q], [data-c]").forEach((inp) => {
+    if (!project || !store) return;
+    document.querySelectorAll("[data-q], [data-c]").forEach((inp) => {
       const { obj, key } = quoteTarget(inp);
       if (inp.type === "checkbox") inp.checked = !!obj[key];
       else inp.value = obj[key] != null ? obj[key] : "";
@@ -139,7 +136,7 @@
       const unit = mk("text", "q-item-unit", it.unit, "egys.");
       const price = mk("number", "q-item-price", it.price, "Ft/egys.");
       const del = document.createElement("button");
-      del.className = "tile-del"; del.textContent = "✕"; del.title = "Tétel törlése";
+      del.className = "tile-del"; del.innerHTML = iconSvg("dismiss"); del.title = "Tétel törlése";
       const commit = () => {
         it.name = name.value; it.unit = unit.value || "db";
         it.qty = Math.max(0, parseFloat(qty.value) || 0); it.price = Math.max(0, parseFloat(price.value) || 0);

@@ -53,6 +53,9 @@
     window.addEventListener("pointercancel", endDrag);
   }
 
+  // Témafüggő vászon-színek (a CSS --cv-* változóiból, lásd applyTheme)
+  const CV = { grid: "rgba(255,255,255,0.05)", origin: "rgba(255,255,255,0.18)", text: "rgba(255,255,255,0.55)" };
+
   function drawGrid() {
     const { w, h } = cssSize();
     const g = state.gridMm * state.view.scale; // rács px
@@ -61,7 +64,7 @@
     const startX = ((state.view.ox % g) + g) % g;
     const startY = ((state.view.oy % g) + g) % g;
     ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(255,255,255,0.05)";
+    ctx.strokeStyle = CV.grid;
     ctx.beginPath();
     for (let x = startX; x < w; x += g) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
     for (let y = startY; y < h; y += g) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
@@ -69,7 +72,7 @@
 
     // Origó (0,0) jelölés
     const o = worldToScreen({ x: 0, y: 0 });
-    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.strokeStyle = CV.origin;
     ctx.beginPath();
     ctx.moveTo(o.x - 8, o.y); ctx.lineTo(o.x + 8, o.y);
     ctx.moveTo(o.x, o.y - 8); ctx.lineTo(o.x, o.y + 8);
@@ -192,6 +195,7 @@
     drawCutouts();
     drawSnapGuides();
     drawPolygon();
+    updateStatusBar();
   }
 
   // Snap-segédvonalak (húzás közben): sárga szaggatott vonal a snap-él mentén.

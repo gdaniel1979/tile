@@ -6,8 +6,9 @@
   // 08-mouse-interaction.js-ben) — ez oldja fel az átfedő kivágások miatti
   // kattintás-ütközést (Photoshop-szerű réteg-modell, sorrend-átrendezés
   // nélkül).
-  const LAYERS_WIDTH_KEY = "tile-planner-layers-width";
-  const LAYERS_MIN = 160, LAYERS_MAX = 420;
+  // a jobb oldali (Tulajdonságok) panel húzható szélessége
+  const LAYERS_WIDTH_KEY = "tile-planner-props-width";
+  const LAYERS_MIN = 240, LAYERS_MAX = 560;
   // Ideiglenes UI-állapot (nem perzisztens, nem a state része): melyik
   // kivágások vannak bejelölve a "Csoportosítás" művelethez, és melyik csoportok
   // vannak kinyitva. Felület-váltáskor renderLayersList magától megtisztítja
@@ -85,7 +86,7 @@
 
     const icon = document.createElement("span");
     icon.className = "layer-icon";
-    icon.textContent = "▤";
+    icon.innerHTML = iconSvg("layers");
 
     const nameInput = document.createElement("input");
     nameInput.type = "text";
@@ -100,7 +101,7 @@
 
     const ungroup = document.createElement("button");
     ungroup.className = "layer-ungroup";
-    ungroup.textContent = "✕";
+    ungroup.innerHTML = iconSvg("dismiss");
     ungroup.title = "Csoport bontása (a darabok megmaradnak, külön rétegként)";
     ungroup.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -177,7 +178,7 @@
     base.className = "layer-item" + (selectedCutout === -1 ? " active" : "");
     const icon = document.createElement("span");
     icon.className = "layer-icon";
-    icon.textContent = "▢";
+    icon.innerHTML = iconSvg("view2d");
     const label = document.createElement("span");
     label.className = "layer-name-static";
     label.textContent = "Felület (alap)";
@@ -189,15 +190,15 @@
   }
 
   function initLayersPanel() {
-    if (!el.layersResizer || !el.layersPanel) return;
+    if (!el.layersResizer || !el.propsPane) return;
     let saved = 0;
     try { saved = parseInt(localStorage.getItem(LAYERS_WIDTH_KEY), 10); } catch (_) {}
-    if (saved >= LAYERS_MIN && saved <= LAYERS_MAX) el.layersPanel.style.width = saved + "px";
+    if (saved >= LAYERS_MIN && saved <= LAYERS_MAX) el.propsPane.style.width = saved + "px";
     let dragging = false, startX = 0, startW = 0;
     // Pointer Events: egérrel és ujjal (tablet) is húzható
     el.layersResizer.addEventListener("pointerdown", (e) => {
       if (el.layersResizer.setPointerCapture) el.layersResizer.setPointerCapture(e.pointerId);
-      dragging = true; startX = e.clientX; startW = el.layersPanel.getBoundingClientRect().width;
+      dragging = true; startX = e.clientX; startW = el.propsPane.getBoundingClientRect().width;
       el.layersResizer.classList.add("dragging");
       document.body.style.userSelect = "none";
       e.preventDefault();
@@ -206,7 +207,7 @@
       if (!dragging) return;
       // jobb oldali panel: balra húzva szélesedik, jobbra húzva szűkül
       const w = Math.max(LAYERS_MIN, Math.min(LAYERS_MAX, startW - (e.clientX - startX)));
-      el.layersPanel.style.width = w + "px";
+      el.propsPane.style.width = w + "px";
       resizeCanvas();
     });
     const endDrag = () => {
@@ -214,7 +215,7 @@
       dragging = false;
       el.layersResizer.classList.remove("dragging");
       document.body.style.userSelect = "";
-      try { localStorage.setItem(LAYERS_WIDTH_KEY, Math.round(el.layersPanel.getBoundingClientRect().width)); } catch (_) {}
+      try { localStorage.setItem(LAYERS_WIDTH_KEY, Math.round(el.propsPane.getBoundingClientRect().width)); } catch (_) {}
     };
     window.addEventListener("pointerup", endDrag);
     window.addEventListener("pointercancel", endDrag);

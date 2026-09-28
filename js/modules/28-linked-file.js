@@ -88,15 +88,7 @@
       await w.write(snap);
       await w.close();
       // vizuális visszajelzés a gombokon (menü-gomb + panel-beli mentés gomb)
-      if (el.exportMenuBtn) {
-        el.exportMenuBtn.textContent = "✓";
-        setTimeout(() => { if (el.exportMenuBtn) el.exportMenuBtn.textContent = "💾"; }, 800);
-      }
-      if (el.saveLinkedBtn) {
-        const orig = el.saveLinkedBtn.textContent;
-        el.saveLinkedBtn.textContent = "✓ Mentve";
-        setTimeout(() => { if (el.saveLinkedBtn) el.saveLinkedBtn.textContent = orig; }, 800);
-      }
+      flashSaved();
     } catch (e) {
       alert("Mentés nem sikerült: " + (e && e.message || e));
     }

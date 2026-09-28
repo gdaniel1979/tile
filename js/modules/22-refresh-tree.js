@@ -33,10 +33,10 @@
 
   // ---- Fa-lista (projektek + felületek) --------------------------------
   function treeRow(cls) { const d = document.createElement("div"); d.className = "tree-row " + cls; return d; }
-  function treeBtn(label, cls, title) {
+  function treeBtn(icon, cls, title) {
     const b = document.createElement("button");
     b.className = "tree-btn " + (cls || "");
-    b.textContent = label; b.title = title || "";
+    b.innerHTML = iconSvg(icon); b.title = title || ""; b.setAttribute("aria-label", title || "");
     return b;
   }
 
@@ -129,12 +129,12 @@
       nm.className = "tree-name"; nm.textContent = p.name;
       prow.append(caret, nm);
       prow.addEventListener("click", (e) => { if (e.target.closest(".tree-btn")) return; switchProject(p.id); });
-      const edit = treeBtn("✎", "", "Projekt átnevezése");
+      const edit = treeBtn("edit", "", "Projekt átnevezése");
       edit.addEventListener("click", (e) => { e.stopPropagation(); renameProjectFn(p.id); });
-      const merge = treeBtn("⇒", "", "Beolvasztás az aktív projektbe (mint helyiség)");
+      const merge = treeBtn("merge", "", "Beolvasztás az aktív projektbe (mint helyiség)");
       merge.disabled = isActive;
       merge.addEventListener("click", (e) => { e.stopPropagation(); mergeProjectIntoActive(p.id); });
-      const del = treeBtn("✕", "del", "Projekt törlése");
+      const del = treeBtn("delete", "del", "Projekt törlése");
       del.disabled = store.projects.length <= 1;
       del.addEventListener("click", (e) => { e.stopPropagation(); deleteProjectFn(p.id); });
       prow.append(edit, merge, del);
@@ -164,7 +164,7 @@
             srow.appendChild(sp);
           }
           const ic = document.createElement("span");
-          ic.className = "micon"; ic.textContent = s.mode === "floor" ? "▭" : "▯";
+          ic.className = "micon"; ic.innerHTML = iconSvg(s.mode === "floor" ? "floor" : "wall");
           const sn = document.createElement("span");
           sn.className = "tree-name"; sn.textContent = s.name;
           srow.append(ic, sn);
@@ -173,9 +173,9 @@
             if (!isActive) { switchProject(p.id); switchSurface(i); }
             else switchSurface(i);
           });
-          const se = treeBtn("✎", "", "Felület átnevezése");
+          const se = treeBtn("edit", "", "Felület átnevezése");
           se.addEventListener("click", (e) => { e.stopPropagation(); if (!isActive) switchProject(p.id); renameSurfaceFn(i); });
-          const sd = treeBtn("✕", "del", "Felület törlése");
+          const sd = treeBtn("delete", "del", "Felület törlése");
           sd.disabled = p.surfaces.length <= 1;
           sd.addEventListener("click", (e) => { e.stopPropagation(); if (!isActive) switchProject(p.id); deleteSurfaceFn(i); });
           srow.append(se, sd);
@@ -205,7 +205,7 @@
           rCaret.title = rOpen ? "Összecsukás" : "Kinyitás";
           rCaret.addEventListener("click", (e) => { e.stopPropagation(); toggleRoomExpanded(roomKey); });
           const ric = document.createElement("span");
-          ric.className = "micon"; ric.textContent = "🏠";
+          ric.className = "micon"; ric.innerHTML = iconSvg("home");
           const rn = document.createElement("span");
           rn.className = "tree-name"; rn.textContent = roomName;
           rrow.append(rCaret, ric, rn);
@@ -215,7 +215,7 @@
             if (!isActive) switchProject(p.id);
             switchSurface(group[0].i);
           });
-          const re = treeBtn("✎", "", "Helyiség átnevezése");
+          const re = treeBtn("edit", "", "Helyiség átnevezése");
           re.addEventListener("click", (e) => { e.stopPropagation(); if (!isActive) switchProject(p.id); renameRoomFn(p.id, roomName); });
           rrow.appendChild(re);
           root.appendChild(rrow);

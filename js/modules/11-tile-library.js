@@ -68,7 +68,7 @@
 
     const del = document.createElement("button");
     del.className = "tile-del";
-    del.textContent = "✕";
+    del.innerHTML = iconSvg("dismiss");
     del.title = "Típus törlése";
     del.disabled = t.types.length <= 1;
     del.addEventListener("click", () => deleteTileType(type.id));
@@ -234,30 +234,7 @@
     renderPaintPalette(); // a festő-paletta is kövesse a könyvtárat
   }
 
-  // Fül-nevek: a gombok csak ikont mutatnak, a teljes nevet az aktív fülnél
-  // egy önálló cím-sor (#activeTabTitle) adja meg, a panel-tartalom felett.
-  const TAB_LABELS = {
-    plan: "Alaprajz", tiles: "Burkolat", layout: "Kiosztás",
-    material: "Anyag", quote: "Ajánlat",
-  };
-
   function initTilesUI() {
-    // Fülek
-    el.tabs.addEventListener("click", (e) => {
-      const b = e.target.closest("button");
-      if (!b) return;
-      const tab = b.dataset.tab;
-      [...el.tabs.children].forEach((c) => c.classList.toggle("active", c === b));
-      document.querySelectorAll("[data-tabpanel]").forEach((p) => {
-        p.hidden = p.dataset.tabpanel !== tab;
-      });
-      if (el.activeTabTitle) el.activeTabTitle.textContent = TAB_LABELS[tab] || "";
-      // Anyag fülre váltáskor minden felület cache-ét frissítjük (offscreen),
-      // hogy a projekt-összesítés ne csak az aktív felületet mutassa.
-      if (tab === "material" || tab === "quote") recomputeAllSurfacesMaterial();
-      if (tab === "quote") syncQuoteUI();
-    });
-
     el.addTile.addEventListener("click", addTileType);
 
     el.groutW.addEventListener("change", () => {

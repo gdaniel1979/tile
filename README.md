@@ -2,100 +2,101 @@
 
 Böngészőben futó, telepítés nélküli **csempe- és lapkiosztás-tervező** padló- és falburkoláshoz.
 Szabálytalan alaprajzot rajzolsz, megadod a lapok és a fuga paramétereit, és az alkalmazás
-legenerálja az optimális lapkiosztást — a vágott lapok pontos méreteivel, valamint teljes körű
-anyagkimutatással (lap, fuga, szilikon).
+legenerálja a lapkiosztást — a vágott lapok pontos méreteivel, vágási tervvel, teljes körű
+anyagkimutatással (lap, ragasztó, fuga, szilikon, élvédő) és árajánlattal.
 
-Tiszta **HTML + CSS + vanilla JavaScript** (HTML5 Canvas) külső függőség nélkül.
+Tiszta **HTML + CSS + vanilla JavaScript** (HTML5 Canvas), build-lépés és futásidejű külső függőség nélkül.
 
 ## Élő demó
 
 **<https://gdaniel1979.github.io/tile/>**
 
+## Felület
+
+Windows 11 / Office-szerű elrendezés, világos és sötét témával (alapból a Windows beállítását követi):
+
+- **Menüszalag** – Fájl, Rajzolás, Burkolat, Kiosztás, Anyag, Ajánlat, Nézet fülek, csoportosított
+  ikon+felirat gombokkal; minden gomb fölött rövid magyarázat.
+- **Oldalpanel** (jobb, két lappal) – *Tulajdonságok*: az aktív menüszalag-fül részletei (élek,
+  kivágások, laptípusok, összesítők, ajánlat-adatok); *Projekt és rétegek*: projektek, helyiségek és
+  felületek fája + az aktív felület rétegei (kivágások).
+- **Menüszalag összecsukása** (Ctrl+F1) és **teljes vászon mód** (Ctrl+Shift+F) a nagyobb rajzterületért.
+- **Állapotsor** – terület, kerület, szükséges lapszám, hulladék, méretarány.
+- **Érintőképernyő (tablet)** – koppintás, dupla koppintás, húzás, két ujjas csípés (2D és 3D).
+
 ## Funkciók
 
 ### Alaprajz és felületek
-- **Alaprajz szerkesztő** – szabálytalan sokszög, rácsra illesztés, ortogonális (csak vízszintes/függőleges)
-  él-mód, élhossz és szög szerkesztése a rajzon és listában, pontok és élek húzása, törlése.
-- **Több projekt, több felület** – egy projekthez tartozhat padló + falak (pl. fürdőszoba = padló + 4 fal).
-  A falak egy gombnyomással generálhatók a padlóból (minden élhez egy fal-felület készül a megadott
-  magassággal). A projekt-fában bármelyik projekt ki- és becsukható.
-- **Kivágások** – ajtó- és ablaknyílások, illetve nem burkolandó területek megadása. A nyíláshoz tetszőleges
-  kép (PNG/JPG/SVG) feltölthető — pl. ajtó- vagy ablakrajz —, ami kitölti a kivágás területét.
+- **Alaprajz szerkesztő** – szabálytalan sokszög, rácsra illesztés, csak vízszintes/függőleges él-mód,
+  élhossz és szög szerkesztése a rajzon és listában, pontok és élek húzása, beszúrása, törlése.
+- **Több projekt, több felület** – egy projekthez tartozhat padló + falak; a falak egy gombnyomással
+  generálhatók a padlóból, és a padló változásakor helyben frissíthetők (a falakon végzett munka megmarad).
+  Előtétfal és lépcső generálása; projektek beolvasztása helyiségként.
+- **Kivágások** – ajtó, ablak, nem burkolt terület; nyíláshoz kép is feltölthető; csoportosíthatók.
 
-### Laptípusok
-- **Laptípus-könyvtár** – tetszőleges számú laptípus projektenként: méret, vastagság, szín
-  vagy kép-textúra (teljes lap vagy ismétlődő mintázat). Egy „alap" típus hajtja a rácsot,
-  a többi az „egyedi lapok" festéséhez használható.
-- **Egyedi lapok** – egyes cellák színének vagy textúrájának felülírása festő-móddal.
+### Laptípusok és kiosztás
+- **Laptípus-könyvtár** – méret, vastagság, ár, szín vagy kép-textúra; egy „alap” típus adja a rácsot,
+  a többi az egyedi lapok festéséhez használható.
+- **Kötésminták** – egyenes, eltolt (téglakötés), átlós 45°, halszálka (45°-osan elforgatva is).
+- **Szél-igazítás** – „középre” vagy „minimum csík” a túl keskeny szélső csíkok ellen; kézi rács-eltolás.
 
-### Kötésminták
-- **Egyenes (hálós)** – klasszikus rács.
-- **Eltolt / téglakötés** – soronkénti x-eltolódás állítható százalékkal (½, ⅓ gyors beállítással).
-- **Átlós (45°)** – a teljes rács 45°-osan elforgatva.
-- **Halszálka** – klasszikus block halszálka (pgg-szimmetriájú konstrukció, ferde 2D-rácson),
-  és opcionálisan **45°-osan elforgatva** is.
+### Vágási terv
+- Minden vágott darab kódot kap (pl. **3a**), a kód a rajzon is megjeleníthető.
+- **Téglalap-pakolás** – a maradékok többször is felhasználódnak; forgatható laptípusnál 90°-os forgatás.
+- **Gyári él szabály** – a szomszédos lap felé mindig gyári él kerül, vágott él csak falhoz/kivágáshoz.
+- Átlós és 45°-os halszálka mintánál a ferdén vágott darabok **valódi alakjukkal** párosulnak
+  (pl. két fél-háromszög egy lapból).
+- A PDF-ben laponként ábra: darabok, felhasználható maradék, hulladék, gyári élek.
 
-### Optimalizálás
-- **Szél-igazítás** – „középre" vagy „minimum csík" mód a túl keskeny szélső csíkok elkerülésére.
-- **Vágott lapok újrahasznosítása** – egy lapból a levágott darab mellett a maradék (ha elég nagy)
-  egy másik szélső helyre felhasználható.
-- **Vágott lapok méretezése** – pontos méret minden vágott darabra (téglalap vagy L-alakú);
-  egyenetlen, többdarabos vágásnál a befoglaló és belső méret is megjelenik.
-
-### Anyagszámítás (Anyag fül)
-A projekt minden felületét egyszerre összesíti:
-
-- **Burkolat** – burkolt terület, szükséges lapszám, hulladék %, tartalékkal növelt mennyiség.
-  Laptípusonként külön bontva (figyelembe véve az egyedi-lap festéseket is).
-- **Fuga** – geometriailag pontos számítás (a vágott lapok élhosszait is figyelembe véve).
-  Választható preset: cementes (CG1, CG2) vagy **Mapei Kerapoxy Easy Design** (epoxi).
-  Eredmény kg-ban és csomag-szükségletben (3 kg vödör / 5 kg zsák).
-- **Szilikon** – a padló–fal és fal–fal találkozásoknál (negatív sarkok). Hossz méterben,
-  szükséges kartus-szám (állítható kartus-méret, hézag-szélesség és -mélység).
+### Anyag és ajánlat
+- **Projekt-szintű összesítés** – burkolat laptípusonként, ragasztó (EN 12004 osztályok), fuga
+  (cementes CG1/CG2 vagy Mapei Kerapoxy Easy Design epoxi), szilikon (padló–fal és fal–fal sarkok),
+  élvédő profil; tartalék %, költségszámítás egységárakkal.
+- **Árajánlat** – megrendelő, ajánlatadó, munkadíj a terv mennyiségeiből, egyedi tételek,
+  27% ÁFA vagy alanyi adómentes; nyomtatható / PDF.
 
 ### Mentés és export
-- **Automatikus mentés** a böngésző IndexedDB-jébe (~500 MB+ tárhely; sok feltöltött kép-textúra is fér).
-- **JSON export/import** – egy aktív projekt vagy a teljes tár mentése fájlba és visszatöltése.
-- **PNG export** – az aktív felület rajza.
-- **PDF / nyomtatás** – a teljes projekt: minden felület rajza + felületenkénti vágási lista +
-  összesítő oldal a teljes anyagszükséglettel.
-
-### 3D nézet
-- A „3D" fülön a projekt minden felülete (padló, a belőle generált falak, előtétfal- és
-  lépcső-csoportok) térben elhelyezve, a saját lapkiosztás-textúrájával jelenik meg.
-  Saját Canvas 2D ortografikus projekció (Three.js nélkül) — húzással forgatható, görgővel
-  nagyítható.
-
-### Egyéb
-- **Visszavonás / újra** – Ctrl+Z és Ctrl+Y, vagy a cím-sorban a kis ikongombok.
-- **Vászon-fejléc** – mindig látszik az aktív projekt és felület neve.
+- **Automatikus mentés** a böngésző IndexedDB-jébe; visszavonás / újra (Ctrl+Z, Ctrl+Y).
+- **Csatolt fájl (élő mentés)** – egy JSON-fájl közvetlen felülírása Ctrl+S-sel (Chrome/Edge, HTTPS).
+- **JSON** – egy projekt vagy a teljes tár mentése és betöltése.
+- **PNG** (aktív felület) és **PDF / nyomtatás** (teljes projekt: rajzok, számok, vágási terv, összesítő).
+- **3D nézet** – a helyiség felületei térben, a saját kiosztásukkal; forgatható, nagyítható.
 
 ## Futtatás
 
-Mivel statikus oldal, egy egyszerű HTTP-szerver is elég a futtatáshoz:
+Statikus oldal, bármilyen HTTP-szerver elég (a `file://` megnyitás az IndexedDB miatt nem ajánlott):
+
+```bash
+python3 -m http.server 8000
+```
+
+majd: <http://localhost:8000>
+
+## Tesztek
+
+A kiosztás-, vágásiterv-, anyag- és ajánlat-számítás tesztjei böngészőben futnak (Playwright, friss profillal):
+
+```bash
+python3 tests/run_tests.py [app-URL]
+```
 
 ## Fájlszerkezet
 
 ```
-index.html        – az alkalmazás váza
-css/styles.css    – megjelenés
-js/modules/*.js   – a teljes alkalmazás-logika, 32 kis fájlra szétszedve
-favicon.svg       – a böngésző-fülön megjelenő ikon
+index.html          – az alkalmazás váza (menüszalag, panelek, súgó)
+css/styles.css      – megjelenés (világos/sötét téma CSS-változókkal)
+js/modules/*.js     – az alkalmazás-logika témánként kis fájlokra bontva
+tests/              – automatikus tesztek (layout.test.js + run_tests.py)
+favicon.svg         – ikon
 ```
 
-A JS logika nincs egyetlen nagy fájlban: 32 darab kis, témánkénti fájlra van bontva a
-`js/modules/` mappában (`01-state.js` … `32-init.js`). Nincs build-lépés és modulrendszer —
-mindegyik klasszikus `<script>` tag az `index.html` végén, pontosan ebben a sorrendben
-betöltve (a sorrend számít: közös globális scope-on osztoznak, mintha egy fájlba lennének
-összefűzve). Az `init()` az utolsó fájlban (`32-init.js`) fut, miután minden korábbi fájl
-már definiálta a függvényeit/változóit.
+A `js/modules/` fájljai klasszikus `<script>` tagként, az `index.html`-ben megadott sorrendben töltődnek
+be (közös globális scope, nincs modulrendszer) — a sorrend számít. Az `init()` a `34-init.js`-ben fut.
+Az ikonok a Microsoft **Fluent UI System Icons** készletből valók (MIT licenc), beépítve a
+`00-icons.js`-be.
 
 ## Adattárolás
 
-Az alkalmazás minden módosítást automatikusan ment a böngésző **IndexedDB**-jébe.
-A korábbi localStorage-ban tárolt projektek első indításkor automatikusan átkerülnek
-az új tárolóba (a localStorage-ben biztonsági másolatként megmaradnak).
-
-A tárolás **origin-alapú** — a `http://localhost:8000` és a `https://gdaniel1979.github.io`
-külön adatkészletet lát. Költözéskor használd az Export fül „Összes projekt mentése (JSON)"
-gombját, majd az új helyen „Betöltés (JSON)" gombbal töltsd vissza.
+Minden módosítás automatikusan a böngésző **IndexedDB**-jébe mentődik. A tárolás **origin-alapú** —
+a `http://localhost:8000` és a `https://gdaniel1979.github.io` külön adatkészletet lát. Költözéskor
+használd a Fájl fül „Összes projekt mentése” gombját, majd az új helyen a „Betöltés…” gombot.
