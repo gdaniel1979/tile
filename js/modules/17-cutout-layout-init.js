@@ -65,6 +65,9 @@
       el.offsetPct.value = Math.round(state.layout.offsetPct);
       render(); save();
     });
+    el.layoutFactoryEdges.addEventListener("change", () => {
+      project.factoryEdges = el.layoutFactoryEdges.checked; render(); save(); // projekt-szintű
+    });
     el.layoutCodes.addEventListener("change", () => {
       state.layout.showCodes = el.layoutCodes.checked; render(); save();
     });

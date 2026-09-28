@@ -160,13 +160,18 @@
   // kezdődik. Vágás után a szabad rész két csíkra bomlik (egyenes, végigmenő
   // vágások — mint a valóságban), és mindkettő újra felhasználható.
   // opts.rotate: a darab 90°-kal elforgatva is kivágható (nincs mintairány).
+  // opts.factoryEdges: a darab gyári élt igénylő oldalai (piece.fe = {t,r,b,l})
+  //   csak a lap szélére kerülhetnek; ilyenkor a szabad rész mind a 4 sarkát és
+  //   a 180°-os megfordítást is kipróbálja (a 90°/270° továbbra is opts.rotate).
   // Több darab-sorrendet kipróbál, és a legkevesebb lapot adót választja.
-  // pieces: [{ w, h, ... }] → [{ pieces: [{ i, x, y, w, h, rot }], free: [{ x, y, w, h }] }]
+  // pieces: [{ w, h, fe?, ... }] → [{ pieces: [{ i, x, y, w, h, rot, fe }], free: [{ x, y, w, h }] }]
   //   i = a darab indexe a bemeneti tömbben; x, y, w, h = helye és mérete a
-  //   lapon (mm, forgatás után); free = a lap még fel nem használt részei.
+  //   lapon (mm, forgatás után); rot = 0/90/180/270 (fok, óramutató szerint);
+  //   fe = a gyári élt igénylő oldalak a lapon elhelyezett állásban;
+  //   free = a lap még fel nem használt részei.
   const CUT_TOL = 0.5; // mm tűrés az illesztésnél
   function planCuts(pieces, tileW, tileH, opts) {
-    const rotate = !!(opts && opts.rotate);
+    const o = { rotate: !!(opts && opts.rotate), factoryEdges: !!(opts && opts.factoryEdges) };
     const idx = pieces.map((p, i) => i);
     const orders = [
       (a, b) => pieces[b].w * pieces[b].h - pieces[a].w * pieces[a].h,                                          // terület
@@ -176,44 +181,87 @@
     ];
     let best = null;
     for (const cmp of orders) {
-      const plan = packGuillotine(pieces, idx.slice().sort((a, b) => cmp(a, b) || a - b), tileW, tileH, rotate);
+      const plan = packGuillotine(pieces, idx.slice().sort((a, b) => cmp(a, b) || a - b), tileW, tileH, o);
       if (!best || plan.length < best.length) best = plan;
     }
     return best;
   }
 
-  function packGuillotine(pieces, order, tileW, tileH, rotate) {
+  const NO_EDGES = { t: false, r: false, b: false, l: false };
+  // gyári-él oldalak elforgatása óramutató szerint (90°: a bal oldal kerül felülre)
+  function rotateEdges(fe, rot) {
+    if (rot === 90) return { t: fe.l, r: fe.t, b: fe.r, l: fe.b };
+    if (rot === 180) return { t: fe.b, r: fe.l, b: fe.t, l: fe.r };
+    if (rot === 270) return { t: fe.r, r: fe.b, b: fe.l, l: fe.t };
+    return fe;
+  }
+
+  function packGuillotine(pieces, order, tileW, tileH, o) {
     const tiles = [];
+    // a darab lehetséges állásai (méret + a gyári-él oldalak az adott állásban)
+    const orientations = (pc) => {
+      const fe = (o.factoryEdges && pc.fe) || NO_EDGES;
+      const list = [{ w: pc.w, h: pc.h, rot: 0 }];
+      if (o.factoryEdges) list.push({ w: pc.w, h: pc.h, rot: 180 });
+      if (o.rotate && (o.factoryEdges || Math.abs(pc.w - pc.h) > CUT_TOL)) {
+        list.push({ w: pc.h, h: pc.w, rot: 90 });
+        if (o.factoryEdges) list.push({ w: pc.h, h: pc.w, rot: 270 });
+      }
+      return list.map((x) => ({ ...x, fe: rotateEdges(fe, x.rot) }));
+    };
+    // elhelyezés egy szabad részben: melyik sarokba kerülhet (gyári él szabály nélkül csak bal-felső)
+    const cornersIn = (f, ori) => {
+      const xs = o.factoryEdges ? [f.x, f.x + f.w - ori.w] : [f.x];
+      const ys = o.factoryEdges ? [f.y, f.y + f.h - ori.h] : [f.y];
+      const out = [];
+      xs.forEach((x) => ys.forEach((y) => {
+        const fe = ori.fe;
+        if (fe.l && x > CUT_TOL) return;
+        if (fe.t && y > CUT_TOL) return;
+        if (fe.r && x + ori.w < tileW - CUT_TOL) return;
+        if (fe.b && y + ori.h < tileH - CUT_TOL) return;
+        out.push({ x: Math.max(f.x, x), y: Math.max(f.y, y) });
+      }));
+      return out;
+    };
     for (const i of order) {
       const pc = pieces[i];
-      const orient = [{ w: pc.w, h: pc.h, rot: false }];
-      if (rotate && Math.abs(pc.w - pc.h) > CUT_TOL) orient.push({ w: pc.h, h: pc.w, rot: true });
-      // legjobb szabad rész a már megkezdett lapokon
+      const oris = orientations(pc);
+      // legjobb szabad rész a már megkezdett lapokon (best area fit)
       let pick = null;
       tiles.forEach((t) => t.free.forEach((f, fi) => {
-        orient.forEach((o) => {
-          if (o.w > f.w + CUT_TOL || o.h > f.h + CUT_TOL) return;
-          const rest = f.w * f.h - o.w * o.h;
-          const shortSide = Math.min(f.w - o.w, f.h - o.h);
-          if (!pick || rest < pick.rest - 1e-6 || (Math.abs(rest - pick.rest) <= 1e-6 && shortSide < pick.shortSide)) {
-            pick = { t, fi, o, rest, shortSide };
-          }
+        oris.forEach((ori) => {
+          if (ori.w > f.w + CUT_TOL || ori.h > f.h + CUT_TOL) return;
+          const rest = f.w * f.h - ori.w * ori.h;
+          const shortSide = Math.min(f.w - ori.w, f.h - ori.h);
+          if (pick && !(rest < pick.rest - 1e-6 || (Math.abs(rest - pick.rest) <= 1e-6 && shortSide < pick.shortSide))) return;
+          const c = cornersIn(f, ori)[0];
+          if (c) pick = { t, fi, ori, at: c, rest, shortSide };
         });
       }));
       if (!pick) {
+        // új lap: az első olyan állás/sarok, ami a szabálynak megfelel
         const t = { pieces: [], free: [{ x: 0, y: 0, w: tileW, h: tileH }] };
         tiles.push(t);
-        // új lapon eredeti tájolásban (ha elfér), a lap sarkában
-        const o = orient.find((x) => x.w <= tileW + CUT_TOL && x.h <= tileH + CUT_TOL) || orient[0];
-        pick = { t, fi: 0, o };
+        for (const ori of oris) {
+          if (ori.w > tileW + CUT_TOL || ori.h > tileH + CUT_TOL) continue;
+          const c = cornersIn(t.free[0], ori)[0];
+          if (c) { pick = { t, fi: 0, ori, at: c }; break; }
+        }
+        if (!pick) pick = { t, fi: 0, ori: oris[0], at: { x: 0, y: 0 } }; // biztonsági tartalék
       }
-      const f = pick.t.free[pick.fi];
-      const pw = Math.min(pick.o.w, f.w), ph = Math.min(pick.o.h, f.h);
-      pick.t.pieces.push({ i, x: f.x, y: f.y, w: pick.o.w, h: pick.o.h, rot: pick.o.rot });
-      // guillotine-vágás: a nagyobb megmaradó csík legyen minél nagyobb
+      const f = pick.t.free[pick.fi], ori = pick.ori, at = pick.at;
+      pick.t.pieces.push({ i, x: at.x, y: at.y, w: ori.w, h: ori.h, rot: ori.rot, fe: ori.fe });
+      // guillotine-vágás a sarokba tett darab körül: a nagyobb megmaradó csík legyen minél nagyobb
+      const pw = Math.min(ori.w, f.w), ph = Math.min(ori.h, f.h);
+      const left = at.x <= f.x + CUT_TOL, top = at.y <= f.y + CUT_TOL;
       const rw = f.w - pw, bh = f.h - ph;
-      const splitA = [{ x: f.x + pw, y: f.y, w: rw, h: f.h }, { x: f.x, y: f.y + ph, w: pw, h: bh }]; // függőleges vágás végig
-      const splitB = [{ x: f.x + pw, y: f.y, w: rw, h: ph }, { x: f.x, y: f.y + ph, w: f.w, h: bh }]; // vízszintes vágás végig
+      const sideX = left ? f.x + pw : f.x;            // a darab melletti oszlop
+      const restY = top ? f.y + ph : f.y;             // a darab alatti/fölötti sáv
+      const pieceY = top ? f.y : f.y + bh;
+      const pieceX = left ? f.x : f.x + rw;
+      const splitA = [{ x: sideX, y: f.y, w: rw, h: f.h }, { x: pieceX, y: restY, w: pw, h: bh }];   // függőleges vágás végig
+      const splitB = [{ x: sideX, y: pieceY, w: rw, h: ph }, { x: f.x, y: restY, w: f.w, h: bh }];   // vízszintes vágás végig
       const maxA = Math.max(rw * f.h, pw * bh), maxB = Math.max(rw * ph, f.w * bh);
       const parts = (maxA >= maxB ? splitA : splitB).filter((r) => r.w > CUT_TOL && r.h > CUT_TOL);
       pick.t.free.splice(pick.fi, 1, ...parts);

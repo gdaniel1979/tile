@@ -30,6 +30,7 @@
     // 3. fázis
     layoutShow: document.getElementById("layoutShow"),
     layoutCodes: document.getElementById("layoutCodes"),
+    layoutFactoryEdges: document.getElementById("layoutFactoryEdges"),
     tileRotate: document.getElementById("tileRotate"),
     linkToFloor: document.getElementById("linkToFloor"),
     linkToFloorRow: document.getElementById("linkToFloorRow"),

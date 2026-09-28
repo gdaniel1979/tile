@@ -67,6 +67,21 @@
     const plan = planCuts(pcs, 300, 600, { rotate: true });
     ok(plan[0].pieces.some((p) => p.rot), "a forgatott darab jelölve");
   });
+  test("planCuts gyári él szabállyal: csíkból 2 jön ki egy lapból, a gyári oldalak a lap szélén", () => {
+    // 300×141-es falmelletti csík: a fal felőli (felső) oldala vágott, a másik három gyári kell legyen
+    const strip = () => ({ w: 300, h: 141, fe: { t: false, r: true, b: true, l: true } });
+    const pcs = [strip(), strip(), strip(), strip()];
+    eq(tilesNeededForCuts(pcs, 300, 600, { factoryEdges: false }), 1, "szabály nélkül");
+    const plan = planCuts(pcs, 300, 600, { factoryEdges: true });
+    eq(plan.length, 2, "szabállyal");
+    ok(plan.every((t) => t.pieces.some((p) => p.rot === 180)), "a második csík 180°-kal fordítva, a lap másik végéből");
+  });
+  test("rotateEdges: 90/180/270° forgatás", () => {
+    const fe = { t: true, r: false, b: false, l: false };
+    eq(JSON.stringify(rotateEdges(fe, 90)), JSON.stringify({ t: false, r: true, b: false, l: false }), "90°: fent → jobb");
+    eq(JSON.stringify(rotateEdges(fe, 180)), JSON.stringify({ t: false, r: false, b: true, l: false }), "180°: fent → lent");
+    eq(JSON.stringify(rotateEdges(fe, 270)), JSON.stringify({ t: false, r: false, b: false, l: true }), "270°: fent → bal");
+  });
   test("tileRotatable: alapérték színes lapnál igen, képesnél nem; kézi beállítás felülírja", () => {
     eq(tileRotatable({ fillKind: "color" }), true, "szín");
     eq(tileRotatable({ fillKind: "image" }), false, "kép");
@@ -212,6 +227,29 @@
   test("normLayout: a vágási kódok kapcsoló mentődik, alapból ki", () => {
     eq(normLayout({}).showCodes, false, "alap");
     eq(normLayout({ showCodes: true }).showCodes, true, "bekapcsolva");
+  });
+
+  [["straight", {}], ["offset", { offsetPct: 33 }], ["diagonal", {}], ["herringbone", {}], ["herringbone", { herringboneTilted: true }]].forEach(([pattern, extra]) => {
+    const label = pattern + (extra.herringboneTilted ? " (45°)" : "");
+    test(`${label}: gyári él szabálynál minden gyári oldal a lap szélére esik`, () => {
+      setup(L_SHAPE, { cutouts: [{ x: 500, y: 700, w: 600, h: 800 }], layout: Object.assign({ pattern }, extra) });
+      const was = project.factoryEdges;
+      try {
+        project.factoryEdges = true;
+        const r = computeLayout();
+        let checked = 0;
+        r.cutPlan.forEach((p) => p.tiles.forEach((t) => t.pieces.forEach((pc) => {
+          const fe = pc.fe, T = 0.51;
+          ok(!(fe.l && pc.x > T) && !(fe.t && pc.y > T) && !(fe.r && pc.x + pc.w < p.tileW - T) && !(fe.b && pc.y + pc.h < p.tileH - T),
+            `${pc.code}: gyári élt igénylő oldal a lap belsejében`);
+          checked++;
+        })));
+        ok(checked === r.stats.cut || pattern === "straight" || pattern === "offset", "minden darab ellenőrizve");
+        project.factoryEdges = false;
+        const r2 = computeLayout();
+        ok(r2.stats.tilesNeeded <= r.stats.tilesNeeded, "szabály nélkül nem kell több lap");
+      } finally { project.factoryEdges = was; }
+    });
   });
 
   // ---- gyorsítótár --------------------------------------------------------

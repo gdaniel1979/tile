@@ -172,13 +172,13 @@
       const idxs = [];
       acc.needPieces.forEach((p, i) => { if (p.typeId === typeId) idxs.push(i); });
       const tType = state.tiles.types.find((x) => x.id === typeId);
-      const tiles = planCuts(idxs.map((i) => acc.needPieces[i]), needW, needH, { rotate: tileRotatable(tType) }).map((t) => {
+      const tiles = planCuts(idxs.map((i) => acc.needPieces[i]), needW, needH, { rotate: tileRotatable(tType), factoryEdges: factoryEdgesOn() }).map((t) => {
         tileNo++;
         const pieces = t.pieces.map((pc, k) => {
           const li = idxs[pc.i]; // a darab indexe a cutLabels / needPieces tömbben
           const code = tileNo + String.fromCharCode(97 + k);
           acc.cutLabels[li].code = code;
-          return { code, li, x: pc.x, y: pc.y, w: pc.w, h: pc.h, rot: pc.rot };
+          return { code, li, x: pc.x, y: pc.y, w: pc.w, h: pc.h, rot: pc.rot, fe: pc.fe };
         });
         return { no: tileNo, pieces, free: t.free };
       });
@@ -199,6 +199,9 @@
       stats: { total: acc.total, whole: acc.whole, cut: acc.cut, tilesNeeded, areaMm2, tileAreaMm2, groutAreaMm2, byType },
     };
   }
+
+  // Gyári él szabály a vágási tervben (projekt-szintű, alapból be)
+  function factoryEdgesOn() { return !project || project.factoryEdges !== false; }
 
   function overrideType(key, base) {
     const ovId = state.layout.overrides[key];
@@ -225,7 +228,7 @@
       g.base.id, g.minX, g.minY, g.maxX, g.maxY, g.grout, g.tileW, g.tileH, g.originX, g.originY,
       state.points, state.closed, (state.cutouts || []).map((c) => [c.x, c.y, c.w, c.h]),
       L.pattern, L.offsetPct, L.herringboneTilted, L.overrides,
-      state.tiles.types.map((t) => [t.id, t.name, tileRotatable(t)]), state.unit,
+      state.tiles.types.map((t) => [t.id, t.name, tileRotatable(t)]), state.unit, factoryEdgesOn(),
     ]);
   }
   function getLayout() {
@@ -295,7 +298,8 @@
             const rectangular = cArea >= cbw * cbh - Math.max(1, cbw * cbh * 0.002);
             const text = rectangular ? fmtDim(cbw, cbh) : ("L " + fmtDim(cbw, cbh) + " / " + fmtDim(big.w, big.h));
             acc.cutLabels.push({ x: big.x + big.w / 2, y: big.y + big.h / 2, w: cbw, h: cbh, text });
-            acc.needPieces.push({ w: cbw, h: cbh, typeId: type.id });
+            const fe = factoryEdgesOf(cbx0 - x0, cbx1 - x0, cby0 - y0, cby1 - y0, tileW, tileH);
+            acc.needPieces.push({ w: cbw, h: cbh, typeId: type.id, fe });
             bumpType(acc.byType, type, false, idx === 0 ? area : 0);
           });
         }
@@ -380,7 +384,15 @@
     const w = pts.length ? Math.max(0, lu1 - lu0) : 0, h = pts.length ? Math.max(0, lv1 - lv0) : 0;
     const cx = area > 1e-6 ? mx / area : (pminX + pmaxX) / 2;
     const cy = area > 1e-6 ? my / area : (pminY + pmaxY) / 2;
-    return { area, w, h, cx, cy };
+    return { area, w, h, cx, cy, lu0: pts.length ? lu0 : 0, lu1: pts.length ? lu1 : 0, lv0: pts.length ? lv0 : 0, lv1: pts.length ? lv1 : 0 };
+  }
+
+  // Mely oldalain igényel gyári élt a darab (a lap saját keretében, t/r/b/l):
+  // amelyik oldala az eredeti lap széle volt, az a kiosztásban egy szomszédos
+  // lap mellé kerül (fugával) — a befelé eső, vágott oldal falhoz/kivágáshoz.
+  const EDGE_TOL = 0.5;
+  function factoryEdgesOf(u0, u1, v0, v1, tw, th) {
+    return { t: v0 < EDGE_TOL, r: u1 > tw - EDGE_TOL, b: v1 > th - EDGE_TOL, l: u0 < EDGE_TOL };
   }
 
   // ÁTLÓS (45°) kiosztás – elforgatott rács. A vágási méret a lap saját
@@ -439,7 +451,8 @@
           const pw = rest.w, ph = rest.h;
           acc.cut++;
           acc.cutLabels.push({ x: rest.cx, y: rest.cy, w: pw, h: ph, text: "~" + fmtDim(pw, ph) });
-          acc.needPieces.push({ w: pw, h: ph, typeId: type.id });
+          const fe = factoryEdgesOf(rest.lu0, rest.lu1, rest.lv0, rest.lv1, tileW, tileH);
+          acc.needPieces.push({ w: pw, h: ph, typeId: type.id, fe });
           bumpType(acc.byType, type, false, rest.area);
         }
         acc.tiles.push({ key, typeId: type.id, quad });
@@ -547,8 +560,13 @@
             acc.cutLabels.push({ x: rest.cx, y: rest.cy, w: pw, h: ph, text: (tilted ? "~" : "") + fmtDim(pw, ph) });
             // Az újrahasznosítás-számítás a lapot h × w (hosszú × rövid) tájolásban
             // nézi: az álló (V) lapok darabjait ehhez elforgatva adjuk át.
-            const dims = t.tw === w ? { w: ph, h: pw } : { w: pw, h: ph };
-            acc.needPieces.push({ w: dims.w, h: dims.h, typeId: type.id });
+            // Az álló lap keretét 90°-kal (óramutató szerint) elforgatjuk: a lap
+            // saját bal oldala lesz a lent, a jobb a fent, a teteje a bal, az alja a jobb.
+            const fe0 = factoryEdgesOf(rest.lu0, rest.lu1, rest.lv0, rest.lv1, t.tw, t.th);
+            const upright = t.tw === w;
+            const dims = upright ? { w: ph, h: pw } : { w: pw, h: ph };
+            const fe = upright ? { t: fe0.r, r: fe0.b, b: fe0.l, l: fe0.t } : fe0;
+            acc.needPieces.push({ w: dims.w, h: dims.h, typeId: type.id, fe });
             bumpType(acc.byType, type, false, rest.area);
           }
           acc.tiles.push({ key, typeId: type.id, quad });

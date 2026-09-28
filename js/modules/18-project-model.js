@@ -149,7 +149,7 @@
     const types = dt.types.map((t) => ({ ...t })); // friss példány (projektenként külön könyvtár)
     return {
       id: newProjectId(), name: name || "Projekt", unit: "cm", tileTypes: types, activeIndex: 0, untiledColor: "#8a8f98",
-      material: defaultMaterial(), quote: normQuote(),
+      material: defaultMaterial(), quote: normQuote(), factoryEdges: true,
       surfaces: [normSurface({ name: "Padló", mode: "floor", baseId: types[0].id, groutMm: dt.groutMm, groutColor: dt.groutColor, layout: { paintTypeId: types[0].id } }, types[0].id)],
     };
   }
@@ -233,7 +233,7 @@
      "groutPricePack", "gluePricePack", "silPriceTube", "edgingPricePerM"].forEach((k) => {
       if (!(typeof mat[k] === "number" && mat[k] >= 0)) mat[k] = defaultMaterial()[k];
     });
-    return { id: p.id || newProjectId(), name: p.name || "Projekt", unit: p.unit === "mm" ? "mm" : "cm", untiledColor: p.untiledColor || "#8a8f98", tileTypes: types, surfaces, activeIndex: ai, material: mat, quote: normQuote(p.quote) };
+    return { id: p.id || newProjectId(), name: p.name || "Projekt", unit: p.unit === "mm" ? "mm" : "cm", untiledColor: p.untiledColor || "#8a8f98", tileTypes: types, surfaces, activeIndex: ai, material: mat, quote: normQuote(p.quote), factoryEdges: p.factoryEdges !== false };
   }
 
   // A state <-> aktív felület szinkronizálása
