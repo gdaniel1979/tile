@@ -212,9 +212,15 @@
   // árajánlat is ezt használja, hogy mindenhol ugyanaz a szám jelenjen meg.
   // Minden tétel: { kind, name, qty, unit, unitPrice, total } (unitPrice 0 =
   // nincs megadva ár). A lapok típusonként, tartalékkal (felfelé kerekítve).
+  // Tartalék % (projekt-szintű; a lapokhoz és a fugához adódik hozzá)
+  function overagePct(p) {
+    p = p || project;
+    return p && typeof p.overagePct === "number" ? Math.max(0, p.overagePct) : 10;
+  }
+
   function computeProjectCosts(p) {
     const m = p.material || defaultMaterial();
-    const overage = Math.max(0, state.layout && state.layout.overagePct || 0);
+    const overage = overagePct(p);
     const lines = [];
     computeProjectTileNumbersByType(p).forEach((g) => {
       const t = (p.tileTypes || []).find((x) => x.id === g.id);
@@ -251,7 +257,7 @@
   function updateProjectMaterialReport() {
     if (!el.prMass || !project) return;
     const m = project.material || defaultMaterial();
-    const overage = Math.max(0, state.layout && state.layout.overagePct || 0);
+    const overage = overagePct();
 
     // Burkolat — projekt-szint, laptípusonként bontva
     const tn = computeProjectTileNumbers(project);

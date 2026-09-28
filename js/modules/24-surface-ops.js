@@ -1,7 +1,5 @@
 "use strict";
   // ---- Felület-műveletek (az aktív projektben) -------------------------
-  function afterSurfaceSwitch() { refreshAll(); }
-
   function switchSurface(index) {
     saveActiveSurface();
     project.activeIndex = Math.max(0, Math.min(index, project.surfaces.length - 1));
@@ -115,20 +113,37 @@
     save();
   }
 
+  // A felület és minden leszármazottja (pl. a falra tett előtétfal felületei) azonosítói
+  function withDescendants(ids) {
+    const out = new Set(ids);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      project.surfaces.forEach((s) => { if (s.parentSurfaceId && out.has(s.parentSurfaceId) && !out.has(s.id)) { out.add(s.id); grew = true; } });
+    }
+    return out;
+  }
+
+  // Felületek törlése azonosító szerint; az aktív felület megmarad, ha nem törlődött.
+  function removeSurfaces(ids) {
+    const activeId = project.surfaces[project.activeIndex] && project.surfaces[project.activeIndex].id;
+    const oldIndex = project.activeIndex;
+    project.surfaces = project.surfaces.filter((s) => !ids.has(s.id));
+    const ai = project.surfaces.findIndex((s) => s.id === activeId);
+    project.activeIndex = ai >= 0 ? ai : Math.max(0, Math.min(oldIndex, project.surfaces.length - 1));
+  }
+
   function deleteSurfaceFn(index) {
-    if (project.surfaces.length <= 1) { alert("Legalább egy felületnek maradnia kell."); return; }
     const i = (typeof index === "number") ? index : project.activeIndex;
     const s = project.surfaces[i];
     if (!s) return;
-    if (!confirm("Töröljük a(z) „" + s.name + "” felületet?")) return;
-    const wasActive = i === project.activeIndex;
-    project.surfaces.splice(i, 1);
-    if (wasActive) {
-      project.activeIndex = Math.max(0, Math.min(i, project.surfaces.length - 1));
-      loadActiveSurface();
-    } else if (i < project.activeIndex) {
-      project.activeIndex -= 1;
-    }
+    const ids = withDescendants([s.id]);
+    if (project.surfaces.length - ids.size < 1) { alert("Legalább egy felületnek maradnia kell."); return; }
+    const extra = ids.size - 1;
+    if (!confirm("Töröljük a(z) „" + s.name + "” felületet" + (extra ? " és a hozzá tartozó " + extra + " gyermek-felületet (pl. előtétfal)" : "") + "?")) return;
+    saveActiveSurface();
+    removeSurfaces(ids);
+    loadActiveSurface();
     refreshAll();
   }
 

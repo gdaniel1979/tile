@@ -367,7 +367,7 @@
         const { areaMm2, tilesNeeded, tileAreaMm2 } = data;
         const usedAreaMm2 = tilesNeeded * tileAreaMm2;
         const wastePct = usedAreaMm2 > 0 ? (1 - areaMm2 / usedAreaMm2) * 100 : 0;
-        const pct = Math.max(0, state.layout.overagePct || 0);
+        const pct = overagePct();
         const finalTiles = Math.ceil(tilesNeeded * (1 + pct / 100));
         el.matArea.textContent = (areaMm2 / 1e6).toFixed(2) + " m²";
         el.matTiles.textContent = tilesNeeded + " db";

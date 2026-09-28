@@ -10,30 +10,43 @@
   }
   function floorSignature(s) { return floorEdgeLengths(s).map((l) => Math.round(l)).join(","); }
 
+  // Falak generálása / frissítése a padló éleiből. A már meglévő (ebből a
+  // padlóból generált) falak HELYBEN frissülnek (méret, név) — a rajtuk lévő
+  // kivágások, kiosztás-beállítások, élvédők és az előtétfalak megmaradnak;
+  // az új élekhez új fal készül, a megszűnt élek falai (gyermekeikkel) törlődnek.
   function generateWalls(floor, hMm) {
     if (!(hMm > 0)) return;
     saveActiveSurface();
-    // a korábbi, ebből a padlóból generált falak törlése
-    project.surfaces = project.surfaces.filter((s) => s.fromFloorId !== floor.id);
     const edges = floorEdgeLengths(floor);
     const names = floor.edgeNames || [];
+    const byEdge = new Map();
+    project.surfaces.forEach((s) => {
+      if (s.fromFloorId === floor.id && typeof s.fromEdgeIndex === "number" && !byEdge.has(s.fromEdgeIndex)) byEdge.set(s.fromEdgeIndex, s);
+    });
+    const kept = new Set();
+    let created = 0;
     edges.forEach((len, idx) => {
       const wname = (names[idx] && names[idx].trim()) ? names[idx].trim() : "Fal " + (idx + 1);
-      const w = blankSurface(wname, "wall");
+      let w = byEdge.get(idx);
+      if (!w) { w = blankSurface(wname, "wall"); w.fromFloorId = floor.id; w.fromEdgeIndex = idx; project.surfaces.push(w); created++; }
+      w.name = wname;
       w.points = [{ x: 0, y: 0 }, { x: len, y: 0 }, { x: len, y: hMm }, { x: 0, y: hMm }];
       w.closed = true;
-      w.fromFloorId = floor.id;
-      w.fromEdgeIndex = idx;
-      project.surfaces.push(w);
+      kept.add(w.id);
     });
+    const gone = project.surfaces.filter((s) => s.fromFloorId === floor.id && !kept.has(s.id)).map((s) => s.id);
+    if (gone.length) removeSurfaces(withDescendants(gone));
     floor.wallsSignature = floorSignature(floor);
     floor.wallHeightMm = hMm;
     floor.warnDismissedSignature = null;
     project.activeIndex = project.surfaces.findIndex((s) => s.fromFloorId === floor.id);
     if (project.activeIndex < 0) project.activeIndex = project.surfaces.indexOf(floor);
     loadActiveSurface();
-    afterSurfaceSwitch();
-    alert(edges.length + " fal létrehozva a(z) „" + floor.name + "” padlóból.");
+    refreshAll();
+    const updated = edges.length - created;
+    alert("A(z) „" + floor.name + "” padlóból: " + (created ? created + " fal létrehozva" : "") +
+      (created && updated ? ", " : "") + (updated ? updated + " fal frissítve (kivágásaik és beállításaik megmaradtak)" : "") +
+      (gone.length ? ", " + gone.length + " megszűnt él fala törölve" : "") + ".");
   }
 
   function generateWallsFromActive() {
@@ -69,7 +82,7 @@
     staleFloorRef = stale;
     if (!stale) { el.wallWarn.hidden = true; return; }
     el.wallWarnText.textContent =
-      "Figyelem: a(z) „" + stale.name + "” padló megváltozott a falak generálása óta — a belőle készült falak NEM frissültek automatikusan (pillanatkép). Teendő: generáld újra a falakat (a régiek lecserélődnek), vagy szerkeszd kézzel az érintett falakat.";
+      "Figyelem: a(z) „" + stale.name + "” padló megváltozott a falak generálása óta — a belőle készült falak NEM frissültek automatikusan. A „Falak frissítése” gomb a méreteket igazítja; a falakon lévő kivágások és beállítások megmaradnak.";
     el.wallWarn.hidden = false;
   }
 

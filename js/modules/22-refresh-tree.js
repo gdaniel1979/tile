@@ -1,5 +1,6 @@
 "use strict";
-  function refreshAll() {
+  // opts.keepView: a nézet (zoom/pan) maradjon — visszavonásnál/újránál
+  function refreshAll(opts) {
     syncControlsFromState();
     renderTileLibrary();
     renderEdgeList();
@@ -9,7 +10,7 @@
     updateCanvasTitle();
     checkWallSync();
     syncQuoteUI();
-    fitView();
+    if (opts && opts.keepView) render(); else fitView();
     save();
     // Ha 3D nézetben vagyunk, felület/projekt-váltásnál is frissítsen
     // (különben a régi helyiség jelenete marad látható).

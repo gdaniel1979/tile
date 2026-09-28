@@ -361,5 +361,104 @@
     eq(normContractor(null).name, "", "üres vállalkozó");
   });
 
+  // ---- hibajavítások (2026-09-28) -----------------------------------------
+  // A projekt-műveletek alert/confirm/prompt ablakot nyitnának: a tesztben elnyeljük.
+  function quietly(fn) {
+    const a = window.alert, c = window.confirm;
+    window.alert = () => {}; window.confirm = () => true;
+    try { return fn(); } finally { window.alert = a; window.confirm = c; }
+  }
+  // Friss projekt egy 4 élű, elnevezett padlóval (a teszt végén visszaáll az eredeti)
+  function withFreshProject(fn) {
+    const savedStore = JSON.stringify(serializeStore());
+    try {
+      quietly(() => {
+        const p = defaultProject("Teszt");
+        store.projects.push(p); store.activeProjectId = p.id; project = p; loadActiveSurface();
+        state.points = RECT(3000, 2000).map(([x, y]) => ({ x, y })); state.closed = true;
+        state.edgeNames.splice(0, state.edgeNames.length, "É", "K", "D", "NY");
+        state.edgeEdgings.splice(0, state.edgeEdgings.length, false, true, false, false);
+        saveActiveSurface();
+        fn(p);
+      });
+    } finally {
+      store = normalizeStore(JSON.parse(savedStore)); project = activeProject(); loadActiveSurface(); refreshAll({ keepView: true });
+    }
+  }
+
+  test("csúcs beszúrása/törlése: az élnevek és élvédők a helyes élen maradnak", () => {
+    withFreshProject(() => {
+      insertVertexOnEdge(1, ...Object.values(worldToScreen({ x: 3000, y: 1000 })));
+      eq(state.edgeNames.join(","), "É,K,K,D,NY", "beszúrás után (a kettévált él mindkét fele örököl)");
+      eq(state.edgeEdgings.map(Number).join(""), "01100", "élvédő beszúrás után");
+      deleteVertex(3); // a (3000,2000) sarok: a K (2.) és D él összeolvad
+      eq(state.edgeNames.join(","), "É,K,K,NY", "törlés után");
+    });
+  });
+  test("falak frissítése: a fal kivágásai és az előtétfal megmaradnak, megszűnt él fala törlődik", () => {
+    withFreshProject((p) => {
+      const floor = p.surfaces[0];
+      generateWalls(floor, 2400);
+      const wallK = p.surfaces.find((s) => s.fromFloorId === floor.id && s.fromEdgeIndex === 1);
+      wallK.cutouts.push({ x: 100, y: 100, w: 500, h: 500, kind: "opening", name: "Ablak", edgeEdgings: [false, false, false, false] });
+      p.activeIndex = p.surfaces.indexOf(wallK); loadActiveSurface();
+      generatePreWallOnActive("Előtét", 0, 0, 800, 1200, 200);
+      const pwCount = p.surfaces.filter((s) => s.parentSurfaceId === wallK.id).length;
+      eq(pwCount, 4, "előtétfal felületei");
+      floor.points[1].x = 3500; floor.points[2].x = 3500; // a padló szélesebb lett
+      generateWalls(floor, 2400);
+      const again = p.surfaces.find((s) => s.id === wallK.id);
+      ok(again, "a fal ugyanaz a felület maradt (azonosító)");
+      ok(again.cutouts.some((c) => c.name === "Ablak"), "a kivágás megmaradt");
+      eq(p.surfaces.filter((s) => s.parentSurfaceId === wallK.id).length, 4, "az előtétfal megmaradt");
+      const wallD = p.surfaces.find((s) => s.fromFloorId === floor.id && s.fromEdgeIndex === 0);
+      eq(Math.round(wallD.points[1].x), 3500, "az É fal hossza frissült");
+      // csúcs törlése a padlón → egy él megszűnik → a fala (és gyermekei) törlődnek frissítéskor
+      p.activeIndex = p.surfaces.indexOf(floor); loadActiveSurface();
+      deleteVertex(2); saveActiveSurface();
+      generateWalls(floor, 2400);
+      eq(p.surfaces.filter((s) => s.fromFloorId === floor.id).length, 3, "3 él → 3 fal");
+    });
+  });
+  test("felület törlése a gyermek-felületeivel együtt (nincs láthatatlan árva)", () => {
+    withFreshProject((p) => {
+      const floor = p.surfaces[0];
+      generateWalls(floor, 2400);
+      const wall = p.surfaces.find((s) => s.fromFloorId === floor.id);
+      p.activeIndex = p.surfaces.indexOf(wall); loadActiveSurface();
+      generatePreWallOnActive("Előtét", 0, 0, 800, 1200, 200);
+      const before = p.surfaces.length;
+      deleteSurfaceFn(p.surfaces.indexOf(wall));
+      eq(p.surfaces.length, before - 5, "a fal + 4 előtétfal-felület törlődött");
+      ok(p.surfaces.every((s) => !s.parentSurfaceId || p.surfaces.some((x) => x.id === s.parentSurfaceId)), "nincs árva");
+    });
+  });
+  test("normalizeProject: a régi mentésben lévő árva gyermek-felület felső szintre kerül", () => {
+    const p = normalizeProject({ surfaces: [{ id: "a", name: "Fal" }, { id: "b", name: "Előtét", parentSurfaceId: "nincs-ilyen" }] });
+    eq(p.surfaces[1].parentSurfaceId, null, "szülő");
+  });
+  test("tartalék %: projekt-szintű — a projekt-összesítés nem függ az aktív felülettől", () => {
+    withFreshProject((p) => {
+      const floor = p.surfaces[0];
+      generateWalls(floor, 2400);
+      recomputeAllSurfacesMaterial();
+      p.overagePct = 15;
+      const a = JSON.stringify(computeProjectCosts(p).lines.map((l) => l.qty));
+      p.activeIndex = p.surfaces.length - 1; loadActiveSurface();
+      const b = JSON.stringify(computeProjectCosts(p).lines.map((l) => l.qty));
+      eq(a, b, "ugyanaz a mennyiség bármelyik felület aktív");
+      eq(normalizeProject({ surfaces: [{ layout: { overagePct: 7 } }] }).overagePct, 7, "migráció a régi felület-értékből");
+    });
+  });
+  test("visszavonás nem igazítja újra a nézetet", () => {
+    setup(RECT(3000, 2000));
+    save();
+    state.view.scale = 0.37; state.view.ox = 123; state.view.oy = 45;
+    state.points[1].x += 100; save();
+    undo();
+    eq(state.view.scale, 0.37, "nagyítás"); eq(state.view.ox, 123, "eltolás");
+    redo();
+  });
+
   window.__tileTestResults = results;
 })();

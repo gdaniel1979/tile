@@ -149,7 +149,7 @@
     const types = dt.types.map((t) => ({ ...t })); // friss példány (projektenként külön könyvtár)
     return {
       id: newProjectId(), name: name || "Projekt", unit: "cm", tileTypes: types, activeIndex: 0, untiledColor: "#8a8f98",
-      material: defaultMaterial(), quote: normQuote(), factoryEdges: true,
+      material: defaultMaterial(), quote: normQuote(), factoryEdges: true, overagePct: 10,
       surfaces: [normSurface({ name: "Padló", mode: "floor", baseId: types[0].id, groutMm: dt.groutMm, groutColor: dt.groutColor, layout: { paintTypeId: types[0].id } }, types[0].id)],
     };
   }
@@ -233,7 +233,15 @@
      "groutPricePack", "gluePricePack", "silPriceTube", "edgingPricePerM"].forEach((k) => {
       if (!(typeof mat[k] === "number" && mat[k] >= 0)) mat[k] = defaultMaterial()[k];
     });
-    return { id: p.id || newProjectId(), name: p.name || "Projekt", unit: p.unit === "mm" ? "mm" : "cm", untiledColor: p.untiledColor || "#8a8f98", tileTypes: types, surfaces, activeIndex: ai, material: mat, quote: normQuote(p.quote), factoryEdges: p.factoryEdges !== false };
+    // Tartalék %: projekt-szintű (régen felületenként volt, de a projekt-összesítés
+    // mindig az éppen aktív felületét használta) — migráció: az aktív felületé.
+    const activeLayout = surfaces[ai] && surfaces[ai].layout;
+    const overagePct = typeof p.overagePct === "number" && p.overagePct >= 0 ? p.overagePct
+      : (activeLayout && typeof activeLayout.overagePct === "number" ? activeLayout.overagePct : 10);
+    // Árva gyermek-felületek (a szülő fal törlődött) felső szintre kerülnek, hogy látszódjanak.
+    const ids = new Set(surfaces.map((s) => s.id));
+    surfaces.forEach((s) => { if (s.parentSurfaceId && !ids.has(s.parentSurfaceId)) s.parentSurfaceId = null; });
+    return { id: p.id || newProjectId(), name: p.name || "Projekt", overagePct, unit: p.unit === "mm" ? "mm" : "cm", untiledColor: p.untiledColor || "#8a8f98", tileTypes: types, surfaces, activeIndex: ai, material: mat, quote: normQuote(p.quote), factoryEdges: p.factoryEdges !== false };
   }
 
   // A state <-> aktív felület szinkronizálása

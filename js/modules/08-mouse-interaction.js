@@ -286,6 +286,7 @@
     let t = len2 > 0 ? ((sx - A.x) * vx + (sy - A.y) * vy) / len2 : 0;
     t = Math.max(0, Math.min(1, t));
     const wp = { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+    shiftEdgeData("insert", ei);
     state.points.splice(ei + 1, 0, wp);
     state.selected = ei + 1;
     afterGeometryChange();

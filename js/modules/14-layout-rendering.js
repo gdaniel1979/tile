@@ -10,12 +10,6 @@
   }
 
   // ---- Kivágások (nem burkolt téglalapok) ------------------------------
-  function rectContains(c, x0, y0, x1, y1) {
-    return x0 >= c.x && y0 >= c.y && x1 <= c.x + c.w && y1 <= c.y + c.h;
-  }
-  function rectsOverlap(c, x0, y0, x1, y1) {
-    return !(x1 <= c.x || x0 >= c.x + c.w || y1 <= c.y || y0 >= c.y + c.h);
-  }
   // A kivágások uniója egymást nem fedő téglalap-cellákra bontva, hogy az
   // átfedő kivágások csak egyszer számítsanak (terület, rajz-maszk, levonás).
   function cutoutCells(cutouts) {
@@ -146,34 +140,6 @@
     const groups = {};
     for (let i = 0; i < n; i++) { const r = find(i); (groups[r] = groups[r] || []).push(rects[i]); }
     return Object.values(groups);
-  }
-
-  // Egy téglalap (rx0..ry1) felbontása a kivágások KIHAGYÁSÁVAL keletkező
-  // burkolható résztéglalapokra (tengelypárhuzamos rácsfelbontás).
-  function tileableRectPieces(rx0, ry0, rx1, ry1, cutouts) {
-    const xs = new Set([rx0, rx1]);
-    const ys = new Set([ry0, ry1]);
-    cutouts.forEach((c) => {
-      const cx0 = Math.max(c.x, rx0), cx1 = Math.min(c.x + c.w, rx1);
-      const cy0 = Math.max(c.y, ry0), cy1 = Math.min(c.y + c.h, ry1);
-      if (cx1 > cx0 && cy1 > cy0) { xs.add(cx0); xs.add(cx1); ys.add(cy0); ys.add(cy1); }
-    });
-    const X = [...xs].sort((a, b) => a - b);
-    const Y = [...ys].sort((a, b) => a - b);
-    const pieces = [];
-    for (let i = 0; i < X.length - 1; i++) {
-      for (let j = 0; j < Y.length - 1; j++) {
-        const ax = X[i], bx = X[i + 1], ay = Y[j], by = Y[j + 1];
-        if (bx - ax < 0.5 || by - ay < 0.5) continue;
-        const mx = (ax + bx) / 2, my = (ay + by) / 2;
-        let inCut = false;
-        for (const c of cutouts) {
-          if (mx > c.x && mx < c.x + c.w && my > c.y && my < c.y + c.h) { inCut = true; break; }
-        }
-        if (!inCut) pieces.push({ x: ax, y: ay, w: bx - ax, h: by - ay });
-      }
-    }
-    return pieces;
   }
 
   function hexAlpha(hex, a) {

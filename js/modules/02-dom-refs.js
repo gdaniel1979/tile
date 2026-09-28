@@ -20,7 +20,6 @@
     perim: document.getElementById("perimOut"),
     fit: document.getElementById("fitBtn"),
     clear: document.getElementById("clearBtn"),
-    drawHint: document.getElementById("drawHint"),
     // 2. fázis
     tabs: document.getElementById("tabs"),
     groutW: document.getElementById("groutW"),
@@ -50,7 +49,6 @@
     // 4. fázis
     alignSeg: document.getElementById("alignSeg"),
     thr: document.getElementById("thr"),
-    thrRow: document.getElementById("thrRow"),
     offHint: document.getElementById("offHint"),
     overage: document.getElementById("overage"),
     matArea: document.getElementById("matArea"),

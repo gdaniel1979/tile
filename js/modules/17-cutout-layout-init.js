@@ -105,7 +105,7 @@
     });
     el.overage.addEventListener("change", () => {
       const v = parseFloat(el.overage.value);
-      if (!Number.isNaN(v) && v >= 0) { state.layout.overagePct = v; render(); save(); }
+      if (!Number.isNaN(v) && v >= 0) { project.overagePct = v; render(); save(); } // projekt-szintű
     });
     el.paintMode.addEventListener("change", () => {
       paintMode = el.paintMode.checked;

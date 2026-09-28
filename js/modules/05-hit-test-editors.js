@@ -33,8 +33,31 @@
     return -1;
   }
 
+  // Az élekhez kötött adatok (élnév, élvédő, generált falak élhivatkozása)
+  // igazítása csúcs beszúrásakor/törlésekor, hogy ne csússzanak másik élre.
+  //   insert: az `edge` él kettéválik → az új (edge+1.) él örökli az adatait
+  //   remove: az `edge` él megszűnik (összeolvad a szomszédjával)
+  function shiftEdgeData(kind, edge) {
+    [state.edgeNames, state.edgeEdgings].forEach((arr) => {
+      if (!Array.isArray(arr) || edge >= arr.length) return;
+      if (kind === "insert") arr.splice(edge + 1, 0, arr[edge]);
+      else arr.splice(edge, 1);
+    });
+    const cur = project && project.surfaces[project.activeIndex];
+    if (!cur || state.mode !== "floor") return;
+    project.surfaces.forEach((w) => {
+      if (w.fromFloorId !== cur.id || typeof w.fromEdgeIndex !== "number") return;
+      if (kind === "insert") { if (w.fromEdgeIndex > edge) w.fromEdgeIndex++; }
+      else if (w.fromEdgeIndex === edge) w.fromEdgeIndex = null; // az él megszűnt
+      else if (w.fromEdgeIndex > edge) w.fromEdgeIndex--;
+    });
+  }
+
   function deleteVertex(i) {
     if (i == null || i < 0 || i >= state.points.length) return;
+    // a törölt csúcs két éle összeolvad; nyitott sokszög utolsó csúcsánál az utolsó él szűnik meg
+    const n = state.points.length;
+    shiftEdgeData("remove", !state.closed && i === n - 1 ? n - 2 : i);
     state.points.splice(i, 1);
     if (state.points.length < 3) state.closed = false;
     state.selected = null;

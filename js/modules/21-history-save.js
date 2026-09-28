@@ -87,7 +87,7 @@
       store = normalizeStore(JSON.parse(snap, expandReviver));
       project = activeProject();
       loadActiveSurface();
-      refreshAll();
+      refreshAll({ keepView: true });
     } catch (e) {
       console.error("Előzmény-visszaállítás nem sikerült:", e);
     }

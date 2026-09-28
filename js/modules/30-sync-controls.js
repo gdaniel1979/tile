@@ -32,7 +32,7 @@
     }
     // Falak generálása panel: generált gyermek-falon (fromFloorId) nincs
     // értelme, és olyan padlón sem látszik, amiből már vannak generált falak
-    // (újrageneráláshoz a figyelmeztető sáv "Falak újragenerálása" gombja való).
+    // (frissítéshez a figyelmeztető sáv "Falak frissítése" gombja való).
     if (el.floorWallsPanel && project) {
       const s = project.surfaces[project.activeIndex];
       const isGenWall = !!(s && s.mode === "wall" && s.fromFloorId);
@@ -44,7 +44,7 @@
     el.offX.value = fromMm(state.layout.offXmm).toFixed(state.unit === "cm" ? 1 : 0);
     el.offY.value = fromMm(state.layout.offYmm).toFixed(state.unit === "cm" ? 1 : 0);
     el.thr.value = fromMm(state.layout.thresholdMm).toFixed(state.unit === "cm" ? 1 : 0);
-    el.overage.value = state.layout.overagePct;
+    el.overage.value = overagePct();
     applyAlignUIState();
     // festés: alapból kikapcsolva; ha nincs kijelölt festő-típus, az alap legyen
     paintMode = false;

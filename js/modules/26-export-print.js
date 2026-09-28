@@ -56,7 +56,7 @@
     const s = lastStats;
     const usedArea = s.tilesNeeded * s.tileAreaMm2;
     const wastePct = usedArea > 0 ? (1 - s.areaMm2 / usedArea) * 100 : 0;
-    const pct = Math.max(0, state.layout.overagePct || 0);
+    const pct = overagePct();
     const finalTiles = Math.ceil(s.tilesNeeded * (1 + pct / 100));
     let groutKg = null;
     if (s.groutAreaMm2 != null) {
@@ -145,7 +145,7 @@
 
     // Anyagszükséglet: ragasztó + fuga (összes) + szilikon (sarok-hosszak, kartusok)
     const mat = project.material || defaultMaterial();
-    const overage = Math.max(0, state.layout && state.layout.overagePct || 0);
+    const overage = overagePct();
     const groutKg = computeProjectGroutMass(project) * (1 + overage / 100);
     const sil = computeSiliconeForProject(project);
     const totLen = sil.horizMm + sil.vertMm;
