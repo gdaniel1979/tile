@@ -1,11 +1,12 @@
 "use strict";
   // ---- Alkalmazás-keret -----------------------------------------------------
-  // Menüszalag-fülek, a jobb oldali Tulajdonságok panel tartalma, gomb-átirányítások
+  // Menüszalag-fülek, az oldalpanel (Tulajdonságok) tartalma, gomb-átirányítások
   // (data-click), panelek ki-be kapcsolása, színséma (világos / sötét / rendszer)
   // és az állapotsor. A mögöttes funkciók a meglévő vezérlőkön (id-k) keresztül
   // működnek — ez a modul csak a felület elrendezését kezeli.
   const THEME_KEY = "tile-planner-theme";
   const PANES_KEY = "tile-planner-panes";
+  const PANE_SIDE_KEY = "tile-planner-pane-side";
   const RIBBON_KEY = "tile-planner-ribbon-tab";
   const COLLAPSE_KEY = "tile-planner-ribbon-collapsed";
   const PANE_PAGE_KEY = "tile-planner-pane-page";
@@ -40,6 +41,7 @@
     });
     initProxies();
     initPaneToggles();
+    initPaneSide();
     initTheme();
     // a vászon minden méretváltozásra (panel ki/be, húzás, menüszalag) újraméreteződik
     if (window.ResizeObserver) {
@@ -179,6 +181,24 @@
     Object.keys(st).forEach((k) => setPaneVisible(k, st[k] !== false, true));
     document.querySelectorAll("[data-pane]").forEach((cb) => {
       cb.addEventListener("change", () => setPaneVisible(cb.dataset.pane, cb.checked));
+    });
+  }
+
+  // ---- Oldalpanel helye: bal / jobb (Nézet fül) ------------------------------------
+  // A html data-pane-side attribútumát már a <head> szkriptje beállítja (villanás nélkül).
+  function setPaneSide(side, silent) {
+    document.documentElement.dataset.paneSide = side;
+    el.paneSideSeg.querySelectorAll("button[data-side]").forEach((b) => b.classList.toggle("active", b.dataset.side === side));
+    if (silent) return;
+    try { localStorage.setItem(PANE_SIDE_KEY, side); } catch (_) {}
+    resizeCanvas();
+  }
+  function initPaneSide() {
+    if (!el.paneSideSeg) return;
+    setPaneSide(document.documentElement.dataset.paneSide === "right" ? "right" : "left", true);
+    el.paneSideSeg.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-side]");
+      if (b) setPaneSide(b.dataset.side);
     });
   }
 

@@ -148,6 +148,7 @@
     layersPanel: document.getElementById("layersPanel"),
     // Keret (menüszalag, panelek, állapotsor)
     propsPane: document.getElementById("propsPane"),
+    paneSideSeg: document.getElementById("paneSideSeg"),
     propsTitle: document.getElementById("propsTitle"),
     themeSeg: document.getElementById("themeSeg"),
     sbTiles: document.getElementById("sbTiles"),

@@ -1,12 +1,12 @@
 "use strict";
-  // ---- 20. fázis: Rétegek panel (jobb oldal) ------------------------------
+  // ---- 20. fázis: Rétegek panel (oldalpanel) ------------------------------
   // A "réteg" fogalma a meglévő `selectedCutout` állapotot használja:
   // -1 = a felület maga aktív, N = az N. kivágás aktív. A vásznon csak az
   // aktív réteg reagál a kattintásra (lásd activeCutoutAt a
   // 08-mouse-interaction.js-ben) — ez oldja fel az átfedő kivágások miatti
   // kattintás-ütközést (Photoshop-szerű réteg-modell, sorrend-átrendezés
   // nélkül).
-  // a jobb oldali (Tulajdonságok) panel húzható szélessége
+  // az oldalpanel (Tulajdonságok) húzható szélessége
   const LAYERS_WIDTH_KEY = "tile-planner-props-width";
   const LAYERS_MIN = 240, LAYERS_MAX = 560;
   // Ideiglenes UI-állapot (nem perzisztens, nem a state része): melyik
@@ -205,8 +205,9 @@
     });
     window.addEventListener("pointermove", (e) => {
       if (!dragging) return;
-      // jobb oldali panel: balra húzva szélesedik, jobbra húzva szűkül
-      const w = Math.max(LAYERS_MIN, Math.min(LAYERS_MAX, startW - (e.clientX - startX)));
+      // jobb oldali panel: balra húzva szélesedik; bal oldali panel: jobbra húzva
+      const dx = document.documentElement.dataset.paneSide === "left" ? startX - e.clientX : e.clientX - startX;
+      const w = Math.max(LAYERS_MIN, Math.min(LAYERS_MAX, startW - dx));
       el.propsPane.style.width = w + "px";
       resizeCanvas();
     });

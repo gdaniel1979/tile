@@ -18,6 +18,10 @@
       try { t = localStorage.getItem("tile-planner-theme") || "system"; } catch (e) {}
       if (t === "system") t = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       document.documentElement.dataset.theme = t;
+      // az oldalpanel helye (bal / jobb) — szintén betöltés előtt, hogy ne ugráljon
+      var side = "left";
+      try { side = localStorage.getItem("tile-planner-pane-side") || "left"; } catch (e) {}
+      document.documentElement.dataset.paneSide = side;
     })();
   </script>
   <link rel="stylesheet" href="css/styles.css" />
@@ -184,7 +188,7 @@
           <div class="rgroup">
             <div class="rgroup-body">
               <button class="rbtn big" id="addTileBtn" title="Új laptípus a könyvtárba (a Tulajdonságok panelen szerkeszthető)"><i class="ic" data-ic="tileadd"></i><span>Új laptípus</span></button>
-              <span class="rnote tall">A laptípusok a jobb oldali <strong>Tulajdonságok</strong> panelen szerkeszthetők.</span>
+              <span class="rnote tall">A laptípusok az oldalpanel <strong>Tulajdonságok</strong> lapján szerkeszthetők.</span>
             </div>
             <div class="rgroup-label">Laptípusok</div>
           </div>
@@ -356,7 +360,7 @@
           <div class="rgroup">
             <div class="rgroup-body">
               <button class="rbtn big" id="qPrint" title="Nyomtatható árajánlat (a böngésző nyomtatási ablakából PDF-be menthető)"><i class="ic" data-ic="quote"></i><span>Árajánlat PDF</span></button>
-              <span class="rnote tall">Megrendelő, munkadíj, tételek: a jobb oldali <strong>Tulajdonságok</strong> panelen.</span>
+              <span class="rnote tall">Megrendelő, munkadíj, tételek: az oldalpanel <strong>Tulajdonságok</strong> lapján.</span>
             </div>
             <div class="rgroup-label">Árajánlat</div>
           </div>
@@ -375,11 +379,22 @@
           <div class="rgroup">
             <div class="rgroup-body">
               <div class="rcol">
-                <label class="rcheck" title="A jobb oldali panel (Tulajdonságok, Projekt és rétegek)"><input type="checkbox" data-pane="right" checked /><span>Oldalpanel</span></label>
+                <label class="rcheck" title="Az oldalpanel (Tulajdonságok, Projekt és rétegek)"><input type="checkbox" data-pane="right" checked /><span>Oldalpanel</span></label>
                 <label class="rcheck"><input type="checkbox" data-pane="hints" checked /><span>Vászon-tippek</span></label>
               </div>
             </div>
             <div class="rgroup-label">Panelek</div>
+          </div>
+          <div class="rgroup">
+            <div class="rgroup-body">
+              <div class="rcol">
+                <div class="segmented" id="paneSideSeg" title="Az oldalpanel helye: a vászon bal vagy jobb oldalán">
+                  <button data-side="left">Bal</button>
+                  <button data-side="right">Jobb</button>
+                </div>
+              </div>
+            </div>
+            <div class="rgroup-label">Oldalpanel helye</div>
           </div>
           <div class="rgroup">
             <div class="rgroup-body">
@@ -452,7 +467,7 @@
       </div>
 
       <div class="sidebar-resizer" id="layersResizer"></div>
-      <!-- Jobb panel: Tulajdonságok (a menüszalag aktív lapjához tartozó részletek) -->
+      <!-- Oldalpanel: Tulajdonságok (a menüszalag aktív lapjához tartozó részletek); bal vagy jobb oldalon (Nézet fül) -->
       <aside class="props-pane pane" id="propsPane">
         <div class="pane-tabs" id="paneTabs" role="tablist">
           <button data-pane-page="props" class="active" role="tab">Tulajdonságok</button>
@@ -661,7 +676,7 @@
       <div class="modal-body">
 
         <h3>A felület</h3>
-        <p>Felül a <strong>menüszalag</strong>: a füleken (Fájl, Rajzolás, Burkolat, Kiosztás, Anyag, Ajánlat, Nézet) csoportokba rendezve minden művelet és beállítás megtalálható; a gombok (és a csoportok) fölé víve az egeret rövid magyarázat jelenik meg. A jobb oldali panel két lapja: a <strong>Tulajdonságok</strong> az aktív menüszalag-fül részleteivel (élek, kivágások, laptípusok, összesítők, ajánlat-adatok — menüszalag-fül váltásakor magától erre vált), és a <strong>Projekt és rétegek</strong> a projektek fájával és az aktív felület rétegeivel. Alul az <strong>állapotsor</strong> mutatja a területet, a kerületet és a szükséges lapszámot. A fülek sorának jobb oldalán: az aktív projekt és felület neve, visszavonás, újra, mentés, a <strong>menüszalag összecsukása</strong> (Ctrl+F1 vagy dupla kattintás egy fülön — összecsukva a fülre kattintva a menüszalag a vászon fölé nyílik, mellé kattintva bezárul), a <strong>teljes vászon</strong> mód (Ctrl+Shift+F — a menüszalag és az oldalpanelek elrejtése), a téma és a súgó. A panelek a Nézet fülön ki-be kapcsolhatók, a szélességük az elválasztó csíkkal húzható; a téma (rendszer / világos / sötét) a Nézet fülön vagy a gyorsgombbal váltható.</p>
+        <p>Felül a <strong>menüszalag</strong>: a füleken (Fájl, Rajzolás, Burkolat, Kiosztás, Anyag, Ajánlat, Nézet) csoportokba rendezve minden művelet és beállítás megtalálható; a gombok (és a csoportok) fölé víve az egeret rövid magyarázat jelenik meg. Az <strong>oldalpanel</strong> (alapból a vászon bal oldalán; a Nézet fülön Bal / Jobb választható) két lapja: a <strong>Tulajdonságok</strong> az aktív menüszalag-fül részleteivel (élek, kivágások, laptípusok, összesítők, ajánlat-adatok — menüszalag-fül váltásakor magától erre vált), és a <strong>Projekt és rétegek</strong> a projektek fájával és az aktív felület rétegeivel. Alul az <strong>állapotsor</strong> mutatja a területet, a kerületet és a szükséges lapszámot. A fülek sorának jobb oldalán: az aktív projekt és felület neve, visszavonás, újra, mentés, a <strong>menüszalag összecsukása</strong> (Ctrl+F1 vagy dupla kattintás egy fülön — összecsukva a fülre kattintva a menüszalag a vászon fölé nyílik, mellé kattintva bezárul), a <strong>teljes vászon</strong> mód (Ctrl+Shift+F — a menüszalag és az oldalpanelek elrejtése), a téma és a súgó. A panelek a Nézet fülön ki-be kapcsolhatók, a szélességük az elválasztó csíkkal húzható; a téma (rendszer / világos / sötét) a Nézet fülön vagy a gyorsgombbal váltható.</p>
 
         <h3>1. Alaprajz és szerkesztés (Rajzolás)</h3>
         <p>Kattints a vászonra a sarokpontok lehelyezéséhez; a kör alakú kezdőpontra kattintva zárhatod a sokszöget. Gyorsabb: <strong>Rajzolás → Téglalap</strong> a megadott méretekkel. A rajzon az élhossz-feliratra kattintva közvetlenül átírhatod az él hosszát; a Tulajdonságok panel <strong>Élek</strong> listájában a hossz, a szög, az él neve és az élvédő is állítható.</p>

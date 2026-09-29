@@ -246,6 +246,8 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.45; }
 .sidebar-resizer::after { content: ""; position: absolute; top: 45%; bottom: 45%; left: 2px; width: 2px; border-radius: 1px; background: var(--border-strong); opacity: 0; transition: opacity 0.15s; }
 .sidebar-resizer:hover::after, .sidebar-resizer.dragging::after { opacity: 1; background: var(--accent); top: 0; bottom: 0; }
 .app.hide-right #propsPane, .app.hide-right #layersResizer { display: none; }
+/* oldalpanel bal oldalon (Nézet fül → Bal / Jobb): a sorrend megfordul */
+html[data-pane-side="left"] .workspace { flex-direction: row-reverse; }
 .app.hide-hints .canvas-help { display: none !important; }
 
 .pane-section { padding: 10px 8px 6px; }
