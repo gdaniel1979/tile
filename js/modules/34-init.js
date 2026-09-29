@@ -29,7 +29,7 @@
     fitView();
     restoreRibbonTab(); // a legutóbb használt menüszalag-fül
     pushHistory(); // kezdő állapot az előzménytárban
-    restoreLinkedHandle(); // ha van csatolt JSON-fájl IDB-ben, visszatöltjük a handle-t
+    await initProjectFiles(); // .lapterv fájlok: Megnyitás / Mentés, fájl-handle-ök visszatöltése
   }
 
   init();

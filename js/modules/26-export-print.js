@@ -328,50 +328,10 @@
       `<div class="cp-cap"><span class="cp-no">${tile.no}. lap</span><br>${cap}</div></div>`;
   }
 
-  const safeFile = (s) => (s || "terv").replace(/[^\w\-]+/g, "_");
-
-  function saveProjectJSON() {
-    const blob = new Blob([JSON.stringify(serializeProject(), null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    triggerDownload(safeFile(project.name) + ".json", url);
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-  }
-
   function saveStoreJSON() {
     const blob = new Blob([JSON.stringify(serializeStore(), null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     triggerDownload("osszes-projekt.json", url);
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-  }
-
-  function loadJSONFile(file) {
-    const r = new FileReader();
-    r.onload = () => {
-      try {
-        const d = JSON.parse(r.result);
-        if (d && Array.isArray(d.projects)) {
-          // teljes tár visszaállítása
-          if (!confirm("Teljes tár betöltése: ez lecseréli a jelenlegi projektjeidet. Folytatod?")) return;
-          store = normalizeStore(d);
-          project = activeProject();
-          loadActiveSurface();
-          refreshAll();
-        } else if (d && Array.isArray(d.surfaces)) {
-          // egyetlen projekt hozzáadása új projektként
-          const p = normalizeProject(d);
-          p.id = newProjectId(); // ütközés elkerülése
-          store.projects.push(p);
-          store.activeProjectId = p.id;
-          project = p;
-          loadActiveSurface();
-          refreshAll();
-        } else {
-          alert("Ismeretlen fájlformátum.");
-        }
-      } catch (e) {
-        alert("Hibás vagy sérült fájl.");
-      }
-    };
-    r.readAsText(file);
   }
 

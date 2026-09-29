@@ -101,6 +101,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .tb-doc .sep { margin: 0 6px; opacity: 0.6; }
 .tb-doc .room { color: var(--text); }
 .tb-doc .surf { color: var(--text); font-weight: 600; }
+.tb-doc .file { color: var(--text); margin-right: 10px; }
+.tb-doc .file[hidden] { display: none; }
+.tree-proj.dirty .tree-name::after { content: " *"; color: var(--accent); font-weight: 600; }
 .tb-quick { flex: 0 0 auto; display: flex; align-items: center; gap: 1px; }
 .tb-div { width: 1px; height: 18px; background: var(--border-strong); margin: 0 4px; }
 #ribbonCollapseBtn .ic-svg { transform: rotate(180deg); transition: transform 0.15s; }

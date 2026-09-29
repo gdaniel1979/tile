@@ -60,8 +60,11 @@ Windows 11 / Office-szerű elrendezés, világos és sötét témával (alapból
 
 ### Mentés és export
 - **Automatikus mentés** a böngésző IndexedDB-jébe; visszavonás / újra (Ctrl+Z, Ctrl+Y).
-- **Csatolt fájl (élő mentés)** – egy JSON-fájl közvetlen felülírása Ctrl+S-sel (Chrome/Edge, HTTPS).
-- **JSON** – egy projekt vagy a teljes tár mentése és betöltése.
+- **Projektfájl (.lapterv)** – mint egy Excel-fájl: 1 fájl = 1 projekt (belül JSON). Megnyitás (Ctrl+O),
+  Mentés (Ctrl+S), Mentés másként (Ctrl+Shift+S); több fájl lehet nyitva, a `*` jelzi a mentetlen változást,
+  bezáráskor figyelmeztet. A telepített appban a .lapterv fájl dupla kattintással is megnyílik.
+  Firefoxban / iPaden a Mentés letöltésként működik.
+- **Biztonsági mentés** – az összes projekt egy JSON-fájlba, és visszaállítás belőle.
 - **PNG** (aktív felület) és **PDF / nyomtatás** (teljes projekt: rajzok, számok, vágási terv, összesítő).
 - **3D nézet** – a helyiség felületei térben, a saját kiosztásukkal; forgatható, nagyítható.
 
@@ -104,4 +107,6 @@ Az ikonok a Microsoft **Fluent UI System Icons** készletből valók (MIT licenc
 
 Minden módosítás automatikusan a böngésző **IndexedDB**-jébe mentődik. A tárolás **origin-alapú** —
 a `http://localhost:8000` és a `https://gdaniel1979.github.io` külön adatkészletet lát. Költözéskor
-használd a Fájl fül „Összes projekt mentése” gombját, majd az új helyen a „Betöltés…” gombot.
+használd a Fájl fül „Összes projekt mentése” gombját, majd az új helyen a „Visszaállítás…” gombot.
+A megnyitott .lapterv fájlok handle-jei (File System Access API) szintén az IndexedDB-ben vannak, így
+újraindítás után is ugyanabba a fájlba ment a Ctrl+S (a böngésző ilyenkor egyszer engedélyt kérhet).

@@ -43,9 +43,3 @@
     if (el.silPriceTube) el.silPriceTube.value = m.silPriceTube || 0;
     if (el.edgingPricePerM) el.edgingPricePerM.value = m.edgingPricePerM || 0;
   }
-
-  // ---- Csatolt JSON-fájl (File System Access API) ---------------------
-  // A felhasználó kiválaszt egy JSON-fájlt (pl. OneDrive-ban), a böngésző
-  // megőriz egy "handle"-t, és a Mentés gomb közvetlenül felülírja a fájlt.
-  // A handle az IDB-ben perzisztálódik, így reload után is megmarad
-  // (engedélyt egyszer újra kérünk).

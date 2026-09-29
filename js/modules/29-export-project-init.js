@@ -2,12 +2,11 @@
   function initExportUI() {
     el.exportPng.addEventListener("click", exportPNG);
     el.exportPdf.addEventListener("click", printPlan);
-    el.saveProjJson.addEventListener("click", saveProjectJSON);
     el.saveStoreJson.addEventListener("click", saveStoreJSON);
     el.loadJsonBtn.addEventListener("click", () => el.loadJsonInput.click());
     el.loadJsonInput.addEventListener("change", () => {
       const f = el.loadJsonInput.files && el.loadJsonInput.files[0];
-      if (f) loadJSONFile(f);
+      if (f) openFileObject(f, null); // biztonsági mentés vagy egy projekt
       el.loadJsonInput.value = "";
     });
     el.projName.addEventListener("change", () => {
@@ -16,15 +15,6 @@
       updateCanvasTitle();
       save();
     });
-    // Csatolt fájl
-    if (!fsaSupported) {
-      if (el.fsaUnsupported) el.fsaUnsupported.hidden = false;
-      if (el.linkJsonBtn) el.linkJsonBtn.disabled = true;
-    }
-    if (el.linkJsonBtn) el.linkJsonBtn.addEventListener("click", linkJsonFile);
-    if (el.unlinkJsonBtn) el.unlinkJsonBtn.addEventListener("click", unlinkJsonFile);
-    if (el.saveLinkedBtn) el.saveLinkedBtn.addEventListener("click", saveToLinkedFile);
-    updateLinkedUI();
   }
 
   function initProjectUI() {

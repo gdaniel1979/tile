@@ -261,9 +261,9 @@
     el.sbWaste.textContent = m ? m.wastePct.toFixed(0) + " %" : "–";
   }
 
-  // Mentés-visszajelzés a Mentés gombon (a csatolt fájlba írás után)
+  // Mentés-visszajelzés a Mentés gombon (a projektfájlba írás után)
   function flashSaved() {
-    const lbl = el.saveLinkedBtn && el.saveLinkedBtn.querySelector(".lbl");
+    const lbl = el.saveFileBtn && el.saveFileBtn.querySelector(".lbl");
     if (!lbl) return;
     lbl.textContent = "Mentve ✓";
     setTimeout(() => { lbl.textContent = "Mentés"; }, 900);

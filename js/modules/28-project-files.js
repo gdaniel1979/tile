@@ -1,0 +1,250 @@
+"use strict";
+  // ---- Projektfájlok (.lapterv): Megnyitás / Mentés / Mentés másként ----------
+  // 1 fájl = 1 projekt (belül JSON), mint egy Excel-munkafüzet. A fájl-handle-öket
+  // (File System Access API) projekt-id szerint IndexedDB-ben tartjuk, így újraindítás
+  // után is ugyanabba a fájlba ment a Ctrl+S. A böngészős tár közben továbbra is
+  // automatikusan ment (munkapéldány); a „*” jelzi, ha a projekt eltér a fájlban
+  // legutóbb mentett változattól. Ahol nincs File System Access (Firefox, Safari/iPad),
+  // a Mentés letöltésként működik, a Megnyitás fájlválasztóval.
+  const FILE_EXT = ".lapterv";
+  const FILE_MIME = "application/x-lapterv+json";
+  const FILES_KEY = "projectFiles";         // fájlnevek + mentett ujjlenyomatok
+  const HANDLES_KEY = "projectFileHandles"; // fájl-handle-ök (külön, ha ezek nem menthetők, a nevek attól még megmaradnak)
+  const fsaSupported = typeof window !== "undefined"
+    && typeof window.showOpenFilePicker === "function"
+    && typeof window.showSaveFilePicker === "function"
+    && window.isSecureContext;
+
+  let fileHandles = {}; // projekt-id -> FileSystemFileHandle
+  let fileMeta = {};    // projekt-id -> { name: fájlnév | null, sig: a legutóbb mentett állapot ujjlenyomata }
+
+  // Ujjlenyomat a „változott-e mentés óta” kérdéshez. A képek (data URL) helyett csak
+  // a hosszuk és a végük számít; az aktív felület (activeIndex) csak nézet, nem változás.
+  // A kulcsokat rendezzük, mert a visszavonás (normalizálás) más sorrendben rakja össze őket.
+  function projectSig(p) {
+    if (p === project) saveActiveSurface();
+    const s = JSON.stringify(p, (k, v) => {
+      if (k === "activeIndex") return undefined;
+      if (typeof v === "string" && v.length > 1024 && v.startsWith("data:")) return "img:" + v.length + ":" + v.slice(-48);
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        const o = {};
+        for (const key of Object.keys(v).sort()) o[key] = v[key];
+        return o;
+      }
+      return v;
+    });
+    let h1 = 0x811c9dc5, h2 = 7;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      h1 = Math.imul(h1 ^ c, 16777619);
+      h2 = (Math.imul(h2, 31) + c) | 0;
+    }
+    return s.length.toString(36) + ":" + (h1 >>> 0).toString(36) + ":" + (h2 >>> 0).toString(36);
+  }
+  function isDirty(p) {
+    const m = fileMeta[p.id];
+    return !!(m && m.sig && m.sig !== projectSig(p));
+  }
+  function fileNameOf(p) { const m = fileMeta[p.id]; return (m && m.name) || null; }
+
+  function persistFiles() {
+    const ids = new Set(store.projects.map((p) => p.id));
+    for (const id of Object.keys(fileMeta)) if (!ids.has(id)) delete fileMeta[id];
+    for (const id of Object.keys(fileHandles)) if (!ids.has(id)) delete fileHandles[id];
+    idbSet(FILES_KEY, fileMeta).catch(() => {});
+    idbSet(HANDLES_KEY, fileHandles).catch(() => {});
+  }
+  function markSaved(p, name) {
+    fileMeta[p.id] = { name: name || fileNameOf(p), sig: projectSig(p) };
+    persistFiles();
+    updateFileStatus();
+  }
+  // új, üres projekt: a további szerkesztés már „mentetlen változás”
+  function trackNewProject(p) {
+    fileMeta[p.id] = { name: null, sig: projectSig(p) };
+    persistFiles();
+  }
+  function forgetProjectFile(id) {
+    delete fileMeta[id]; delete fileHandles[id];
+    persistFiles();
+  }
+
+  // ---- Állapot kijelzése: fájlnév, „*”, ablakcím, projektfa ----------------------
+  let statusTimer = 0;
+  function scheduleFileStatus() {
+    if (statusTimer) return;
+    statusTimer = setTimeout(() => { statusTimer = 0; updateFileStatus(); }, 120);
+  }
+  function updateFileStatus() {
+    if (!store || !project) return;
+    const name = fileNameOf(project);
+    const dirty = isDirty(project);
+    if (el.fileNameNote) el.fileNameNote.textContent = (name || "nincs mentve") + (dirty ? " *" : "");
+    const t = document.getElementById("canvasTitle");
+    if (t) {
+      let f = t.querySelector(".file");
+      if (!f) { f = document.createElement("span"); f.className = "file"; t.prepend(f); }
+      f.textContent = (name || "") + (dirty ? " *" : "");
+      f.title = dirty ? "A legutóbbi mentés óta változott (Ctrl+S: mentés)" : (name ? "Mentve: " + name : "");
+      f.hidden = !name && !dirty;
+    }
+    document.title = (dirty ? "*" : "") + (name || project.name || "Projekt") + " – Lapkiosztás tervező";
+    document.querySelectorAll("#projTree [data-project-id]").forEach((row) => {
+      const p = store.projects.find((x) => x.id === row.dataset.projectId);
+      if (p) row.classList.toggle("dirty", isDirty(p));
+    });
+  }
+
+  // ---- Megnyitás --------------------------------------------------------------------
+  async function openProjectFile() {
+    if (!fsaSupported) { el.openFileInput.click(); return; }
+    let handles;
+    try {
+      handles = await window.showOpenFilePicker({
+        id: "lapterv", multiple: true,
+        types: [{ description: "Lapkiosztás terv", accept: { [FILE_MIME]: [FILE_EXT], "application/json": [".json"] } }],
+      });
+    } catch (e) {
+      if (e && e.name !== "AbortError") alert("A megnyitás nem sikerült: " + (e.message || e));
+      return;
+    }
+    for (const h of handles) await openHandle(h);
+  }
+
+  async function openHandle(handle) {
+    // ha már nyitva van ugyanez a fájl, csak átváltunk rá
+    for (const [id, h] of Object.entries(fileHandles)) {
+      try {
+        if (h && h.isSameEntry && await h.isSameEntry(handle)) {
+          if (store.projects.some((p) => p.id === id)) { switchProject(id); return; }
+        }
+      } catch (_) {}
+    }
+    let file;
+    try { file = await handle.getFile(); } catch (e) { alert("A fájl nem olvasható: " + (e && e.message || e)); return; }
+    await openFileObject(file, handle);
+  }
+
+  async function openFileObject(file, handle) {
+    let d;
+    try { d = JSON.parse(await file.text()); } catch (e) { alert("Hibás vagy sérült fájl: " + file.name); return; }
+    if (d && Array.isArray(d.projects)) { importStoreBackup(d); return; }
+    if (!d || !Array.isArray(d.surfaces)) { alert("Ismeretlen fájlformátum: " + file.name); return; }
+    saveActiveSurface();
+    const p = normalizeProject(d);
+    p.id = newProjectId(); // ütközés elkerülése
+    store.projects.push(p);
+    store.activeProjectId = p.id;
+    expandedProjects.add(p.id);
+    project = p;
+    // csak a .lapterv fájlba mentünk vissza közvetlenül; egy régi .json projekt
+    // megnyitás után még nincs fájlhoz kötve (az első Mentés .lapterv-et kér)
+    const own = file.name.toLowerCase().endsWith(FILE_EXT);
+    if (handle && own) fileHandles[p.id] = handle;
+    loadActiveSurface();
+    refreshAll();
+    markSaved(p, own ? file.name : null);
+  }
+
+  // teljes tár (minden projekt) visszaállítása biztonsági mentésből
+  function importStoreBackup(d) {
+    if (!confirm("Ez egy teljes biztonsági mentés (minden projekt). Betöltés után lecseréli a jelenlegi projekteket. Folytatod?")) return;
+    store = normalizeStore(d);
+    project = activeProject();
+    fileHandles = {}; fileMeta = {};
+    loadActiveSurface();
+    refreshAll();
+    persistFiles();
+    updateFileStatus();
+  }
+
+  // ---- Mentés / Mentés másként ---------------------------------------------------------
+  const suggestedName = (p) => ((p.name || "Projekt").replace(/[\\/:*?"<>|]+/g, "_").trim() || "Projekt") + FILE_EXT;
+
+  async function saveProjectFile(saveAs) {
+    const p = project;
+    const text = JSON.stringify(serializeProject(), null, 2);
+    if (!fsaSupported) {
+      // tartalék: letöltés (a böngésző a Letöltések mappába teszi)
+      const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+      const name = fileNameOf(p) || suggestedName(p);
+      triggerDownload(name, url);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      markSaved(p, name);
+      flashSaved();
+      return;
+    }
+    let h = saveAs ? null : fileHandles[p.id];
+    if (!h) {
+      try {
+        h = await window.showSaveFilePicker({
+          id: "lapterv", suggestedName: fileNameOf(p) || suggestedName(p),
+          types: [{ description: "Lapkiosztás terv", accept: { [FILE_MIME]: [FILE_EXT] } }],
+        });
+      } catch (e) {
+        if (e && e.name !== "AbortError") alert("A mentés nem sikerült: " + (e.message || e));
+        return;
+      }
+    }
+    try {
+      if (!(await ensureRWPermission(h))) { alert("A fájl írásához engedély kell."); return; }
+      const w = await h.createWritable();
+      await w.write(text);
+      await w.close();
+    } catch (e) {
+      alert("A mentés nem sikerült: " + (e && e.message || e));
+      return;
+    }
+    fileHandles[p.id] = h;
+    markSaved(p, h.name);
+    flashSaved();
+  }
+
+  async function ensureRWPermission(handle) {
+    if (!handle || !handle.queryPermission) return true;
+    const opts = { mode: "readwrite" };
+    if ((await handle.queryPermission(opts)) === "granted") return true;
+    return (await handle.requestPermission(opts)) === "granted";
+  }
+
+  // ---- Indítás ----------------------------------------------------------------------------
+  async function initProjectFiles() {
+    try {
+      fileMeta = (await idbGet(FILES_KEY)) || {};
+      if (fsaSupported) fileHandles = (await idbGet(HANDLES_KEY)) || {};
+    } catch (_) {}
+    try { await idbSet("linkedHandle", null); } catch (_) {} // a régi „csatolt tár” megszűnt
+
+    el.openFileBtn.addEventListener("click", openProjectFile);
+    el.saveFileBtn.addEventListener("click", () => saveProjectFile(false));
+    el.saveFileAsBtn.addEventListener("click", () => saveProjectFile(true));
+    el.openFileInput.addEventListener("change", async () => {
+      const files = [...(el.openFileInput.files || [])];
+      el.openFileInput.value = "";
+      for (const f of files) await openFileObject(f, null);
+    });
+    // Ctrl+S / Ctrl+Shift+S / Ctrl+O — beviteli mezőben is (előbb lezárjuk a mezőt,
+    // hogy a beírt érték bekerüljön a mentésbe)
+    window.addEventListener("keydown", (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k !== "s" && k !== "o") return;
+      e.preventDefault();
+      const a = document.activeElement;
+      if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)) a.blur();
+      if (k === "o") openProjectFile();
+      else saveProjectFile(e.shiftKey);
+    });
+    // bezáráskor figyelmeztetés, ha van mentetlen változás (a böngészős tárban
+    // ettől még megmarad, de a fájl nem frissült)
+    window.addEventListener("beforeunload", (e) => {
+      if (store && store.projects.some(isDirty)) { e.preventDefault(); e.returnValue = ""; }
+    });
+    // dupla kattintás egy .lapterv fájlra (telepített app, fájltársítás a manifestben)
+    if ("launchQueue" in window) {
+      window.launchQueue.setConsumer(async (params) => {
+        for (const h of (params && params.files) || []) await openHandle(h);
+      });
+    }
+    updateFileStatus();
+  }

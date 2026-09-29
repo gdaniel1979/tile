@@ -20,6 +20,7 @@
     project = p;
     loadActiveSurface();
     refreshAll();
+    trackNewProject(p);
   }
 
   function renameProjectFn(id) {
@@ -38,7 +39,15 @@
     if (store.projects.length <= 1) { alert("Legalább egy projektnek maradnia kell."); return; }
     const p = store.projects.find((x) => x.id === id);
     if (!p) return;
-    if (!confirm("Töröljük a(z) „" + p.name + "” projektet (minden felületével)?")) return;
+    const fname = fileNameOf(p);
+    const msg = isDirty(p)
+      ? "A(z) „" + p.name + "” projekt a legutóbbi mentés óta változott — bezáráskor a változások elvesznek.\n\nBezárod mentés nélkül?"
+        + (fname ? "" : "\n(A projektnek nincs mentett fájlja, teljesen törlődik.)")
+      : fname
+        ? "Bezárod a(z) „" + p.name + "” projektet? A fájl (" + fname + ") megmarad, a Megnyitással bármikor visszatölthető."
+        : "Bezárod a(z) „" + p.name + "” projektet? Nincs mentett fájlja, így minden felületével együtt törlődik.";
+    if (!confirm(msg)) return;
+    forgetProjectFile(id);
     const wasActive = id === store.activeProjectId;
     store.projects = store.projects.filter((x) => x.id !== id);
     if (wasActive) {

@@ -300,7 +300,6 @@
       const k = e.key.toLowerCase();
       if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); return; }
       if (k === "y" || (k === "z" && e.shiftKey)) { e.preventDefault(); redo(); return; }
-      if (k === "s") { e.preventDefault(); saveToLinkedFile(); return; }
     }
     if (e.key === "Delete" || e.key === "Backspace") {
       if (inField) return; // mezőben gépelünk

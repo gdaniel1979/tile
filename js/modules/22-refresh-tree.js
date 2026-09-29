@@ -29,6 +29,7 @@
     t.innerHTML = pn
       + (rn ? '<span class="sep">—</span><span class="room">' + rn + '</span>' : "")
       + '<span class="sep">—</span><span class="surf">' + sn + '</span>';
+    updateFileStatus(); // fájlnév és „*” a cím elé
   }
 
   // ---- Fa-lista (projektek + felületek) --------------------------------
@@ -121,12 +122,15 @@
       const isActive = p.id === store.activeProjectId;
       const isOpen = expandedProjects.has(p.id);
       const prow = treeRow("tree-proj" + (isActive ? " active" : ""));
+      prow.dataset.projectId = p.id;
       const caret = document.createElement("span");
       caret.className = "caret"; caret.textContent = isOpen ? "▾" : "▸";
       caret.title = isOpen ? "Összecsukás" : "Kinyitás";
       caret.addEventListener("click", (e) => { e.stopPropagation(); toggleProjectExpanded(p.id); });
       const nm = document.createElement("span");
       nm.className = "tree-name"; nm.textContent = p.name;
+      const fname = fileNameOf(p);
+      if (fname) nm.title = "Fájl: " + fname;
       prow.append(caret, nm);
       prow.addEventListener("click", (e) => { if (e.target.closest(".tree-btn")) return; switchProject(p.id); });
       const edit = treeBtn("edit", "", "Projekt átnevezése");
@@ -134,7 +138,7 @@
       const merge = treeBtn("merge", "", "Beolvasztás az aktív projektbe (mint helyiség)");
       merge.disabled = isActive;
       merge.addEventListener("click", (e) => { e.stopPropagation(); mergeProjectIntoActive(p.id); });
-      const del = treeBtn("delete", "del", "Projekt törlése");
+      const del = treeBtn("delete", "del", "Projekt bezárása (a mentett fájl megmarad)");
       del.disabled = store.projects.length <= 1;
       del.addEventListener("click", (e) => { e.stopPropagation(); deleteProjectFn(p.id); });
       prow.append(edit, merge, del);
@@ -229,5 +233,6 @@
         }
       }
     });
+    scheduleFileStatus(); // „*” a mentetlen projekteknél
   }
 

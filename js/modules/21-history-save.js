@@ -55,7 +55,7 @@
         saveFailed = true;
         setTimeout(() => alert(
           "A terv nem mentődött el (IndexedDB hiba): " + (e && e.message || e) + "\n\n" +
-          "Mentsd a projektet fájlba a cím-sori 💾 gomb menüjéből (Összes projekt mentése JSON)."
+          "Mentsd a projektet fájlba (Fájl fül → Mentés, vagy Összes projekt mentése)."
         ), 0);
       }
     });
@@ -79,6 +79,7 @@
       setTimeout(flushToIDB, 60); // ~60 ms throttle, hogy sűrű save-eknél ne fojtsunk meg minden frame-et
     }
     if (!suppressHistory) pushHistoryWith(historySnapshot());
+    scheduleFileStatus(); // „*” = mentetlen változás a projektfájlhoz képest
   }
 
   function restoreSnapshot(snap) {
@@ -133,7 +134,7 @@
       console.error("IndexedDB olvasási hiba:", e);
       alert("A mentett tervek nem olvashatók be (IndexedDB hiba: " + (e && e.message || e) + ").\n\n" +
         "Ebben a munkamenetben az automatikus mentés KI VAN KAPCSOLVA, hogy a meglévő adat ne íródjon felül. " +
-        "Próbáld újratölteni az oldalt; a munkádat a 💾 menüből JSON-fájlba mentheted.");
+        "Próbáld újratölteni az oldalt; a munkádat a Fájl fülön menthetsz fájlba.");
     }
     if (raw) {
       try { store = normalizeStore(JSON.parse(raw)); return; } catch (e) {
