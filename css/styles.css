@@ -551,3 +551,31 @@ html[data-pane-side="left"] .workspace { flex-direction: row-reverse; }
   #printArea .qt-sign { display: flex; justify-content: space-between; margin-top: 48px; text-align: center; }
   #printArea .qt-sign div { width: 40%; }
 }
+
+/* ===== Lenyíló menü (Legutóbbi fájlok) ===== */
+.menu-pop {
+  position: fixed; z-index: 60; min-width: 300px; max-width: min(460px, calc(100vw - 16px)); max-height: 60vh; overflow-y: auto;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 4px;
+}
+.menu-item { display: flex; align-items: center; gap: 6px; border-radius: 4px; }
+.menu-item:hover { background: var(--hover); }
+.menu-item .mi-main { flex: 1; min-width: 0; text-align: left; background: transparent; border: none; padding: 6px 8px; cursor: pointer; color: var(--text); }
+.menu-item .mi-name { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-item .mi-sub { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-item .mi-del { background: transparent; border: none; cursor: pointer; color: var(--muted); padding: 4px 8px; border-radius: 4px; font-size: 13px; }
+.menu-item .mi-del .ic-svg { width: 14px; height: 14px; display: block; fill: currentColor; }
+.menu-item .mi-del:hover { color: var(--text); background: var(--border); }
+.menu-empty { padding: 10px; font-size: 12px; color: var(--muted); }
+.menu-foot { border-top: 1px solid var(--border); margin-top: 4px; padding: 4px; text-align: right; }
+.menu-foot button { background: transparent; border: none; cursor: pointer; font-size: 12px; color: var(--muted); padding: 4px 8px; border-radius: 4px; }
+.menu-foot button:hover { color: var(--text); background: var(--hover); }
+
+/* ===== Új verzió sáv ===== */
+.update-bar {
+  position: fixed; z-index: 70; left: 50%; bottom: 34px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 14px; font-size: 13px;
+  background: var(--card); color: var(--text); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: var(--radius); box-shadow: var(--shadow); max-width: calc(100vw - 16px);
+}
+.update-bar[hidden] { display: none; }
+@media print { .menu-pop, .update-bar { display: none !important; } }

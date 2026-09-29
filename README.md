@@ -12,7 +12,8 @@ Tiszta **HTML + CSS + vanilla JavaScript** (HTML5 Canvas), build-lépés és fut
 **<https://gdaniel1979.github.io/tile/>**
 
 Telepíthető alkalmazásként is (PWA): Chrome/Edge-ben a Fájl fül **Telepítés** gombjával, tableten/telefonon
-„Hozzáadás a kezdőképernyőhöz”. Egyszeri online megnyitás után internet nélkül is működik.
+„Hozzáadás a kezdőképernyőhöz”. Egyszeri online megnyitás után internet nélkül is működik. Ha az app
+megnyitása óta új verzió jelent meg, alul „Új verzió érhető el — Frissítés” sáv jelzi.
 
 ## Felület
 
@@ -63,7 +64,7 @@ Windows 11 / Office-szerű elrendezés, világos és sötét témával (alapból
 - **Projektfájl (.lapterv)** – mint egy Excel-fájl: 1 fájl = 1 projekt (belül JSON). Megnyitás (Ctrl+O),
   Mentés (Ctrl+S), Mentés másként (Ctrl+Shift+S); több fájl lehet nyitva, a `*` jelzi a mentetlen változást,
   bezáráskor figyelmeztet. A telepített appban a .lapterv fájl dupla kattintással is megnyílik.
-  Firefoxban / iPaden a Mentés letöltésként működik.
+  Legutóbbi fájlok listája (10 db). Firefoxban / iPaden a Mentés letöltésként működik.
 - **Biztonsági mentés** – az összes projekt egy JSON-fájlba, és visszaállítás belőle.
 - **PNG** (aktív felület) és **PDF / nyomtatás** (teljes projekt: rajzok, számok, vágási terv, összesítő).
 - **3D nézet** – a helyiség felületei térben, a saját kiosztásukkal; forgatható, nagyítható.

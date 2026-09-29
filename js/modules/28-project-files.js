@@ -15,6 +15,10 @@
     && typeof window.showSaveFilePicker === "function"
     && window.isSecureContext;
 
+  const RECENT_KEY = "recentFiles";
+  const RECENT_MAX = 10;
+  let recentFiles = []; // [{ name, projectName, time, handle }] — legfrissebb elöl
+  let skipUnloadWarning = false; // frissítéskor (új verzió) ne kérdezzen: a munka a böngészőben megmarad
   let fileHandles = {}; // projekt-id -> FileSystemFileHandle
   let fileMeta = {};    // projekt-id -> { name: fájlnév | null, sig: a legutóbb mentett állapot ujjlenyomata }
 
@@ -116,13 +120,23 @@
     for (const [id, h] of Object.entries(fileHandles)) {
       try {
         if (h && h.isSameEntry && await h.isSameEntry(handle)) {
-          if (store.projects.some((p) => p.id === id)) { switchProject(id); return; }
+          if (store.projects.some((p) => p.id === id)) { switchProject(id); return true; }
         }
       } catch (_) {}
     }
     let file;
-    try { file = await handle.getFile(); } catch (e) { alert("A fájl nem olvasható: " + (e && e.message || e)); return; }
+    try {
+      if (!(await ensurePermission(handle, "read"))) { alert("A fájl olvasásához engedély kell."); return false; }
+      file = await handle.getFile();
+    } catch (e) {
+      if (e && e.name === "NotFoundError") {
+        alert("A fájl nem található (áthelyezték, átnevezték vagy törölték): " + handle.name + "\n\nKivettem a legutóbbi fájlok listájából.");
+        await removeRecent(handle);
+      } else alert("A fájl nem olvasható: " + (e && e.message || e));
+      return false;
+    }
     await openFileObject(file, handle);
+    return true;
   }
 
   async function openFileObject(file, handle) {
@@ -144,6 +158,7 @@
     loadActiveSurface();
     refreshAll();
     markSaved(p, own ? file.name : null);
+    if (handle && own) addRecent(handle, p);
   }
 
   // teljes tár (minden projekt) visszaállítása biztonsági mentésből
@@ -197,14 +212,115 @@
     }
     fileHandles[p.id] = h;
     markSaved(p, h.name);
+    addRecent(h, p);
     flashSaved();
   }
 
-  async function ensureRWPermission(handle) {
+  async function ensureRWPermission(handle) { return ensurePermission(handle, "readwrite"); }
+  async function ensurePermission(handle, mode) {
     if (!handle || !handle.queryPermission) return true;
-    const opts = { mode: "readwrite" };
+    const opts = { mode };
     if ((await handle.queryPermission(opts)) === "granted") return true;
     return (await handle.requestPermission(opts)) === "granted";
+  }
+
+  // ---- Legutóbbi fájlok (Fájl fül → Legutóbbi ▾) ----------------------------------------
+  // Csak File System Access mellett van értelme (a fájl-handle-lel nyitható meg újra).
+  async function findRecent(handle) {
+    for (let i = 0; i < recentFiles.length; i++) {
+      const h = recentFiles[i].handle;
+      try { if (h === handle || (h && h.isSameEntry && await h.isSameEntry(handle))) return i; } catch (_) {}
+    }
+    return -1;
+  }
+  function persistRecent() { idbSet(RECENT_KEY, recentFiles).catch(() => {}); }
+  async function addRecent(handle, p) {
+    const i = await findRecent(handle);
+    if (i >= 0) recentFiles.splice(i, 1);
+    recentFiles.unshift({ name: handle.name, projectName: p ? p.name : "", time: Date.now(), handle });
+    recentFiles.length = Math.min(recentFiles.length, RECENT_MAX);
+    persistRecent();
+  }
+  async function removeRecent(handle) {
+    const i = await findRecent(handle);
+    if (i >= 0) { recentFiles.splice(i, 1); persistRecent(); }
+  }
+
+  function fmtRecentTime(t) {
+    const d = new Date(t), now = new Date();
+    const hm = d.toLocaleTimeString("hu-HU", { hour: "2-digit", minute: "2-digit" });
+    if (d.toDateString() === now.toDateString()) return "ma " + hm;
+    const y = new Date(now); y.setDate(now.getDate() - 1);
+    if (d.toDateString() === y.toDateString()) return "tegnap " + hm;
+    return d.toLocaleDateString("hu-HU") + " " + hm;
+  }
+  function closeRecentMenu() {
+    el.recentFilesMenu.hidden = true;
+    el.recentFilesBtn.setAttribute("aria-expanded", "false");
+  }
+  function renderRecentMenu() {
+    const m = el.recentFilesMenu;
+    m.innerHTML = "";
+    if (!recentFiles.length) {
+      const e = document.createElement("div");
+      e.className = "menu-empty";
+      e.textContent = "Még nincs legutóbbi fájl. A megnyitott és mentett .lapterv fájlok itt jelennek meg.";
+      m.appendChild(e);
+      return;
+    }
+    recentFiles.forEach((r) => {
+      const row = document.createElement("div");
+      row.className = "menu-item";
+      const main = document.createElement("button");
+      main.className = "mi-main"; main.setAttribute("role", "menuitem");
+      main.title = "Megnyitás: " + r.name;
+      const nm = document.createElement("span"); nm.className = "mi-name"; nm.textContent = r.name;
+      const sub = document.createElement("span"); sub.className = "mi-sub";
+      sub.textContent = (r.projectName ? r.projectName + " · " : "") + fmtRecentTime(r.time);
+      main.append(nm, sub);
+      main.addEventListener("click", async () => {
+        closeRecentMenu();
+        if (await openHandle(r.handle)) {
+          await addRecent(r.handle, project); // a lista elejére
+        }
+      });
+      const del = document.createElement("button");
+      del.className = "mi-del"; del.innerHTML = iconSvg("dismiss"); del.title = "Eltávolítás a listából (a fájl megmarad)";
+      del.setAttribute("aria-label", del.title);
+      del.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await removeRecent(r.handle);
+        renderRecentMenu();
+      });
+      row.append(main, del);
+      m.appendChild(row);
+    });
+    const foot = document.createElement("div");
+    foot.className = "menu-foot";
+    const clr = document.createElement("button");
+    clr.textContent = "Lista törlése";
+    clr.addEventListener("click", () => { recentFiles = []; persistRecent(); renderRecentMenu(); });
+    foot.appendChild(clr);
+    m.appendChild(foot);
+  }
+  function toggleRecentMenu() {
+    if (!el.recentFilesMenu.hidden) { closeRecentMenu(); return; }
+    renderRecentMenu();
+    const r = el.recentFilesBtn.getBoundingClientRect();
+    const m = el.recentFilesMenu;
+    m.hidden = false;
+    m.style.top = Math.round(r.bottom + 4) + "px";
+    m.style.left = Math.round(Math.max(8, Math.min(r.left, window.innerWidth - m.offsetWidth - 8))) + "px";
+    el.recentFilesBtn.setAttribute("aria-expanded", "true");
+  }
+  function initRecentMenu() {
+    if (!fsaSupported) { el.recentFilesBtn.hidden = true; return; }
+    el.recentFilesBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleRecentMenu(); });
+    document.addEventListener("pointerdown", (e) => {
+      if (!el.recentFilesMenu.hidden && !el.recentFilesMenu.contains(e.target) && !el.recentFilesBtn.contains(e.target)) closeRecentMenu();
+    });
+    window.addEventListener("keydown", (e) => { if (e.key === "Escape" && !el.recentFilesMenu.hidden) closeRecentMenu(); });
+    window.addEventListener("resize", closeRecentMenu);
   }
 
   // ---- Indítás ----------------------------------------------------------------------------
@@ -212,7 +328,9 @@
     try {
       fileMeta = (await idbGet(FILES_KEY)) || {};
       if (fsaSupported) fileHandles = (await idbGet(HANDLES_KEY)) || {};
+      if (fsaSupported) recentFiles = ((await idbGet(RECENT_KEY)) || []).filter((r) => r && r.handle);
     } catch (_) {}
+    initRecentMenu();
     try { await idbSet("linkedHandle", null); } catch (_) {} // a régi „csatolt tár” megszűnt
 
     el.openFileBtn.addEventListener("click", openProjectFile);
@@ -238,7 +356,7 @@
     // bezáráskor figyelmeztetés, ha van mentetlen változás (a böngészős tárban
     // ettől még megmarad, de a fájl nem frissült)
     window.addEventListener("beforeunload", (e) => {
-      if (store && store.projects.some(isDirty)) { e.preventDefault(); e.returnValue = ""; }
+      if (!skipUnloadWarning && store && store.projects.some(isDirty)) { e.preventDefault(); e.returnValue = ""; }
     });
     // dupla kattintás egy .lapterv fájlra (telepített app, fájltársítás a manifestben)
     if ("launchQueue" in window) {

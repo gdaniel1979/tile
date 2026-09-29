@@ -70,6 +70,7 @@
           <div class="rgroup">
             <div class="rgroup-body">
               <button class="rbtn big" id="openFileBtn" title="Projektfájl (.lapterv) megnyitása (Ctrl+O)"><i class="ic" data-ic="open"></i><span>Megnyitás</span></button>
+              <button class="rbtn big" id="recentFilesBtn" title="Legutóbb megnyitott vagy mentett fájlok" aria-haspopup="menu" aria-expanded="false"><i class="ic" data-ic="open"></i><span>Legutóbbi ▾</span></button>
               <button class="rbtn big" id="saveFileBtn" title="Mentés a projekt fájljába (Ctrl+S); ha még nincs fájlja, rákérdez a helyére"><i class="ic" data-ic="save"></i><span class="lbl">Mentés</span></button>
               <div class="rcol">
                 <button class="rbtn" id="saveFileAsBtn" title="Mentés új néven vagy más helyre (Ctrl+Shift+S)"><i class="ic" data-ic="save"></i><span>Mentés másként…</span></button>
@@ -698,9 +699,10 @@
         <p>Az oldalpanel <strong>Projekt és rétegek</strong> lapján lévő fában projektek, helyiségek és felületek; a sor gombjaival átnevezhetők, törölhetők. <strong>Projektek beolvasztása:</strong> egy nem-aktív projekt ⇒ gombjával az egész projekt beolvasztható az aktívba, mint egy 🏠 helyiség-csoport. <strong>Rétegek:</strong> kattints egy rétegre — csak az szerkeszthető a vásznon. 2+ kivágás a négyzetekkel csoportba foglalható; kijelölt csoportnál a Delete az egész csoportot törli (Ctrl+Z-vel visszavonható), egy-egy darabot a kivágás-lista ✕ gombjával törölhetsz.</p>
 
         <h3>8. Mentés és export (Fájl)</h3>
-        <p><strong>Projektfájl (.lapterv), mint egy Excel-fájl:</strong> egy fájl = egy projekt. <strong>Megnyitás</strong> (Ctrl+O), <strong>Mentés</strong> (Ctrl+S — ha a projektnek még nincs fájlja, megkérdezi a helyét és a nevét), <strong>Mentés másként…</strong> (Ctrl+Shift+S). Több fájl is lehet nyitva egyszerre: mindegyik projektként jelenik meg a Projekt és rétegek fában, és mindegyik a saját fájljába ment. A fájl neve a fülek sorában látszik; a <strong>*</strong> jelzi, ha a projekt a legutóbbi mentés óta változott (a fában is). A fa kuka-gombja <strong>bezárja</strong> a projektet — a mentett fájl megmarad; mentetlen változásnál figyelmeztet, ahogy az ablak bezárásakor is. A telepített alkalmazásban a .lapterv fájlok dupla kattintással is megnyílnak (az első alkalommal a Windows rákérdezhet). A fájlok belül JSON-ok; régi .json projektfájlok is megnyithatók (az első Mentés .lapterv-ként menti őket).</p>
+        <p><strong>Projektfájl (.lapterv), mint egy Excel-fájl:</strong> egy fájl = egy projekt. <strong>Megnyitás</strong> (Ctrl+O), <strong>Mentés</strong> (Ctrl+S — ha a projektnek még nincs fájlja, megkérdezi a helyét és a nevét), <strong>Mentés másként…</strong> (Ctrl+Shift+S). Több fájl is lehet nyitva egyszerre: mindegyik projektként jelenik meg a Projekt és rétegek fában, és mindegyik a saját fájljába ment. A fájl neve a fülek sorában látszik; a <strong>*</strong> jelzi, ha a projekt a legutóbbi mentés óta változott (a fában is). A fa kuka-gombja <strong>bezárja</strong> a projektet — a mentett fájl megmarad; mentetlen változásnál figyelmeztet, ahogy az ablak bezárásakor is. A telepített alkalmazásban a .lapterv fájlok dupla kattintással is megnyílnak (az első alkalommal a Windows rákérdezhet). A fájlok belül JSON-ok; régi .json projektfájlok is megnyithatók (az első Mentés .lapterv-ként menti őket). A <strong>Legutóbbi ▾</strong> gomb a legutóbb megnyitott vagy mentett 10 fájlt mutatja — kattintásra megnyílik (a böngésző először engedélyt kérhet); az ✕ csak a listából veszi ki, a fájl megmarad. Ha egy fájlt azóta áthelyeztek vagy töröltek, szól, és kiveszi a listából.</p>
         <p>Közben a munka a böngészőbe is automatikusan mentődik, így újraindításkor minden nyitott projekt visszajön. <strong>Biztonsági mentés:</strong> az „Összes projekt mentése” minden projektet egyetlen fájlba ment, a „Visszaállítás…” ezt tölti vissza (vagy egy projektet ad hozzá). Firefoxban és iPaden a Mentés letöltésként működik (a Letöltések mappába).</p>
         <p><strong>PDF terv:</strong> az egész projekt, felületenként rajz, számok és <strong>vágási terv</strong> + összesítő. A vágási tervben laponként egy ábra mutatja, melyik darab hol jön ki a lapból: a szaggatott keret felhasználható maradék, a vonalkázás hulladék, a ↻ jel 90°-os forgatást jelent, a vastag kék oldal gyári él (a szomszédos lap felé kerül). Átlós és 45°-os halszálka mintánál a ferdén vágott darabok valódi alakjukkal szerepelnek és párba állnak (pl. két fél-háromszög egy lapból). A terv lapjainak száma + az egész lapok = a „Szükséges lap”; különböző laptípusok maradéka nem cserélhető. <strong>PNG kép:</strong> az aktív felület rajza.</p>
+        <p><strong>Új verzió:</strong> ha az app megnyitása óta frissült (15 percenként és az ablakba visszatérve ellenőrzi), alul megjelenik az „Új verzió érhető el” sáv. A <strong>Frissítés</strong> újratölti az appot — a munka megmarad (a böngészőbe mentődik, a mentetlen projektfájlok „*” jelzése is); a Később elrejti a sávot.</p>
         <p><strong>Telepítés alkalmazásként (offline is):</strong> Chrome/Edge alatt a Fájl fülön megjelenik a <strong>Telepítés</strong> gomb (vagy a címsor telepítés-ikonja); tableten/telefonon a böngésző menüjében „Hozzáadás a kezdőképernyőhöz”. Ezután saját ikonnal, külön ablakban indul, és egyszeri online megnyitás után <strong>internet nélkül is működik</strong>. Online indításkor mindig a legfrissebb verziót tölti be. A projektek ugyanabban a böngésző-tárban vannak, mint a weboldalas változatnál.</p>
 
         <h3>9. Vászon-vezérlés</h3>
@@ -710,6 +712,15 @@
 
       </div>
     </div>
+  </div>
+
+  <!-- Legutóbbi fájlok lenyíló menüje (a Fájl fül „Legutóbbi” gombjához igazítva) -->
+  <div class="menu-pop" id="recentFilesMenu" role="menu" hidden></div>
+  <!-- Új verzió jelzése -->
+  <div class="update-bar" id="updateBar" role="status" hidden>
+    <span>Új verzió érhető el.</span>
+    <button class="btn btn-secondary" id="updateReloadBtn">Frissítés</button>
+    <button class="btn btn-ghost" id="updateLaterBtn">Később</button>
   </div>
 
   <script src="js/modules/00-icons.js"></script>
