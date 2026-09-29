@@ -58,8 +58,9 @@
     idbSet(FILES_KEY, fileMeta).catch(() => {});
     idbSet(HANDLES_KEY, fileHandles).catch(() => {});
   }
-  function markSaved(p, name) {
-    fileMeta[p.id] = { name: name || fileNameOf(p), sig: projectSig(p) };
+  // savedAt: a fájl utolsó mentésének ideje (megnyitáskor a fájl módosítási ideje)
+  function markSaved(p, name, savedAt) {
+    fileMeta[p.id] = { name: name || fileNameOf(p), sig: projectSig(p), savedAt: savedAt || Date.now() };
     persistFiles();
     updateFileStatus();
   }
@@ -81,6 +82,7 @@
   }
   function updateFileStatus() {
     if (!store || !project) return;
+    if (activeRibbonTab() === "file") renderFileInfo();
     const name = fileNameOf(project);
     const dirty = isDirty(project);
     if (el.fileNameNote) el.fileNameNote.textContent = (name || "nincs mentve") + (dirty ? " *" : "");
@@ -157,7 +159,7 @@
     if (handle && own) fileHandles[p.id] = handle;
     loadActiveSurface();
     refreshAll();
-    markSaved(p, own ? file.name : null);
+    markSaved(p, own ? file.name : null, file.lastModified);
     if (handle && own) addRecent(handle, p);
   }
 
@@ -224,6 +226,43 @@
     return (await handle.requestPermission(opts)) === "granted";
   }
 
+  // ---- Fájl fül → Tulajdonságok: a projekt adatai --------------------------------------------
+  function infoRows(rows) {
+    return rows.map(([k, v, cls]) => "<span>" + escapeHtml(k) + "</span><span" + (cls ? ' class="' + cls + '"' : "") + ">" + escapeHtml(String(v)) + "</span>").join("");
+  }
+  function renderFileInfo() {
+    const info = document.getElementById("fileInfo");
+    if (!info || !store || !project || activeRibbonTab() !== "file") return;
+    const m = fileMeta[project.id];
+    const name = fileNameOf(project);
+    const dirty = isDirty(project);
+    const unsaved = store.projects.filter(isDirty).length;
+    const rows = [
+      ["Projekt neve", project.name || "Projekt"],
+      ["Fájl", name || "nincs (Ctrl+S: mentés fájlba)"],
+      ["Állapot", dirty ? "mentetlen változás *" : name ? "mentve" : "csak a böngészőben", dirty ? "dirty" : ""],
+    ];
+    if (name && m && m.savedAt) rows.push(["Utolsó mentés", fmtRecentTime(m.savedAt)]);
+    rows.push(["Nyitott projektek", store.projects.length + (unsaved ? " (" + unsaved + " mentetlen)" : "")]);
+    info.innerHTML = infoRows(rows);
+
+    const surfs = project.surfaces || [];
+    const rooms = new Set(surfs.map((x) => x.roomName).filter(Boolean));
+    const floors = surfs.filter((x) => x.mode === "floor").length;
+    const t = computeProjectTileNumbers(project);
+    document.getElementById("fileStats").innerHTML = infoRows([
+      ["Helyiségek", rooms.size || "—"],
+      ["Felületek", surfs.length + " (" + floors + " padló, " + (surfs.length - floors) + " fal)"],
+      ["Burkolt terület", t.area > 0 ? (t.area / 1e6).toFixed(2) + " m²" : "—"],
+      ["Szükséges lap", t.needed > 0 ? t.needed + " db" : "—"],
+      ["Laptípusok", (project.tileTypes || []).length + " db"],
+    ]);
+
+    const rp = document.getElementById("fileRecentPanel");
+    if (rp) rp.hidden = !fsaSupported;
+    if (fsaSupported) renderRecentList(document.getElementById("fileRecent"), false);
+  }
+
   // ---- Legutóbbi fájlok (Fájl fül → Legutóbbi ▾) ----------------------------------------
   // Csak File System Access mellett van értelme (a fájl-handle-lel nyitható meg újra).
   async function findRecent(handle) {
@@ -233,7 +272,11 @@
     }
     return -1;
   }
-  function persistRecent() { idbSet(RECENT_KEY, recentFiles).catch(() => {}); }
+  function persistRecent() {
+    idbSet(RECENT_KEY, recentFiles).catch(() => {});
+    if (!el.recentFilesMenu.hidden) renderRecentMenu();
+    renderFileInfo();
+  }
   async function addRecent(handle, p) {
     const i = await findRecent(handle);
     if (i >= 0) recentFiles.splice(i, 1);
@@ -258,8 +301,8 @@
     el.recentFilesMenu.hidden = true;
     el.recentFilesBtn.setAttribute("aria-expanded", "false");
   }
-  function renderRecentMenu() {
-    const m = el.recentFilesMenu;
+  // a lista kirajzolása: a lenyíló menübe és a Fájl fül Tulajdonságok-paneljére is
+  function renderRecentList(m, withFooter) {
     m.innerHTML = "";
     if (!recentFiles.length) {
       const e = document.createElement("div");
@@ -290,19 +333,21 @@
       del.addEventListener("click", async (e) => {
         e.stopPropagation();
         await removeRecent(r.handle);
-        renderRecentMenu();
       });
       row.append(main, del);
       m.appendChild(row);
     });
+    if (!withFooter) return;
     const foot = document.createElement("div");
     foot.className = "menu-foot";
     const clr = document.createElement("button");
     clr.textContent = "Lista törlése";
-    clr.addEventListener("click", () => { recentFiles = []; persistRecent(); renderRecentMenu(); });
+    clr.addEventListener("click", () => { recentFiles = []; persistRecent(); });
     foot.appendChild(clr);
     m.appendChild(foot);
   }
+  function renderRecentMenu() { renderRecentList(el.recentFilesMenu, true); }
+
   function toggleRecentMenu() {
     if (!el.recentFilesMenu.hidden) { closeRecentMenu(); return; }
     renderRecentMenu();

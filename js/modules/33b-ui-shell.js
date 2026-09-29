@@ -10,6 +10,8 @@
   const RIBBON_KEY = "tile-planner-ribbon-tab";
   const COLLAPSE_KEY = "tile-planner-ribbon-collapsed";
   const PROPS_TITLES = {
+    file: "Projekt adatai",
+    view: "Nézet",
     plan: "Alaprajz",
     tiles: "Burkolat",
     layout: "Kiosztás",
@@ -88,10 +90,11 @@
       b.setAttribute("aria-selected", on ? "true" : "false");
     });
     document.querySelectorAll("[data-rtab]").forEach((p) => { p.hidden = p.dataset.rtab !== tab; });
-    // a Fájl és a Nézet fülnek nincs saját Tulajdonságok-tartalma: az előző marad
     if (PROPS_TITLES[tab]) showProps(tab);
-    // az Anyag / Ajánlat minden felület friss számaival
-    if (tab === "material" || tab === "quote") recomputeAllSurfacesMaterial();
+    // az Anyag / Ajánlat / Fájl (projekt adatai) minden felület friss számaival
+    if (tab === "material" || tab === "quote" || tab === "file") recomputeAllSurfacesMaterial();
+    if (tab === "file") renderFileInfo();
+    if (tab === "view") renderViewInfo();
     if (tab === "quote") syncQuoteUI();
     try { localStorage.setItem(RIBBON_KEY, tab); } catch (_) {}
   }
@@ -100,6 +103,29 @@
     let t = "plan";
     try { t = localStorage.getItem(RIBBON_KEY) || "plan"; } catch (_) {}
     selectRibbonTab(t);
+  }
+
+  function activeRibbonTab() {
+    const b = el.tabs && el.tabs.querySelector("button.active");
+    return b ? b.dataset.tab : "";
+  }
+
+  // Nézet fül → Tulajdonságok: az aktuális nézet adatai
+  function renderViewInfo() {
+    const box = document.getElementById("viewInfo");
+    if (!box || !state || !state.view) return;
+    const is3d = el.board3d && el.board3d.style.display !== "none" && el.board3d.style.display !== "";
+    const grid = state.gridMm >= 10 && state.unit === "cm" ? (state.gridMm / 10) + " cm" : state.gridMm + " mm";
+    const rows = [
+      ["Nézet", is3d ? "3D" : "2D alaprajz"],
+      ["Méretarány", "M 1:" + Math.max(1, Math.round(PX_PER_MM_96DPI / state.view.scale)) + " (képernyőn)"],
+      ["Mértékegység", state.unit],
+      ["Rács", grid],
+      ["Rácshoz illesztés", state.snap ? "be" : "ki"],
+      ["Derékszög (ortho)", state.ortho ? "be" : "ki"],
+      ["Tulajdonságok helye", document.documentElement.dataset.paneSide === "right" ? "jobb oldalt" : "bal oldalt"],
+    ];
+    box.innerHTML = rows.map(([k, v]) => "<span>" + escapeHtml(k) + "</span><span>" + escapeHtml(String(v)) + "</span>").join("");
   }
 
   function showProps(tab) {
@@ -237,6 +263,7 @@
     el.sbUnit.textContent = state.unit;
     // méretarány a képernyőn (96 dpi): pl. „M 1:50”
     el.sbZoom.textContent = "M 1:" + Math.max(1, Math.round(PX_PER_MM_96DPI / state.view.scale));
+    if (activeRibbonTab() === "view") renderViewInfo();
     const m = materialNumbers();
     el.sbTiles.textContent = m ? m.tilesNeeded + " db (tartalékkal " + m.finalTiles + ")" : "–";
     el.sbWaste.textContent = m ? m.wastePct.toFixed(0) + " %" : "–";

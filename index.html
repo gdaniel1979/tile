@@ -484,6 +484,66 @@
       <aside class="props-pane pane" id="propsPane">
         <div class="pane-title" id="propsTitle">Tulajdonságok</div>
 
+        <!-- Fájl: a projekt adatai (mint az Office „Információ” lapja) -->
+        <div class="tab-panel" data-tabpanel="file" hidden>
+          <section class="panel">
+            <h2>Projekt</h2>
+            <div class="info-grid" id="fileInfo"></div>
+          </section>
+          <section class="panel">
+            <h2>Tartalom</h2>
+            <div class="info-grid" id="fileStats"></div>
+            <p class="hint">A lapszükséglet a felületek legutóbbi kiosztásából számolva (tartalék nélkül).</p>
+          </section>
+          <section class="panel" id="fileRecentPanel">
+            <h2>Legutóbbi fájlok</h2>
+            <div class="recent-list" id="fileRecent"></div>
+          </section>
+        </div>
+
+        <!-- Nézet: a nézet adatai + vezérlés összefoglalója -->
+        <div class="tab-panel" data-tabpanel="view" hidden>
+          <section class="panel">
+            <h2>Aktuális nézet</h2>
+            <div class="info-grid" id="viewInfo"></div>
+          </section>
+          <section class="panel">
+            <h2>Egér (2D)</h2>
+            <div class="info-grid keys">
+              <span>Görgő</span><span>nagyítás</span>
+              <span>Jobb gomb + húzás</span><span>nézet mozgatása</span>
+              <span>Kattintás</span><span>új pont / kijelölés</span>
+              <span>Pont, él húzása</span><span>áthelyezés</span>
+              <span>Méretfelirat</span><span>kattintva átírható</span>
+              <span>Dupla katt. pontra</span><span>pont törlése</span>
+              <span>Dupla katt. élre</span><span>új pont az élen</span>
+            </div>
+          </section>
+          <section class="panel">
+            <h2>Billentyűzet</h2>
+            <div class="info-grid keys">
+              <span>Ctrl+Z / Ctrl+Y</span><span>visszavonás / újra</span>
+              <span>Delete</span><span>kijelölt pont vagy kivágás törlése</span>
+              <span>Esc</span><span>kijelölés megszüntetése</span>
+              <span>Ctrl+S</span><span>mentés</span>
+              <span>Ctrl+Shift+S</span><span>mentés másként</span>
+              <span>Ctrl+O</span><span>megnyitás</span>
+              <span>Ctrl+F1</span><span>menüszalag összecsukása</span>
+              <span>Ctrl+Shift+F</span><span>teljes vászon</span>
+            </div>
+          </section>
+          <section class="panel">
+            <h2>Érintőképernyő és 3D</h2>
+            <div class="info-grid keys">
+              <span>Koppintás</span><span>kattintás</span>
+              <span>Egy ujj húzása</span><span>pont/él mozgatása, üres helyen a nézet</span>
+              <span>Két ujj</span><span>nagyítás és mozgatás</span>
+              <span>3D: húzás</span><span>forgatás</span>
+              <span>3D: jobb gomb / Shift</span><span>mozgatás</span>
+            </div>
+          </section>
+        </div>
+
         <!-- Rajzolás -->
         <div class="tab-panel" data-tabpanel="plan">
           <section class="panel">
@@ -668,7 +728,7 @@
       <div class="modal-body">
 
         <h3>A felület</h3>
-        <p>Felül a <strong>menüszalag</strong>: a füleken (Fájl, Rajzolás, Burkolat, Kiosztás, Anyag, Ajánlat, Nézet) csoportokba rendezve minden művelet és beállítás megtalálható; a gombok (és a csoportok) fölé víve az egeret rövid magyarázat jelenik meg. A vászon két oldalán egy-egy panel: a <strong>Tulajdonságok</strong> mindig az aktív menüszalag-fül részleteit mutatja (élek, kivágások, laptípusok, összesítők, ajánlat-adatok), a szemközti <strong>Projektek és rétegek</strong> panel a projektek fáját és az aktív felület rétegeit. Alapból a Tulajdonságok van bal oldalt; a Nézet fülön (Tulajdonságok helye: Bal / Jobb) megcserélhetők, és mindkettő külön ki-be kapcsolható. Alul az <strong>állapotsor</strong> mutatja a területet, a kerületet és a szükséges lapszámot. A fülek sorának jobb oldalán: az aktív projekt és felület neve, visszavonás, újra, mentés, a <strong>menüszalag összecsukása</strong> (Ctrl+F1 vagy dupla kattintás egy fülön — összecsukva a fülre kattintva a menüszalag a vászon fölé nyílik, mellé kattintva bezárul), a <strong>teljes vászon</strong> mód (Ctrl+Shift+F — a menüszalag és az oldalpanelek elrejtése), a téma és a súgó. A panelek a Nézet fülön ki-be kapcsolhatók, a szélességük az elválasztó csíkkal húzható; a téma (rendszer / világos / sötét) a Nézet fülön vagy a gyorsgombbal váltható.</p>
+        <p>Felül a <strong>menüszalag</strong>: a füleken (Fájl, Rajzolás, Burkolat, Kiosztás, Anyag, Ajánlat, Nézet) csoportokba rendezve minden művelet és beállítás megtalálható; a gombok (és a csoportok) fölé víve az egeret rövid magyarázat jelenik meg. A vászon két oldalán egy-egy panel: a <strong>Tulajdonságok</strong> mindig az aktív menüszalag-fül részleteit mutatja (élek, kivágások, laptípusok, összesítők, ajánlat-adatok; a Fájl fülön a projekt adatait — fájl, mentési állapot, tartalom, legutóbbi fájlok —, a Nézet fülön az aktuális nézetet és a vezérlés összefoglalóját), a szemközti <strong>Projektek és rétegek</strong> panel a projektek fáját és az aktív felület rétegeit. Alapból a Tulajdonságok van bal oldalt; a Nézet fülön (Tulajdonságok helye: Bal / Jobb) megcserélhetők, és mindkettő külön ki-be kapcsolható. Alul az <strong>állapotsor</strong> mutatja a területet, a kerületet és a szükséges lapszámot. A fülek sorának jobb oldalán: az aktív projekt és felület neve, visszavonás, újra, mentés, a <strong>menüszalag összecsukása</strong> (Ctrl+F1 vagy dupla kattintás egy fülön — összecsukva a fülre kattintva a menüszalag a vászon fölé nyílik, mellé kattintva bezárul), a <strong>teljes vászon</strong> mód (Ctrl+Shift+F — a menüszalag és az oldalpanelek elrejtése), a téma és a súgó. A panelek a Nézet fülön ki-be kapcsolhatók, a szélességük az elválasztó csíkkal húzható; a téma (rendszer / világos / sötét) a Nézet fülön vagy a gyorsgombbal váltható.</p>
 
         <h3>1. Alaprajz és szerkesztés (Rajzolás)</h3>
         <p>Kattints a vászonra a sarokpontok lehelyezéséhez; a kör alakú kezdőpontra kattintva zárhatod a sokszöget. Gyorsabb: <strong>Rajzolás → Téglalap</strong> a megadott méretekkel. A rajzon az élhossz-feliratra kattintva közvetlenül átírhatod az él hosszát; a Tulajdonságok panel <strong>Élek</strong> listájában a hossz, a szög, az él neve és az élvédő is állítható.</p>

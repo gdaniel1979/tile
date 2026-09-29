@@ -267,6 +267,13 @@ html[data-pane-side="left"] .workspace { flex-direction: row-reverse; }
 .pfield { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
 .pfield > span:first-child { color: var(--muted); }
 .pfield input[type="text"] { width: 100%; }
+/* Adat-rács (Fájl / Nézet fül a Tulajdonságok panelen) */
+.info-grid { display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: 5px 12px; font-size: 12px; align-items: baseline; }
+.info-grid > span:nth-child(odd) { color: var(--muted); }
+.info-grid > span:nth-child(even) { min-width: 0; overflow-wrap: anywhere; }
+.info-grid.keys > span:nth-child(odd) { color: var(--text); font-weight: 600; }
+.info-grid .dirty { color: var(--accent); font-weight: 600; }
+.recent-list .menu-item { margin: 0 -6px; }
 .hint { font-size: 11.5px; color: var(--muted); line-height: 1.4; margin: 6px 0 0; }
 .empty-note { color: var(--muted); font-size: 12px; margin: 0; line-height: 1.4; }
 .mat-row { font-size: 12px; padding: 2px 0; display: flex; justify-content: space-between; gap: 8px; }

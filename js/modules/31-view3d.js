@@ -414,6 +414,7 @@
         if (el.view3dResetBtn) el.view3dResetBtn.style.display = is3d ? "inline-flex" : "none";
         if (el.compass3d) el.compass3d.hidden = !is3d;
         if (is3d) { resize3DCanvas(); render3D(); }
+        if (activeRibbonTab() === "view") renderViewInfo();
       });
     }
   }
