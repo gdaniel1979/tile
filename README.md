@@ -11,6 +11,9 @@ Tiszta **HTML + CSS + vanilla JavaScript** (HTML5 Canvas), build-lépés és fut
 
 **<https://gdaniel1979.github.io/tile/>**
 
+Telepíthető alkalmazásként is (PWA): Chrome/Edge-ben a Fájl fül **Telepítés** gombjával, tableten/telefonon
+„Hozzáadás a kezdőképernyőhöz”. Egyszeri online megnyitás után internet nélkül is működik.
+
 ## Felület
 
 Windows 11 / Office-szerű elrendezés, világos és sötét témával (alapból a Windows beállítását követi):
@@ -88,6 +91,8 @@ css/styles.css      – megjelenés (világos/sötét téma CSS-változókkal)
 js/modules/*.js     – az alkalmazás-logika témánként kis fájlokra bontva
 tests/              – automatikus tesztek (layout.test.js + run_tests.py)
 favicon.svg         – ikon
+manifest.webmanifest, icons/ – PWA: alkalmazás-leíró és ikonok
+sw.js               – service worker: „hálózat először”, offline a gyorsítótárból
 ```
 
 A `js/modules/` fájljai klasszikus `<script>` tagként, az `index.html`-ben megadott sorrendben töltődnek

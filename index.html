@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lapkiosztás tervező</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <!-- PWA: telepíthető alkalmazás, offline is működik (manifest + sw.js) -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#2f3b4a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Lapkiosztás" />
   <!-- a téma a CSS betöltése ELŐTT, hogy ne villanjon (a mentett választás vagy a Windows beállítása) -->
   <script>
     (function () {
@@ -93,6 +99,12 @@
               <button class="rbtn big" data-click="#qPrint" title="Nyomtatható árajánlat (az Ajánlat fül adataiból)"><i class="ic" data-ic="quote"></i><span>Árajánlat</span></button>
             </div>
             <div class="rgroup-label">Exportálás</div>
+          </div>
+          <div class="rgroup" id="pwaInstallGroup" hidden>
+            <div class="rgroup-body">
+              <button class="rbtn big" id="pwaInstallBtn" title="Telepítés alkalmazásként: saját ikon, külön ablak, internet nélkül is indul"><i class="ic" data-ic="download"></i><span>Telepítés</span></button>
+            </div>
+            <div class="rgroup-label">Alkalmazás</div>
           </div>
         </div>
 
@@ -680,6 +692,7 @@
         <h3>8. Mentés és export (Fájl)</h3>
         <p>A terv automatikusan mentődik a böngészőbe. <strong>Csatolt fájl (élő mentés):</strong> „Tár megnyitása írhatóan…” után a Mentés gomb vagy Ctrl+S közvetlenül felülírja a JSON-fájlt (csak HTTPS vagy localhost alatt, Chrome/Edge böngészőben). JSON-ba menthető egy projekt vagy az összes (biztonsági mentés); a Betöltés felismeri, melyiket töltöd be.</p>
         <p><strong>PDF terv:</strong> az egész projekt, felületenként rajz, számok és <strong>vágási terv</strong> + összesítő. A vágási tervben laponként egy ábra mutatja, melyik darab hol jön ki a lapból: a szaggatott keret felhasználható maradék, a vonalkázás hulladék, a ↻ jel 90°-os forgatást jelent, a vastag kék oldal gyári él (a szomszédos lap felé kerül). Átlós és 45°-os halszálka mintánál a ferdén vágott darabok valódi alakjukkal szerepelnek és párba állnak (pl. két fél-háromszög egy lapból). A terv lapjainak száma + az egész lapok = a „Szükséges lap”; különböző laptípusok maradéka nem cserélhető. <strong>PNG kép:</strong> az aktív felület rajza.</p>
+        <p><strong>Telepítés alkalmazásként (offline is):</strong> Chrome/Edge alatt a Fájl fülön megjelenik a <strong>Telepítés</strong> gomb (vagy a címsor telepítés-ikonja); tableten/telefonon a böngésző menüjében „Hozzáadás a kezdőképernyőhöz”. Ezután saját ikonnal, külön ablakban indul, és egyszeri online megnyitás után <strong>internet nélkül is működik</strong>. Online indításkor mindig a legfrissebb verziót tölti be. A projektek ugyanabban a böngésző-tárban vannak, mint a weboldalas változatnál.</p>
 
         <h3>9. Vászon-vezérlés</h3>
         <p>Görgő: nagyítás. Jobb gomb + húzás: nézet mozgatása. A vászon jobb felső sarkában: 2D/3D váltó és nézet igazítása. Ctrl+Z / Ctrl+Y: visszavonás / újra (a nézet a helyén marad).</p>
@@ -727,5 +740,6 @@
   <script src="js/modules/33b-ui-shell.js"></script>
   <script src="js/modules/34-init.js"></script>
   <script src="js/modules/35-help-modal.js"></script>
+  <script src="js/modules/36-pwa.js"></script>
 </body>
 </html>
