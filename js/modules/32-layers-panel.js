@@ -1,5 +1,5 @@
 "use strict";
-  // ---- 20. fázis: Rétegek panel (oldalpanel) ------------------------------
+  // ---- 20. fázis: Rétegek (a Projektek és rétegek panelen) ------------------------------
   // A "réteg" fogalma a meglévő `selectedCutout` állapotot használja:
   // -1 = a felület maga aktív, N = az N. kivágás aktív. A vásznon csak az
   // aktív réteg reagál a kattintásra (lásd activeCutoutAt a
@@ -9,6 +9,9 @@
   // az oldalpanel (Tulajdonságok) húzható szélessége
   const LAYERS_WIDTH_KEY = "tile-planner-props-width";
   const LAYERS_MIN = 240, LAYERS_MAX = 560;
+  // a Projektek és rétegek panel húzható szélessége
+  const NAV_WIDTH_KEY = "tile-planner-nav-width";
+  const NAV_MIN = 180, NAV_MAX = 480;
   // Ideiglenes UI-állapot (nem perzisztens, nem a state része): melyik
   // kivágások vannak bejelölve a "Csoportosítás" művelethez, és melyik csoportok
   // vannak kinyitva. Felület-váltáskor renderLayersList magától megtisztítja
@@ -189,35 +192,42 @@
     renderGroupActionBar();
   }
 
-  function initLayersPanel() {
-    if (!el.layersResizer || !el.propsPane) return;
+  // Húzható panel-szélesség (Tulajdonságok és Projektek és rétegek panel).
+  // rightOfCanvas(): a panel éppen a vászontól jobbra van-e (akkor balra húzva szélesedik).
+  function initPaneResizer(resizer, pane, key, min, max, rightOfCanvas) {
+    if (!resizer || !pane) return;
     let saved = 0;
-    try { saved = parseInt(localStorage.getItem(LAYERS_WIDTH_KEY), 10); } catch (_) {}
-    if (saved >= LAYERS_MIN && saved <= LAYERS_MAX) el.propsPane.style.width = saved + "px";
+    try { saved = parseInt(localStorage.getItem(key), 10); } catch (_) {}
+    if (saved >= min && saved <= max) pane.style.width = saved + "px";
     let dragging = false, startX = 0, startW = 0;
     // Pointer Events: egérrel és ujjal (tablet) is húzható
-    el.layersResizer.addEventListener("pointerdown", (e) => {
-      if (el.layersResizer.setPointerCapture) el.layersResizer.setPointerCapture(e.pointerId);
-      dragging = true; startX = e.clientX; startW = el.propsPane.getBoundingClientRect().width;
-      el.layersResizer.classList.add("dragging");
+    resizer.addEventListener("pointerdown", (e) => {
+      if (resizer.setPointerCapture) resizer.setPointerCapture(e.pointerId);
+      dragging = true; startX = e.clientX; startW = pane.getBoundingClientRect().width;
+      resizer.classList.add("dragging");
       document.body.style.userSelect = "none";
       e.preventDefault();
     });
     window.addEventListener("pointermove", (e) => {
       if (!dragging) return;
-      // jobb oldali panel: balra húzva szélesedik; bal oldali panel: jobbra húzva
-      const dx = document.documentElement.dataset.paneSide === "left" ? startX - e.clientX : e.clientX - startX;
-      const w = Math.max(LAYERS_MIN, Math.min(LAYERS_MAX, startW - dx));
-      el.propsPane.style.width = w + "px";
+      const dx = rightOfCanvas() ? startX - e.clientX : e.clientX - startX;
+      pane.style.width = Math.max(min, Math.min(max, startW + dx)) + "px";
       resizeCanvas();
     });
     const endDrag = () => {
       if (!dragging) return;
       dragging = false;
-      el.layersResizer.classList.remove("dragging");
+      resizer.classList.remove("dragging");
       document.body.style.userSelect = "";
-      try { localStorage.setItem(LAYERS_WIDTH_KEY, Math.round(el.propsPane.getBoundingClientRect().width)); } catch (_) {}
+      try { localStorage.setItem(key, Math.round(pane.getBoundingClientRect().width)); } catch (_) {}
     };
     window.addEventListener("pointerup", endDrag);
     window.addEventListener("pointercancel", endDrag);
+  }
+
+  function initLayersPanel() {
+    // a Tulajdonságok a data-pane-side oldalán, a Projektek és rétegek a túloldalon
+    const propsLeft = () => document.documentElement.dataset.paneSide === "left";
+    initPaneResizer(el.layersResizer, el.propsPane, LAYERS_WIDTH_KEY, LAYERS_MIN, LAYERS_MAX, () => !propsLeft());
+    initPaneResizer(el.navResizer, el.navPane, NAV_WIDTH_KEY, NAV_MIN, NAV_MAX, propsLeft);
   }

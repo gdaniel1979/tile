@@ -1,6 +1,6 @@
 "use strict";
   // ---- Alkalmazás-keret -----------------------------------------------------
-  // Menüszalag-fülek, az oldalpanel (Tulajdonságok) tartalma, gomb-átirányítások
+  // Menüszalag-fülek, a Tulajdonságok panel tartalma, gomb-átirányítások
   // (data-click), panelek ki-be kapcsolása, színséma (világos / sötét / rendszer)
   // és az állapotsor. A mögöttes funkciók a meglévő vezérlőkön (id-k) keresztül
   // működnek — ez a modul csak a felület elrendezését kezeli.
@@ -9,7 +9,6 @@
   const PANE_SIDE_KEY = "tile-planner-pane-side";
   const RIBBON_KEY = "tile-planner-ribbon-tab";
   const COLLAPSE_KEY = "tile-planner-ribbon-collapsed";
-  const PANE_PAGE_KEY = "tile-planner-pane-page";
   const PROPS_TITLES = {
     plan: "Alaprajz",
     tiles: "Burkolat",
@@ -35,10 +34,6 @@
     });
     el.tabs.addEventListener("dblclick", (e) => { if (e.target.closest("button[data-tab]")) toggleRibbonCollapsed(); });
     initRibbonCollapse();
-    document.getElementById("paneTabs").addEventListener("click", (e) => {
-      const b = e.target.closest("button[data-pane-page]");
-      if (b) showPanePage(b.dataset.panePage, true);
-    });
     initProxies();
     initPaneToggles();
     initPaneSide();
@@ -94,30 +89,17 @@
     });
     document.querySelectorAll("[data-rtab]").forEach((p) => { p.hidden = p.dataset.rtab !== tab; });
     // a Fájl és a Nézet fülnek nincs saját Tulajdonságok-tartalma: az előző marad
-    if (PROPS_TITLES[tab]) { showProps(tab); showPanePage("props"); }
+    if (PROPS_TITLES[tab]) showProps(tab);
     // az Anyag / Ajánlat minden felület friss számaival
     if (tab === "material" || tab === "quote") recomputeAllSurfacesMaterial();
     if (tab === "quote") syncQuoteUI();
     try { localStorage.setItem(RIBBON_KEY, tab); } catch (_) {}
   }
-  // induláskor a legutóbb használt menüszalag-fül és oldalpanel-lap
+  // induláskor a legutóbb használt menüszalag-fül
   function restoreRibbonTab() {
-    let t = "plan", pg = "props";
-    try { t = localStorage.getItem(RIBBON_KEY) || "plan"; pg = localStorage.getItem(PANE_PAGE_KEY) || "props"; } catch (_) {}
+    let t = "plan";
+    try { t = localStorage.getItem(RIBBON_KEY) || "plan"; } catch (_) {}
     selectRibbonTab(t);
-    showPanePage(pg);
-  }
-
-  // ---- Oldalpanel lapjai: Tulajdonságok | Projekt és rétegek ------------------------
-  function showPanePage(page, remember) {
-    if (!document.querySelector('[data-page="' + page + '"]')) page = "props";
-    document.querySelectorAll("[data-pane-page]").forEach((b) => {
-      const on = b.dataset.panePage === page;
-      b.classList.toggle("active", on);
-      b.setAttribute("aria-selected", on ? "true" : "false");
-    });
-    document.querySelectorAll("[data-page]").forEach((p) => { p.hidden = p.dataset.page !== page; });
-    if (remember) { try { localStorage.setItem(PANE_PAGE_KEY, page); } catch (_) {} }
   }
 
   function showProps(tab) {
@@ -145,7 +127,6 @@
       const baseTitle = btn.title;
       btn.addEventListener("click", () => {
         setPaneVisible("right", true);
-        showPanePage("props");
         showProps(host.dataset.tabpanel);
         panel.scrollIntoView({ block: "start", behavior: "smooth" });
         panel.classList.remove("flash"); void panel.offsetWidth; panel.classList.add("flash");
@@ -164,7 +145,7 @@
 
   // ---- Panelek ki-be (Nézet fül) ----------------------------------------------
   function paneState() {
-    const st = { left: true, right: true, hints: true };
+    const st = { left: true, right: true, nav: true, hints: true };
     try { Object.assign(st, JSON.parse(localStorage.getItem(PANES_KEY) || "{}")); } catch (_) {}
     return st;
   }

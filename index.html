@@ -18,7 +18,7 @@
       try { t = localStorage.getItem("tile-planner-theme") || "system"; } catch (e) {}
       if (t === "system") t = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       document.documentElement.dataset.theme = t;
-      // az oldalpanel helye (bal / jobb) — szintén betöltés előtt, hogy ne ugráljon
+      // a Tulajdonságok panel helye (bal / jobb; a Projektek és rétegek a túloldalon) — szintén betöltés előtt, hogy ne ugráljon
       var side = "left";
       try { side = localStorage.getItem("tile-planner-pane-side") || "left"; } catch (e) {}
       document.documentElement.dataset.paneSide = side;
@@ -182,7 +182,7 @@
           <div class="rgroup">
             <div class="rgroup-body">
               <button class="rbtn big" id="addTileBtn" title="Új laptípus a könyvtárba (a Tulajdonságok panelen szerkeszthető)"><i class="ic" data-ic="tileadd"></i><span>Új laptípus</span></button>
-              <span class="rnote tall">A laptípusok az oldalpanel <strong>Tulajdonságok</strong> lapján szerkeszthetők.</span>
+              <span class="rnote tall">A laptípusok a <strong>Tulajdonságok</strong> panelen szerkeszthetők.</span>
             </div>
             <div class="rgroup-label">Laptípusok</div>
           </div>
@@ -354,7 +354,7 @@
           <div class="rgroup">
             <div class="rgroup-body">
               <button class="rbtn big" id="qPrint" title="Nyomtatható árajánlat (a böngésző nyomtatási ablakából PDF-be menthető)"><i class="ic" data-ic="quote"></i><span>Árajánlat PDF</span></button>
-              <span class="rnote tall">Megrendelő, munkadíj, tételek: az oldalpanel <strong>Tulajdonságok</strong> lapján.</span>
+              <span class="rnote tall">Megrendelő, munkadíj, tételek: a <strong>Tulajdonságok</strong> panelen.</span>
             </div>
             <div class="rgroup-label">Árajánlat</div>
           </div>
@@ -373,7 +373,8 @@
           <div class="rgroup">
             <div class="rgroup-body">
               <div class="rcol">
-                <label class="rcheck" title="Az oldalpanel (Tulajdonságok, Projekt és rétegek)"><input type="checkbox" data-pane="right" checked /><span>Oldalpanel</span></label>
+                <label class="rcheck" title="A Tulajdonságok panel (az aktív menüszalag-fül részletei)"><input type="checkbox" data-pane="right" checked /><span>Tulajdonságok</span></label>
+                <label class="rcheck" title="A Projektek és rétegek panel (a Tulajdonságokkal szemközti oldalon)"><input type="checkbox" data-pane="nav" checked /><span>Projektek és rétegek</span></label>
                 <label class="rcheck"><input type="checkbox" data-pane="hints" checked /><span>Vászon-tippek</span></label>
               </div>
             </div>
@@ -382,13 +383,13 @@
           <div class="rgroup">
             <div class="rgroup-body">
               <div class="rcol">
-                <div class="segmented" id="paneSideSeg" title="Az oldalpanel helye: a vászon bal vagy jobb oldalán">
+                <div class="segmented" id="paneSideSeg" title="A Tulajdonságok panel helye: a vászon bal vagy jobb oldalán (a Projektek és rétegek a másik oldalra kerül)">
                   <button data-side="left">Bal</button>
                   <button data-side="right">Jobb</button>
                 </div>
               </div>
             </div>
-            <div class="rgroup-label">Oldalpanel helye</div>
+            <div class="rgroup-label">Tulajdonságok helye</div>
           </div>
           <div class="rgroup">
             <div class="rgroup-body">
@@ -415,6 +416,24 @@
 
     <!-- ===== Munkaterület ===== -->
     <main class="workspace">
+
+      <!-- Projektek és rétegek: a Tulajdonságok panellel szemközti oldalon (Nézet fül) -->
+      <aside class="nav-pane pane" id="navPane">
+        <section class="pane-section">
+          <div class="pane-head">
+            <span>Projektek</span>
+            <button class="qbtn small" data-click="#addProject" title="Új projekt"><i class="ic" data-ic="add"></i></button>
+          </div>
+          <div class="proj-tree" id="projTree"></div>
+        </section>
+        <section class="pane-section" id="layersPanel">
+          <div class="pane-head"><span>Rétegek</span></div>
+          <div class="layers-list" id="layersList"></div>
+          <div class="layers-group-bar" id="layersGroupBar" hidden></div>
+          <p class="hint">Kattints egy rétegre — csak az szerkeszthető a vásznon. 2+ kivágást a négyzetekkel csoportba foghatsz.</p>
+        </section>
+      </aside>
+      <div class="sidebar-resizer" id="navResizer"></div>
 
       <!-- Vászon -->
       <div class="canvas-wrap" id="canvasWrap">
@@ -461,28 +480,8 @@
       </div>
 
       <div class="sidebar-resizer" id="layersResizer"></div>
-      <!-- Oldalpanel: Tulajdonságok (a menüszalag aktív lapjához tartozó részletek); bal vagy jobb oldalon (Nézet fül) -->
+      <!-- Tulajdonságok panel (a menüszalag aktív lapjához tartozó részletek); bal vagy jobb oldalon (Nézet fül) -->
       <aside class="props-pane pane" id="propsPane">
-        <div class="pane-tabs" id="paneTabs" role="tablist">
-          <button data-pane-page="props" class="active" role="tab">Tulajdonságok</button>
-          <button data-pane-page="project" role="tab">Projekt és rétegek</button>
-        </div>
-        <div class="pane-page" data-page="project" hidden>
-        <section class="pane-section">
-          <div class="pane-head">
-            <span>Projektek</span>
-            <button class="qbtn small" data-click="#addProject" title="Új projekt"><i class="ic" data-ic="add"></i></button>
-          </div>
-          <div class="proj-tree" id="projTree"></div>
-        </section>
-        <section class="pane-section" id="layersPanel">
-          <div class="pane-head"><span>Rétegek</span></div>
-          <div class="layers-list" id="layersList"></div>
-          <div class="layers-group-bar" id="layersGroupBar" hidden></div>
-          <p class="hint">Kattints egy rétegre — csak az szerkeszthető a vásznon. 2+ kivágást a négyzetekkel csoportba foghatsz.</p>
-        </section>
-        </div>
-        <div class="pane-page" data-page="props">
         <div class="pane-title" id="propsTitle">Tulajdonságok</div>
 
         <!-- Rajzolás -->
@@ -496,7 +495,7 @@
           <section class="panel">
             <h2>Kivágások</h2>
             <div id="cutoutList" class="cutout-list"></div>
-            <p class="hint">Rajzolás: menüszalag → Kivágás, majd húzz egy téglalapot. Kijelölés: kattints a kivágásra ebben a listában (vagy a Projekt és rétegek fülön); utána a vásznon húzással mozgatható, a méretfeliratra kattintva pontosítható. A ⤧ gomb a felületre illeszti.</p>
+            <p class="hint">Rajzolás: menüszalag → Kivágás, majd húzz egy téglalapot. Kijelölés: kattints a kivágásra ebben a listában (vagy a Rétegek panelen); utána a vásznon húzással mozgatható, a méretfeliratra kattintva pontosítható. A ⤧ gomb a felületre illeszti.</p>
           </section>
           <section class="panel" id="preWallPanel" hidden>
             <h2>Előtétfal az aktív falra</h2>
@@ -637,7 +636,6 @@
             <div id="qSummary"></div>
           </section>
         </div>
-        </div>
       </aside>
     </main>
 
@@ -670,7 +668,7 @@
       <div class="modal-body">
 
         <h3>A felület</h3>
-        <p>Felül a <strong>menüszalag</strong>: a füleken (Fájl, Rajzolás, Burkolat, Kiosztás, Anyag, Ajánlat, Nézet) csoportokba rendezve minden művelet és beállítás megtalálható; a gombok (és a csoportok) fölé víve az egeret rövid magyarázat jelenik meg. Az <strong>oldalpanel</strong> (alapból a vászon bal oldalán; a Nézet fülön Bal / Jobb választható) két lapja: a <strong>Tulajdonságok</strong> az aktív menüszalag-fül részleteivel (élek, kivágások, laptípusok, összesítők, ajánlat-adatok — menüszalag-fül váltásakor magától erre vált), és a <strong>Projekt és rétegek</strong> a projektek fájával és az aktív felület rétegeivel. Alul az <strong>állapotsor</strong> mutatja a területet, a kerületet és a szükséges lapszámot. A fülek sorának jobb oldalán: az aktív projekt és felület neve, visszavonás, újra, mentés, a <strong>menüszalag összecsukása</strong> (Ctrl+F1 vagy dupla kattintás egy fülön — összecsukva a fülre kattintva a menüszalag a vászon fölé nyílik, mellé kattintva bezárul), a <strong>teljes vászon</strong> mód (Ctrl+Shift+F — a menüszalag és az oldalpanelek elrejtése), a téma és a súgó. A panelek a Nézet fülön ki-be kapcsolhatók, a szélességük az elválasztó csíkkal húzható; a téma (rendszer / világos / sötét) a Nézet fülön vagy a gyorsgombbal váltható.</p>
+        <p>Felül a <strong>menüszalag</strong>: a füleken (Fájl, Rajzolás, Burkolat, Kiosztás, Anyag, Ajánlat, Nézet) csoportokba rendezve minden művelet és beállítás megtalálható; a gombok (és a csoportok) fölé víve az egeret rövid magyarázat jelenik meg. A vászon két oldalán egy-egy panel: a <strong>Tulajdonságok</strong> mindig az aktív menüszalag-fül részleteit mutatja (élek, kivágások, laptípusok, összesítők, ajánlat-adatok), a szemközti <strong>Projektek és rétegek</strong> panel a projektek fáját és az aktív felület rétegeit. Alapból a Tulajdonságok van bal oldalt; a Nézet fülön (Tulajdonságok helye: Bal / Jobb) megcserélhetők, és mindkettő külön ki-be kapcsolható. Alul az <strong>állapotsor</strong> mutatja a területet, a kerületet és a szükséges lapszámot. A fülek sorának jobb oldalán: az aktív projekt és felület neve, visszavonás, újra, mentés, a <strong>menüszalag összecsukása</strong> (Ctrl+F1 vagy dupla kattintás egy fülön — összecsukva a fülre kattintva a menüszalag a vászon fölé nyílik, mellé kattintva bezárul), a <strong>teljes vászon</strong> mód (Ctrl+Shift+F — a menüszalag és az oldalpanelek elrejtése), a téma és a súgó. A panelek a Nézet fülön ki-be kapcsolhatók, a szélességük az elválasztó csíkkal húzható; a téma (rendszer / világos / sötét) a Nézet fülön vagy a gyorsgombbal váltható.</p>
 
         <h3>1. Alaprajz és szerkesztés (Rajzolás)</h3>
         <p>Kattints a vászonra a sarokpontok lehelyezéséhez; a kör alakú kezdőpontra kattintva zárhatod a sokszöget. Gyorsabb: <strong>Rajzolás → Téglalap</strong> a megadott méretekkel. A rajzon az élhossz-feliratra kattintva közvetlenül átírhatod az él hosszát; a Tulajdonságok panel <strong>Élek</strong> listájában a hossz, a szög, az él neve és az élvédő is állítható.</p>
@@ -696,7 +694,7 @@
         <p>A megrendelő, az ajánlat száma, kelte (üresen a nyomtatás napja) és érvényessége, a munkadíjak (Ft/m² padlóra és falra, Ft/fm élvédőre és szilikonozásra — a mennyiségek a tervből jönnek), az egyedi tételek (pl. bontás, kiszállás) és a megjegyzés a Tulajdonságok panelen adható meg; az <strong>ajánlatadó</strong> adatait elég egyszer megadni. A menüszalagon: <strong>ÁFA</strong> (27% vagy alanyi adómentes), <strong>Anyagköltség az ajánlatban</strong> (ugyanazokkal a számokkal és árakkal, mint az Anyag fülön; ár nélküli anyag kimarad, erről figyelmeztetés szól), és az <strong>Árajánlat PDF</strong>.</p>
 
         <h3>7. Projektek és rétegek</h3>
-        <p>Az oldalpanel <strong>Projekt és rétegek</strong> lapján lévő fában projektek, helyiségek és felületek; a sor gombjaival átnevezhetők, törölhetők. <strong>Projektek beolvasztása:</strong> egy nem-aktív projekt ⇒ gombjával az egész projekt beolvasztható az aktívba, mint egy 🏠 helyiség-csoport. <strong>Rétegek:</strong> kattints egy rétegre — csak az szerkeszthető a vásznon. 2+ kivágás a négyzetekkel csoportba foglalható; kijelölt csoportnál a Delete az egész csoportot törli (Ctrl+Z-vel visszavonható), egy-egy darabot a kivágás-lista ✕ gombjával törölhetsz.</p>
+        <p>A <strong>Projektek és rétegek</strong> panel fájában projektek, helyiségek és felületek; a sor gombjaival átnevezhetők, törölhetők. <strong>Projektek beolvasztása:</strong> egy nem-aktív projekt ⇒ gombjával az egész projekt beolvasztható az aktívba, mint egy 🏠 helyiség-csoport. <strong>Rétegek:</strong> kattints egy rétegre — csak az szerkeszthető a vásznon. 2+ kivágás a négyzetekkel csoportba foglalható; kijelölt csoportnál a Delete az egész csoportot törli (Ctrl+Z-vel visszavonható), egy-egy darabot a kivágás-lista ✕ gombjával törölhetsz.</p>
 
         <h3>8. Mentés és export (Fájl)</h3>
         <p><strong>Projektfájl (.lapterv), mint egy Excel-fájl:</strong> egy fájl = egy projekt. <strong>Megnyitás</strong> (Ctrl+O), <strong>Mentés</strong> (Ctrl+S — ha a projektnek még nincs fájlja, megkérdezi a helyét és a nevét), <strong>Mentés másként…</strong> (Ctrl+Shift+S). Több fájl is lehet nyitva egyszerre: mindegyik projektként jelenik meg a Projekt és rétegek fában, és mindegyik a saját fájljába ment. A fájl neve a fülek sorában látszik; a <strong>*</strong> jelzi, ha a projekt a legutóbbi mentés óta változott (a fában is). A fa kuka-gombja <strong>bezárja</strong> a projektet — a mentett fájl megmarad; mentetlen változásnál figyelmeztet, ahogy az ablak bezárásakor is. A telepített alkalmazásban a .lapterv fájlok dupla kattintással is megnyílnak (az első alkalommal a Windows rákérdezhet). A fájlok belül JSON-ok; régi .json projektfájlok is megnyithatók (az első Mentés .lapterv-ként menti őket). A <strong>Legutóbbi ▾</strong> gomb a legutóbb megnyitott vagy mentett 10 fájlt mutatja — kattintásra megnyílik (a böngésző először engedélyt kérhet); az ✕ csak a listából veszi ki, a fájl megmarad. Ha egy fájlt azóta áthelyeztek vagy töröltek, szól, és kiveszi a listából.</p>

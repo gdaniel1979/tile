@@ -21,9 +21,10 @@ Windows 11 / Office-szerű elrendezés, világos és sötét témával (alapból
 
 - **Menüszalag** – Fájl, Rajzolás, Burkolat, Kiosztás, Anyag, Ajánlat, Nézet fülek, csoportosított
   ikon+felirat gombokkal; minden gomb fölött rövid magyarázat.
-- **Oldalpanel** (alapból bal oldalt, a Nézet fülön jobbra tehető; két lappal) – *Tulajdonságok*: az aktív menüszalag-fül részletei (élek,
-  kivágások, laptípusok, összesítők, ajánlat-adatok); *Projekt és rétegek*: projektek, helyiségek és
-  felületek fája + az aktív felület rétegei (kivágások).
+- **Két panel a vászon két oldalán** – *Tulajdonságok*: mindig az aktív menüszalag-fül részletei (élek,
+  kivágások, laptípusok, összesítők, ajánlat-adatok); szemben a *Projektek és rétegek*: projektek, helyiségek
+  és felületek fája + az aktív felület rétegei (kivágások). Alapból a Tulajdonságok bal oldalt; a Nézet fülön
+  megcserélhetők, külön kapcsolhatók, a szélességük húzható.
 - **Menüszalag összecsukása** (Ctrl+F1) és **teljes vászon mód** (Ctrl+Shift+F) a nagyobb rajzterületért.
 - **Állapotsor** – terület, kerület, szükséges lapszám, hulladék, méretarány.
 - **Érintőképernyő (tablet)** – koppintás, dupla koppintás, húzás, két ujjas csípés (2D és 3D).

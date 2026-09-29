@@ -155,7 +155,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .app.ribbon-collapsed .ribbon-body { display: none; }
 .app.ribbon-collapsed.ribbon-peek .ribbon-body { display: block; position: absolute; left: 8px; right: 8px; top: 100%; margin-top: -4px; box-shadow: var(--shadow-lg); }
 /* Teljes vászon mód: oldalpanelek nélkül */
-.app.focus-mode #propsPane, .app.focus-mode #layersResizer { display: none; }
+.app.focus-mode #propsPane, .app.focus-mode #layersResizer, .app.focus-mode #navPane, .app.focus-mode #navResizer { display: none; }
 .rgroup {
   display: flex; flex-direction: column;
   padding: 0 8px; border-right: 1px solid var(--border);
@@ -245,11 +245,13 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.45; }
 }
 .sidebar { width: 250px; display: flex; flex-direction: column; }
 .props-pane { width: 330px; }
+.nav-pane { width: 250px; }
 .sidebar-resizer { flex: 0 0 6px; cursor: col-resize; position: relative; }
 .sidebar-resizer::after { content: ""; position: absolute; top: 45%; bottom: 45%; left: 2px; width: 2px; border-radius: 1px; background: var(--border-strong); opacity: 0; transition: opacity 0.15s; }
 .sidebar-resizer:hover::after, .sidebar-resizer.dragging::after { opacity: 1; background: var(--accent); top: 0; bottom: 0; }
 .app.hide-right #propsPane, .app.hide-right #layersResizer { display: none; }
-/* oldalpanel bal oldalon (Nézet fül → Bal / Jobb): a sorrend megfordul */
+.app.hide-nav #navPane, .app.hide-nav #navResizer { display: none; }
+/* Tulajdonságok bal oldalon (Nézet fül → Bal / Jobb): a sorrend megfordul, a Projektek és rétegek jobbra kerül */
 html[data-pane-side="left"] .workspace { flex-direction: row-reverse; }
 .app.hide-hints .canvas-help { display: none !important; }
 
@@ -257,12 +259,6 @@ html[data-pane-side="left"] .workspace { flex-direction: row-reverse; }
 .pane-section + .pane-section { border-top: 1px solid var(--border); }
 .pane-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 6px; font-weight: 600; font-size: 12px; }
 .pane-title { padding: 10px 14px 8px; font-size: 14px; font-weight: 600; }
-/* Oldalpanel lapjai (Tulajdonságok | Projekt és rétegek) — mint a menüszalag fülei */
-.pane-tabs { position: sticky; top: 0; z-index: 3; display: flex; gap: 2px; padding: 6px 8px 0; background: var(--pane); border-bottom: 1px solid var(--border); }
-.pane-tabs button { position: relative; flex: 1; background: transparent; border: none; border-radius: 4px 4px 0 0; padding: 6px 8px 9px; cursor: pointer; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
-.pane-tabs button:hover { background: var(--hover); color: var(--text); }
-.pane-tabs button.active { color: var(--text); font-weight: 600; }
-.pane-tabs button.active::after { content: ""; position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); width: 18px; height: 3px; border-radius: 2px; background: var(--accent); }
 
 .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin: 0 10px 10px; }
 .panel h2 { font-size: 12px; font-weight: 600; margin: 0 0 8px; }
