@@ -130,7 +130,7 @@
 
   function showProps(tab) {
     document.querySelectorAll("[data-tabpanel]").forEach((p) => { p.hidden = p.dataset.tabpanel !== tab; });
-    if (el.propsTitle) el.propsTitle.textContent = PROPS_TITLES[tab] || "Tulajdonságok";
+    if (el.propsTitle) el.propsTitle.textContent = PROPS_TITLES[tab] || "";
   }
 
   // ---- Gomb-átirányítások -------------------------------------------------------

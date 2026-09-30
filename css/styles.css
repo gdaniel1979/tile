@@ -259,6 +259,7 @@ html[data-pane-side="left"] .workspace { flex-direction: row-reverse; }
 .pane-section + .pane-section { border-top: 1px solid var(--border); }
 .pane-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 6px; font-weight: 600; font-size: 12px; }
 .pane-title { padding: 10px 14px 8px; font-size: 14px; font-weight: 600; }
+.pane-kicker { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 1px; }
 
 .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin: 0 10px 10px; }
 .panel h2 { font-size: 12px; font-weight: 600; margin: 0 0 8px; }
