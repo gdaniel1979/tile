@@ -100,7 +100,8 @@
       const names = el.qItems.querySelectorAll(".q-item-name");
       if (names.length) names[names.length - 1].focus();
     });
-    el.qPrint.addEventListener("click", printQuote);
+    el.qPrint.addEventListener("click", saveQuotePdf);   // közvetlen PDF-fájl
+    el.qPrintBtn.addEventListener("click", printQuote);  // böngészős nyomtatás
   }
 
   // Az űrlap feltöltése a projekt/tár adataiból (projektváltás, undo, fülváltás után)
@@ -177,33 +178,50 @@
   }
 
   // ---- Nyomtatható ajánlat -------------------------------------------------
-  function printQuote() {
+  // Az árajánlat adatai (közös: nyomtatás és közvetlen PDF); null, ha üres
+  function quoteDocData() {
     recomputeAllSurfacesMaterial(); // minden felület friss számaival
     const q = projectQuote(project), c = store.contractor || normContractor();
     const r = computeQuote(project);
     if (!r.groups.length) {
       alert("Az ajánlat üres: adj meg munkadíjat, egyedi tételt, vagy az anyagokhoz árat (Burkolat / Anyag fül).");
-      return;
+      return null;
     }
+    const issued = q.date || new Date().toISOString().slice(0, 10);
+    const subj = [r.qty.floorM2 > 0 && "padló " + fmtQty(r.qty.floorM2) + " m²", r.qty.wallM2 > 0 && "fal " + fmtQty(r.qty.wallM2) + " m²"].filter(Boolean).join(", ");
+    return {
+      q, c, r, issued,
+      dateLine: "Kelt: " + fmtDateHu(issued) + " · Érvényes: " + fmtDateHu(addDaysIso(issued, q.validDays)) + "-ig",
+      subjectLine: "Tárgy: " + (project.name || "Projekt") + " — burkolási munkák" + (subj ? " (" + subj + ")" : ""),
+      contractorLines: [c.address, c.taxNo && "Adószám: " + c.taxNo, [c.phone, c.email].filter(Boolean).join(" · "), c.bank && "Bankszámla: " + c.bank].filter(Boolean),
+      customerLines: [q.customer.address, [q.customer.phone, q.customer.email].filter(Boolean).join(" · ")].filter(Boolean),
+      priceHdr: r.vat === "27" ? "Nettó egységár" : "Egységár",
+      sumHdr: r.vat === "27" ? "Nettó összeg" : "Összeg",
+      footText: "Az ajánlat a tervben megadott méretek alapján készült; a mennyiségek a helyszíni felmérés után pontosíthatók. " +
+        (q.includeMaterial ? "Az anyagmennyiségek a beállított tartalékkal számolva." : "Az ajánlat az anyagköltséget nem tartalmazza."),
+      fileTitle: "Árajánlat" + (q.number ? " " + q.number : "") + (q.customer.name ? " - " + q.customer.name : ""),
+    };
+  }
+
+  function printQuote() {
+    const d = quoteDocData();
+    if (!d) return;
+    const { q, c, r } = d;
     const e = escapeHtml;
     const lines = (arr) => arr.filter(Boolean).map(e).join("<br>");
-    const issued = q.date || new Date().toISOString().slice(0, 10);
     let html = '<div class="qt">';
     html += '<div class="qt-head">';
     html += '<div class="qt-party"><div class="qt-lbl">Ajánlatadó</div>' +
       (c.name ? "<strong>" + e(c.name) + "</strong><br>" : "") +
-      lines([c.address, c.taxNo && "Adószám: " + c.taxNo, [c.phone, c.email].filter(Boolean).join(" · "), c.bank && "Bankszámla: " + c.bank]) + "</div>";
+      lines(d.contractorLines) + "</div>";
     html += '<div class="qt-party"><div class="qt-lbl">Megrendelő</div>' +
       (q.customer.name ? "<strong>" + e(q.customer.name) + "</strong><br>" : "") +
-      lines([q.customer.address, [q.customer.phone, q.customer.email].filter(Boolean).join(" · ")]) + "</div>";
+      lines(d.customerLines) + "</div>";
     html += "</div>";
     html += '<div class="qt-title">ÁRAJÁNLAT' + (q.number ? ' <span class="qt-no">' + e(q.number) + "</span>" : "") + "</div>";
-    html += '<div class="qt-meta">Kelt: ' + fmtDateHu(issued) + " · Érvényes: " + fmtDateHu(addDaysIso(issued, q.validDays)) + "-ig</div>";
-    const subj = [r.qty.floorM2 > 0 && "padló " + fmtQty(r.qty.floorM2) + " m²", r.qty.wallM2 > 0 && "fal " + fmtQty(r.qty.wallM2) + " m²"].filter(Boolean).join(", ");
-    html += '<div class="qt-meta">Tárgy: ' + e(project.name || "Projekt") + " — burkolási munkák" + (subj ? " (" + subj + ")" : "") + "</div>";
-
-    const priceHdr = r.vat === "27" ? "Nettó egységár" : "Egységár";
-    const sumHdr = r.vat === "27" ? "Nettó összeg" : "Összeg";
+    html += '<div class="qt-meta">' + e(d.dateLine) + "</div>";
+    html += '<div class="qt-meta">' + e(d.subjectLine) + "</div>";
+    const priceHdr = d.priceHdr, sumHdr = d.sumHdr;
     html += '<table class="qt-table"><thead><tr><th>Megnevezés</th><th class="num">Mennyiség</th><th>Egység</th>' +
       `<th class="num">${priceHdr}</th><th class="num">${sumHdr}</th></tr></thead><tbody>`;
     r.groups.forEach((g) => {
@@ -228,8 +246,7 @@
     }
     html += "</table>";
     if (q.note.trim()) html += '<div class="qt-note"><strong>Megjegyzés:</strong><br>' + e(q.note).replace(/\n/g, "<br>") + "</div>";
-    html += '<div class="qt-foot">Az ajánlat a tervben megadott méretek alapján készült; a mennyiségek a helyszíni felmérés után pontosíthatók. ' +
-      (q.includeMaterial ? "Az anyagmennyiségek a beállított tartalékkal számolva." : "Az ajánlat az anyagköltséget nem tartalmazza.") + "</div>";
+    html += '<div class="qt-foot">' + e(d.footText) + "</div>";
     html += '<div class="qt-sign"><div>……………………………………<br>Ajánlatadó</div><div>……………………………………<br>Megrendelő</div></div>';
     html += "</div>";
 
@@ -238,7 +255,7 @@
     el.printInfo.innerHTML = html;
     // a PDF-mentés alap fájlneve a böngészőben a lap címe
     const oldTitle = document.title;
-    document.title = "Árajánlat" + (q.number ? " " + q.number : "") + (q.customer.name ? " - " + q.customer.name : "");
+    document.title = d.fileTitle;
     window.addEventListener("afterprint", () => { document.title = oldTitle; }, { once: true });
     setTimeout(() => window.print(), 200);
   }

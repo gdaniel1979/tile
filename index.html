@@ -92,9 +92,13 @@
           </div>
           <div class="rgroup">
             <div class="rgroup-body">
-              <button class="rbtn big" id="exportPdf" title="Az egész projekt nyomtatása / PDF: felületenként rajz, számok és vágási terv + összesítő"><i class="ic" data-ic="print"></i><span>PDF terv</span></button>
+              <button class="rbtn big" id="exportPdf" title="Az egész projekt mentése PDF-fájlba: összesítő, felületenként rajz, számok és vágási terv"><i class="ic" data-ic="pdf"></i><span>PDF terv</span></button>
+              <button class="rbtn big" data-click="#qPrint" title="Árajánlat mentése PDF-fájlba (az Ajánlat fül adataiból)"><i class="ic" data-ic="quote"></i><span>Árajánlat PDF</span></button>
               <button class="rbtn big" id="exportPng" title="Az aktív felület rajza PNG-képként"><i class="ic" data-ic="image"></i><span>PNG kép</span></button>
-              <button class="rbtn big" data-click="#qPrint" title="Nyomtatható árajánlat (az Ajánlat fül adataiból)"><i class="ic" data-ic="quote"></i><span>Árajánlat</span></button>
+              <div class="rcol">
+                <button class="rbtn" id="printPlanBtn" title="A terv nyomtatása a böngésző nyomtatási ablakával"><i class="ic" data-ic="print"></i><span>Terv nyomtatása</span></button>
+                <button class="rbtn" data-click="#qPrintBtn" title="Az árajánlat nyomtatása a böngésző nyomtatási ablakával"><i class="ic" data-ic="print"></i><span>Árajánlat nyomtatása</span></button>
+              </div>
             </div>
             <div class="rgroup-label">Exportálás</div>
           </div>
@@ -353,7 +357,8 @@
           </div>
           <div class="rgroup">
             <div class="rgroup-body">
-              <button class="rbtn big" id="qPrint" title="Nyomtatható árajánlat (a böngésző nyomtatási ablakából PDF-be menthető)"><i class="ic" data-ic="quote"></i><span>Árajánlat PDF</span></button>
+              <button class="rbtn big" id="qPrint" title="Árajánlat mentése PDF-fájlba"><i class="ic" data-ic="pdf"></i><span>Árajánlat PDF</span></button>
+              <button class="rbtn big" id="qPrintBtn" title="Az árajánlat nyomtatása a böngésző nyomtatási ablakával"><i class="ic" data-ic="print"></i><span>Nyomtatás</span></button>
               <span class="rnote tall">Megrendelő, munkadíj, tételek: a <strong>Tulajdonságok</strong> panelen.</span>
             </div>
             <div class="rgroup-label">Árajánlat</div>
@@ -751,7 +756,7 @@
         <p>Projekt-szintű összesítés: burkolat laptípusonként, ragasztó, fuga, szilikon, élvédő és költség (Tulajdonságok panel). A ragasztó, a fuga, a szilikon típusa, tartaléka és egységára, valamint az élvédő folyóméter-ára a menüszalagon állítható. A szilikon a padlóból generált falak sarkaiba kerül; az élvédő az élek listájában és a kivágásoknál jelölhető (a vásznon piros vonal).</p>
 
         <h3>6. Árajánlat</h3>
-        <p>A megrendelő, az ajánlat száma, kelte (üresen a nyomtatás napja) és érvényessége, a munkadíjak (Ft/m² padlóra és falra, Ft/fm élvédőre és szilikonozásra — a mennyiségek a tervből jönnek), az egyedi tételek (pl. bontás, kiszállás) és a megjegyzés a Tulajdonságok panelen adható meg; az <strong>ajánlatadó</strong> adatait elég egyszer megadni. A menüszalagon: <strong>ÁFA</strong> (27% vagy alanyi adómentes), <strong>Anyagköltség az ajánlatban</strong> (ugyanazokkal a számokkal és árakkal, mint az Anyag fülön; ár nélküli anyag kimarad, erről figyelmeztetés szól), és az <strong>Árajánlat PDF</strong>.</p>
+        <p>A megrendelő, az ajánlat száma, kelte (üresen a nyomtatás napja) és érvényessége, a munkadíjak (Ft/m² padlóra és falra, Ft/fm élvédőre és szilikonozásra — a mennyiségek a tervből jönnek), az egyedi tételek (pl. bontás, kiszállás) és a megjegyzés a Tulajdonságok panelen adható meg; az <strong>ajánlatadó</strong> adatait elég egyszer megadni. A menüszalagon: <strong>ÁFA</strong> (27% vagy alanyi adómentes), <strong>Anyagköltség az ajánlatban</strong> (ugyanazokkal a számokkal és árakkal, mint az Anyag fülön; ár nélküli anyag kimarad, erről figyelmeztetés szól), az <strong>Árajánlat PDF</strong> (közvetlenül PDF-fájlba ment) és a <strong>Nyomtatás</strong> (a böngésző nyomtatási ablaka).</p>
 
         <h3>7. Projektek és rétegek</h3>
         <p>A <strong>Projektek és rétegek</strong> panel fájában projektek, helyiségek és felületek; a sor gombjaival átnevezhetők, törölhetők. <strong>Projektek beolvasztása:</strong> egy nem-aktív projekt ⇒ gombjával az egész projekt beolvasztható az aktívba, mint egy 🏠 helyiség-csoport. <strong>Rétegek:</strong> kattints egy rétegre — csak az szerkeszthető a vásznon. 2+ kivágás a négyzetekkel csoportba foglalható; kijelölt csoportnál a Delete az egész csoportot törli (Ctrl+Z-vel visszavonható), egy-egy darabot a kivágás-lista ✕ gombjával törölhetsz.</p>
@@ -759,7 +764,7 @@
         <h3>8. Mentés és export (Fájl)</h3>
         <p><strong>Projektfájl (.lapterv), mint egy Excel-fájl:</strong> egy fájl = egy projekt. <strong>Megnyitás</strong> (Ctrl+O), <strong>Mentés</strong> (Ctrl+S — ha a projektnek még nincs fájlja, megkérdezi a helyét és a nevét), <strong>Mentés másként…</strong> (Ctrl+Shift+S). Több fájl is lehet nyitva egyszerre: mindegyik projektként jelenik meg a Projekt és rétegek fában, és mindegyik a saját fájljába ment. A fájl neve a fülek sorában látszik; a <strong>*</strong> jelzi, ha a projekt a legutóbbi mentés óta változott (a fában is). A fa kuka-gombja <strong>bezárja</strong> a projektet — a mentett fájl megmarad; mentetlen változásnál figyelmeztet, ahogy az ablak bezárásakor is. A telepített alkalmazásban a .lapterv fájlok dupla kattintással is megnyílnak (az első alkalommal a Windows rákérdezhet). A fájlok belül JSON-ok; régi .json projektfájlok is megnyithatók (az első Mentés .lapterv-ként menti őket). A <strong>Legutóbbi ▾</strong> gomb a legutóbb megnyitott vagy mentett 10 fájlt mutatja — kattintásra megnyílik (a böngésző először engedélyt kérhet); az ✕ csak a listából veszi ki, a fájl megmarad. Ha egy fájlt azóta áthelyeztek vagy töröltek, szól, és kiveszi a listából.</p>
         <p>Közben a munka a böngészőbe is automatikusan mentődik, így újraindításkor minden nyitott projekt visszajön. <strong>Biztonsági mentés:</strong> az „Összes projekt mentése” minden projektet egyetlen fájlba ment, a „Visszaállítás…” ezt tölti vissza (vagy egy projektet ad hozzá). Firefoxban és iPaden a Mentés letöltésként működik (a Letöltések mappába).</p>
-        <p><strong>PDF terv:</strong> az egész projekt, felületenként rajz, számok és <strong>vágási terv</strong> + összesítő. A vágási tervben laponként egy ábra mutatja, melyik darab hol jön ki a lapból: a szaggatott keret felhasználható maradék, a vonalkázás hulladék, a ↻ jel 90°-os forgatást jelent, a vastag kék oldal gyári él (a szomszédos lap felé kerül). Átlós és 45°-os halszálka mintánál a ferdén vágott darabok valódi alakjukkal szerepelnek és párba állnak (pl. két fél-háromszög egy lapból). A terv lapjainak száma + az egész lapok = a „Szükséges lap”; különböző laptípusok maradéka nem cserélhető. <strong>PNG kép:</strong> az aktív felület rajza.</p>
+        <p><strong>PDF terv:</strong> közvetlenül PDF-fájlba ment (a Windows mentés-ablakával; Firefoxban/iPaden a Letöltések mappába) — éles, kereshető szöveggel, internet nélkül is. A papírra nyomtatáshoz a <strong>Terv nyomtatása</strong> / <strong>Árajánlat nyomtatása</strong> gomb a böngésző nyomtatási ablakát nyitja. A terv tartalma: az egész projekt, felületenként rajz, számok és <strong>vágási terv</strong> + összesítő. A vágási tervben laponként egy ábra mutatja, melyik darab hol jön ki a lapból: a szaggatott keret felhasználható maradék, a vonalkázás hulladék, a ↻ jel 90°-os forgatást jelent, a vastag kék oldal gyári él (a szomszédos lap felé kerül). Átlós és 45°-os halszálka mintánál a ferdén vágott darabok valódi alakjukkal szerepelnek és párba állnak (pl. két fél-háromszög egy lapból). A terv lapjainak száma + az egész lapok = a „Szükséges lap”; különböző laptípusok maradéka nem cserélhető. <strong>PNG kép:</strong> az aktív felület rajza.</p>
         <p><strong>Új verzió:</strong> ha az app megnyitása óta frissült (15 percenként és az ablakba visszatérve ellenőrzi), alul megjelenik az „Új verzió érhető el” sáv. A <strong>Frissítés</strong> újratölti az appot — a munka megmarad (a böngészőbe mentődik, a mentetlen projektfájlok „*” jelzése is); a Később elrejti a sávot.</p>
         <p><strong>Telepítés alkalmazásként (offline is):</strong> Chrome/Edge alatt a Fájl fülön megjelenik a <strong>Telepítés</strong> gomb (vagy a címsor telepítés-ikonja); tableten/telefonon a böngésző menüjében „Hozzáadás a kezdőképernyőhöz”. Ezután saját ikonnal, külön ablakban indul, és egyszeri online megnyitás után <strong>internet nélkül is működik</strong>. Online indításkor mindig a legfrissebb verziót tölti be. A projektek ugyanabban a böngésző-tárban vannak, mint a weboldalas változatnál.</p>
 
@@ -819,5 +824,6 @@
   <script src="js/modules/34-init.js"></script>
   <script src="js/modules/35-help-modal.js"></script>
   <script src="js/modules/36-pwa.js"></script>
+  <script src="js/modules/37-pdf-export.js"></script>
 </body>
 </html>

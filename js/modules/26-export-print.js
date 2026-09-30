@@ -19,6 +19,7 @@
 
   // A teljes terv kirajzolása egy offscreen vászonra, PNG dataURL-ként
   // opts.codes: a vágott darabokon a vágási terv kódja is (PDF-hez)
+  // opts.jpeg: JPEG a PNG helyett (a közvetlen PDF-hez: a jsPDF átalakítás nélkül beágyazza)
   function buildPlanImage(maxPx, opts) {
     const b = planBounds();
     if (!b) return null;
@@ -38,7 +39,7 @@
     if (shouldDrawLayout()) drawLayout(opts);
     drawCutouts();
     drawPolygon({ hideVertices: true });
-    const url = off.toDataURL("image/png");
+    const url = opts && opts.jpeg ? off.toDataURL("image/jpeg", 0.92) : off.toDataURL("image/png");
 
     ctx = savedCtx; state.view = savedView;
     render(); // a képernyő helyreállítása
@@ -80,12 +81,11 @@
     return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   }
 
-  // Egész projekt nyomtatása: összesítő + felületenkénti szakaszok
-  function printPlan() {
-    if (!project.surfaces.some((s) => s.points.length >= 2)) {
-      alert("Előbb rajzolj legalább egy felületet.");
-      return;
-    }
+  // ---- A projekt-terv adatai (közös: nyomtatás és közvetlen PDF) ------------------
+  // Felületenként: rajz (PNG), anyagszámok, vágási lista, vágási terv; plusz a
+  // típusonkénti összesítés. null, ha még nincs egy felület sem.
+  function collectPlanData(imgOpts) {
+    if (!project.surfaces.some((s) => s.points.length >= 2)) return null;
     saveActiveSurface();
     const savedIndex = project.activeIndex;
     const sections = [];
@@ -98,7 +98,7 @@
       const s = project.surfaces[i];
       let img = null, m = null, cuts = [], plan = null;
       if (s.points.length >= 2) {
-        img = buildPlanImage(1000, { codes: true, compact: true }); // render → drawLayout → lastStats beáll
+        img = buildPlanImage(1000, Object.assign({ codes: true, compact: true }, imgOpts)); // render → drawLayout → lastStats beáll
         m = materialNumbers();
         cuts = groupedCutList();
         const res = canComputeLayout() ? getLayout() : null;
@@ -117,30 +117,22 @@
     project.activeIndex = savedIndex;
     loadActiveSurface();
     render();
-    populateProjectPrint(sections, agg, totalAreaMm2);
-    setTimeout(() => window.print(), 200);
+    return { sections, agg, totalAreaMm2 };
   }
 
-  function populateProjectPrint(sections, agg, totalAreaMm2) {
-    el.printImg.style.display = "none";
-    if (el.printTitle) el.printTitle.hidden = false; // az árajánlat elrejti
-    const unit = state.unit;
-    const row = (a, b) => `<tr><td>${a}</td><td>${b}</td></tr>`;
-    let html = "<h2>Összesítő</h2><table>";
-    html += row("Projekt", escapeHtml(project.name));
-    html += row("Felületek", project.surfaces.length + " db");
-    html += row("Összes burkolt terület", (totalAreaMm2 / 1e6).toFixed(2) + " m²");
-    html += "</table>";
+  // Összesítő táblázatok, egyszerű szöveges sorokkal: [{ title, head?, rows, strongLast? }]
+  function planSummaryTables(data) {
+    const { agg, totalAreaMm2 } = data;
+    const tables = [{ title: "Összesítő", rows: [
+      ["Projekt", project.name],
+      ["Felületek", project.surfaces.length + " db"],
+      ["Összes burkolt terület", (totalAreaMm2 / 1e6).toFixed(2) + " m²"],
+    ] }];
 
     const keys = Object.keys(agg);
     if (keys.length) {
-      html += "<h2>Lapszükséglet típusonként (egész projekt)</h2>";
-      html += "<table><tr><th>Laptípus</th><th>Szükséges</th><th>Tartalékkal</th></tr>";
-      keys.forEach((k) => {
-        const a = agg[k];
-        html += `<tr><td>${escapeHtml(a.name)}</td><td>${a.tiles} db</td><td>${a.finalTiles} db</td></tr>`;
-      });
-      html += "</table>";
+      tables.push({ title: "Lapszükséglet típusonként (egész projekt)", head: ["Laptípus", "Szükséges", "Tartalékkal"],
+        rows: keys.map((k) => [agg[k].name, agg[k].tiles + " db", agg[k].finalTiles + " db"]) });
     }
 
     // Anyagszükséglet: ragasztó + fuga (összes) + szilikon (sarok-hosszak, kartusok)
@@ -149,43 +141,34 @@
     const groutKg = computeProjectGroutMass(project) * (1 + overage / 100);
     const sil = computeSiliconeForProject(project);
     const totLen = sil.horizMm + sil.vertMm;
-    // Ragasztó: totalAreaMm2 (a felület-cache-ek összege)
+    // Ragasztó: a felület-cache-ek területének összege
     const totalAreaForGlue = project.surfaces.reduce((acc, s) => acc + (s.lastAreaMm2 || 0), 0);
     const glueWaste = Math.max(0, mat.glueWastePct || 0);
     const glueKgPerM2 = GLUE_KG_PER_M2[mat.gluePreset] || 5;
     const glueKg = (totalAreaForGlue / 1e6) * glueKgPerM2 * (1 + glueWaste / 100);
-    if (groutKg > 0 || totLen > 0 || glueKg > 0) {
-      html += "<h2>Anyagszükséglet</h2><table>";
-      if (glueKg > 0) {
-        const glueLbl = GLUE_LABELS[mat.gluePreset] || "Ragasztó";
-        html += row("Ragasztó (" + escapeHtml(glueLbl) + ")", glueKg.toFixed(2) + " kg (+" + glueWaste + "% tartalék)");
-        const gluePacks = Math.ceil(glueKg / GLUE_PACK_KG);
-        html += row("Ragasztó csomag szükséglet", gluePacks + " db zsák (" + GLUE_PACK_KG + " kg)");
-      }
-      if (groutKg > 0) {
-        const lbl = GROUT_LABELS[mat.groutPreset] || "Fuga";
-        html += row("Fuga (" + escapeHtml(lbl) + ")", groutKg.toFixed(2) + " kg (+" + overage + "% tartalék)");
-        const packKg = GROUT_PACK_KG[mat.groutPreset] || 5;
-        const packName = GROUT_PACK_NAME[mat.groutPreset] || "csomag";
-        if (packKg > 0) {
-          const packs = Math.ceil(groutKg / packKg);
-          html += row("Fuga csomag szükséglet", packs + " db " + escapeHtml(packName) + " (" + packKg + " kg)");
-        }
-      }
-      if (totLen > 0) {
-        const t = computeSiliconeTubes(totLen, mat);
-        const fmtLen = (mm) => (mm / 1000).toFixed(2) + " m";
-        if (sil.horizN) html += row("Szilikon — padló-fal sarok", fmtLen(sil.horizMm) + " (" + sil.horizN + " fal)");
-        if (sil.vertN) html += row("Szilikon — fal-fal sarok", fmtLen(sil.vertMm) + " (" + sil.vertN + " sarok)");
-        html += row("Szilikon összesen", fmtLen(totLen) + " · " + mat.silWidthMm + "×" + mat.silDepthMm + " mm hézag");
-        html += row("Kartus szükséglet", t.tubes + " db (" + mat.silTubeMl + " ml, +" + mat.silWastePct + "% tartalék)");
-      }
-      if (sil.edgingN > 0) {
-        const fmtLen = (mm) => (mm / 1000).toFixed(2) + " m";
-        html += row("Élvédő profil", fmtLen(sil.edgingMm) + " (" + sil.edgingN + " él)");
-      }
-      html += "</table>";
+    const fmtLen = (mm) => (mm / 1000).toFixed(2) + " m";
+    const matRows = [];
+    if (glueKg > 0) {
+      const glueLbl = GLUE_LABELS[mat.gluePreset] || "Ragasztó";
+      matRows.push(["Ragasztó (" + glueLbl + ")", glueKg.toFixed(2) + " kg (+" + glueWaste + "% tartalék)"]);
+      matRows.push(["Ragasztó csomag szükséglet", Math.ceil(glueKg / GLUE_PACK_KG) + " db zsák (" + GLUE_PACK_KG + " kg)"]);
     }
+    if (groutKg > 0) {
+      const lbl = GROUT_LABELS[mat.groutPreset] || "Fuga";
+      matRows.push(["Fuga (" + lbl + ")", groutKg.toFixed(2) + " kg (+" + overage + "% tartalék)"]);
+      const packKg = GROUT_PACK_KG[mat.groutPreset] || 5;
+      const packName = GROUT_PACK_NAME[mat.groutPreset] || "csomag";
+      if (packKg > 0) matRows.push(["Fuga csomag szükséglet", Math.ceil(groutKg / packKg) + " db " + packName + " (" + packKg + " kg)"]);
+    }
+    if (totLen > 0) {
+      const t = computeSiliconeTubes(totLen, mat);
+      if (sil.horizN) matRows.push(["Szilikon — padló-fal sarok", fmtLen(sil.horizMm) + " (" + sil.horizN + " fal)"]);
+      if (sil.vertN) matRows.push(["Szilikon — fal-fal sarok", fmtLen(sil.vertMm) + " (" + sil.vertN + " sarok)"]);
+      matRows.push(["Szilikon összesen", fmtLen(totLen) + " · " + mat.silWidthMm + "×" + mat.silDepthMm + " mm hézag"]);
+      matRows.push(["Kartus szükséglet", t.tubes + " db (" + mat.silTubeMl + " ml, +" + mat.silWastePct + "% tartalék)"]);
+    }
+    if (sil.edgingN > 0) matRows.push(["Élvédő profil", fmtLen(sil.edgingMm) + " (" + sil.edgingN + " él)"]);
+    if (matRows.length) tables.push({ title: "Anyagszükséglet", rows: matRows });
 
     // Költségszámítás — csak ha legalább egy ár meg van adva
     const fmtFt = (v) => (Math.round(v)).toLocaleString("hu-HU") + " Ft";
@@ -196,50 +179,76 @@
     const silCost = sumOf("silicone"), edgingCost = sumOf("edging");
     const totalCost = tilesCost + glueCost + groutCost + silCost + edgingCost;
     if (totalCost > 0) {
-      html += "<h2>Költségszámítás</h2><table>";
-      if (anyTilePrice) html += row("Lap (típusonként)", fmtFt(tilesCost));
-      if (glueCost > 0) html += row("Ragasztó", fmtFt(glueCost));
-      if (groutCost > 0) html += row("Fuga", fmtFt(groutCost));
-      if (silCost > 0) html += row("Szilikon", fmtFt(silCost));
-      if (edgingCost > 0) html += row("Élvédő profil", fmtFt(edgingCost));
-      html += row("<strong>ÖSSZESEN</strong>", "<strong>" + fmtFt(totalCost) + "</strong>");
-      html += "</table>";
+      const rows = [];
+      if (anyTilePrice) rows.push(["Lap (típusonként)", fmtFt(tilesCost)]);
+      if (glueCost > 0) rows.push(["Ragasztó", fmtFt(glueCost)]);
+      if (groutCost > 0) rows.push(["Fuga", fmtFt(groutCost)]);
+      if (silCost > 0) rows.push(["Szilikon", fmtFt(silCost)]);
+      if (edgingCost > 0) rows.push(["Élvédő profil", fmtFt(edgingCost)]);
+      rows.push(["ÖSSZESEN", fmtFt(totalCost)]);
+      tables.push({ title: "Költségszámítás", rows, strongLast: true });
     }
+    return tables;
+  }
 
-    sections.forEach((sec) => {
+  // Egy felület számai a tervben
+  function sectionRows(sec) {
+    if (!sec.m) return [["Kiosztás", "nincs"]];
+    const rows = [
+      ["Egész lap", sec.m.whole + " db"],
+      ["Vágott hely", sec.m.cut + " db"],
+      ["Szükséges lap (újrahaszn.)", sec.m.tilesNeeded + " db"],
+      ["Hulladék", sec.m.wastePct.toFixed(0) + " %"],
+      ["Lap tartalékkal (+" + sec.m.pct + "%)", sec.m.finalTiles + " db"],
+    ];
+    if (sec.m.groutKg != null) rows.push(["Fuga", sec.m.groutKg.toFixed(2) + " kg"]);
+    return rows;
+  }
+  // Magas/keskeny rajznál a táblázatok a kép mellé kerülnek, különben alá
+  function sectionSideLayout(img) {
+    const PAGE_W_MM = 180, PAGE_H_MM = 250, TABLES_MIN_H_MM = 90;
+    return !!(img && img.w && img.h && PAGE_W_MM * (img.h / img.w) > (PAGE_H_MM - TABLES_MIN_H_MM));
+  }
+  function cutPlanNoteText() {
+    return "A kódok a rajzon lévő feliratokkal egyeznek (pl. 3a = a 3. lapból vágott „a” darab). " +
+      "Szaggatott keret: felhasználható maradék · vonalkázott: hulladék · ↻: a lapból 90°-kal elforgatva vágandó" +
+      (project.factoryEdges !== false ? " · vastag kék él: gyári él, a szomszédos lap felé kerül (a vékony, vágott él a falhoz/kivágáshoz)" : "") + ".";
+  }
+
+  // Egész projekt nyomtatása (a böngésző nyomtatási ablakával)
+  function printPlan() {
+    const data = collectPlanData();
+    if (!data) { alert("Előbb rajzolj legalább egy felületet."); return; }
+    populateProjectPrint(data);
+    setTimeout(() => window.print(), 200);
+  }
+
+  function populateProjectPrint(data) {
+    el.printImg.style.display = "none";
+    if (el.printTitle) el.printTitle.hidden = false; // az árajánlat elrejti
+    const e = escapeHtml;
+    const tableHtml = (t) => {
+      let h = "<table>";
+      if (t.head) h += "<tr>" + t.head.map((x) => "<th>" + e(x) + "</th>").join("") + "</tr>";
+      t.rows.forEach((r, i) => {
+        const strong = t.strongLast && i === t.rows.length - 1;
+        h += "<tr>" + r.map((x) => "<td>" + (strong ? "<strong>" + e(x) + "</strong>" : e(x)) + "</td>").join("") + "</tr>";
+      });
+      return h + "</table>";
+    };
+    let html = "";
+    planSummaryTables(data).forEach((t) => { html += "<h2>" + e(t.title) + "</h2>" + tableHtml(t); });
+
+    data.sections.forEach((sec) => {
       html += '<div class="pa-section">';
-      html += `<h2>${escapeHtml(sec.name)} (${sec.mode === "floor" ? "padló" : "fal"})</h2>`;
-      // Ha a kép szélesség szerint teljes szélességre nyújtva még kényelmesen
-      // elfér a táblázatoknak hely az oldal alján, akkor egymás alatt (teljes
-      // szélesség); ha a kép magas/keskeny és kitöltené a teljes oldalmagasságot,
-      // akkor a táblázatok a kép mellé, jobbra kerülnek.
-      const PAGE_W_MM = 180, PAGE_H_MM = 250, TABLES_MIN_H_MM = 90;
-      let sideLayout = false;
-      if (sec.img && sec.img.w && sec.img.h) {
-        const widthScaledHeight = PAGE_W_MM * (sec.img.h / sec.img.w);
-        sideLayout = widthScaledHeight > (PAGE_H_MM - TABLES_MIN_H_MM);
-      }
-      html += '<div class="pa-body ' + (sideLayout ? "pa-body-side" : "pa-body-stack") + '">';
+      html += `<h2>${e(sec.name)} (${sec.mode === "floor" ? "padló" : "fal"})</h2>`;
+      html += '<div class="pa-body ' + (sectionSideLayout(sec.img) ? "pa-body-side" : "pa-body-stack") + '">';
       if (sec.img) html += `<img src="${sec.img.url}" />`;
-      html += '<div class="pa-tables"><div class="pa-grid"><div class="pa-col"><table>';
-      if (sec.m) {
-        html += row("Egész lap", sec.m.whole + " db");
-        html += row("Vágott hely", sec.m.cut + " db");
-        html += row("Szükséges lap (újrahaszn.)", sec.m.tilesNeeded + " db");
-        html += row("Hulladék", sec.m.wastePct.toFixed(0) + " %");
-        html += row("Lap tartalékkal (+" + sec.m.pct + "%)", sec.m.finalTiles + " db");
-        if (sec.m.groutKg != null) html += row("Fuga", sec.m.groutKg.toFixed(2) + " kg");
-      } else {
-        html += row("Kiosztás", "nincs");
-      }
-      html += '</table></div><div class="pa-col"><strong>Vágási lista (' + unit + ")</strong>";
-      if (sec.cuts && sec.cuts.length) {
-        html += "<table><tr><th>Méret</th><th>Darab</th></tr>";
-        sec.cuts.forEach(([k, n]) => { html += `<tr><td>${k}</td><td>${n} db</td></tr>`; });
-        html += "</table>";
-      } else {
-        html += "<p>—</p>";
-      }
+      html += '<div class="pa-tables"><div class="pa-grid"><div class="pa-col">' + tableHtml({ rows: sectionRows(sec) });
+      html += '</div><div class="pa-col"><strong>Vágási lista (' + state.unit + ")</strong>";
+      html += sec.cuts && sec.cuts.length
+        ? tableHtml({ head: ["Méret", "Darab"], rows: sec.cuts.map(([k, n]) => [k, n + " db"]) })
+        : "<p>—</p>";
       html += '</div></div></div>'; // pa-col, pa-grid, pa-tables vége
       html += '</div>'; // pa-body vége
       html += cutPlanHtml(sec.plan);

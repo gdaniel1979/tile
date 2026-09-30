@@ -103,6 +103,7 @@
     updateLaterBtn: document.getElementById("updateLaterBtn"),
     exportPng: document.getElementById("exportPng"),
     exportPdf: document.getElementById("exportPdf"),
+    printPlanBtn: document.getElementById("printPlanBtn"),
     saveStoreJson: document.getElementById("saveStoreJson"),
     loadJsonBtn: document.getElementById("loadJsonBtn"),
     loadJsonInput: document.getElementById("loadJsonInput"),
@@ -169,6 +170,7 @@
     qAddItem: document.getElementById("qAddItem"),
     qSummary: document.getElementById("qSummary"),
     qPrint: document.getElementById("qPrint"),
+    qPrintBtn: document.getElementById("qPrintBtn"),
     printTitle: document.getElementById("printTitle"),
   };
 

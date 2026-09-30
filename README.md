@@ -58,7 +58,7 @@ Windows 11 / Office-szerű elrendezés, világos és sötét témával (alapból
   (cementes CG1/CG2 vagy Mapei Kerapoxy Easy Design epoxi), szilikon (padló–fal és fal–fal sarkok),
   élvédő profil; tartalék %, költségszámítás egységárakkal.
 - **Árajánlat** – megrendelő, ajánlatadó, munkadíj a terv mennyiségeiből, egyedi tételek,
-  27% ÁFA vagy alanyi adómentes; nyomtatható / PDF.
+  27% ÁFA vagy alanyi adómentes; közvetlen PDF-mentés vagy nyomtatás.
 
 ### Mentés és export
 - **Automatikus mentés** a böngésző IndexedDB-jébe; visszavonás / újra (Ctrl+Z, Ctrl+Y).
@@ -67,7 +67,8 @@ Windows 11 / Office-szerű elrendezés, világos és sötét témával (alapból
   bezáráskor figyelmeztet. A telepített appban a .lapterv fájl dupla kattintással is megnyílik.
   Legutóbbi fájlok listája (10 db). Firefoxban / iPaden a Mentés letöltésként működik.
 - **Biztonsági mentés** – az összes projekt egy JSON-fájlba, és visszaállítás belőle.
-- **PNG** (aktív felület) és **PDF / nyomtatás** (teljes projekt: rajzok, számok, vágási terv, összesítő).
+- **PNG** (aktív felület) és **közvetlen PDF-mentés** (vektoros, jsPDF + beágyazott Noto Sans betű, offline is)
+  vagy nyomtatás (teljes projekt: rajzok, számok, vágási terv, összesítő; árajánlat).
 - **3D nézet** – a helyiség felületei térben, a saját kiosztásukkal; forgatható, nagyítható.
 
 ## Futtatás
@@ -98,6 +99,8 @@ tests/              – automatikus tesztek (layout.test.js + run_tests.py)
 favicon.svg         – ikon
 manifest.webmanifest, icons/ – PWA: alkalmazás-leíró és ikonok
 sw.js               – service worker: „hálózat először”, offline a gyorsítótárból
+js/vendor/           – jsPDF (MIT) a közvetlen PDF-mentéshez
+fonts/              – Noto Sans (SIL OFL, magyar karakterekre szűkítve) a PDF-hez; OFL.txt
 ```
 
 A `js/modules/` fájljai klasszikus `<script>` tagként, az `index.html`-ben megadott sorrendben töltődnek

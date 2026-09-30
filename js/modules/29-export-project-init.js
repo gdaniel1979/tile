@@ -1,7 +1,8 @@
 "use strict";
   function initExportUI() {
     el.exportPng.addEventListener("click", exportPNG);
-    el.exportPdf.addEventListener("click", printPlan);
+    el.exportPdf.addEventListener("click", savePlanPdf);   // közvetlen PDF-fájl
+    el.printPlanBtn.addEventListener("click", printPlan);  // böngészős nyomtatás
     el.saveStoreJson.addEventListener("click", saveStoreJSON);
     el.loadJsonBtn.addEventListener("click", () => el.loadJsonInput.click());
     el.loadJsonInput.addEventListener("change", () => {

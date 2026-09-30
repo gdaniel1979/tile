@@ -7,7 +7,9 @@ const CACHE = "tile-planner-v1";
 // Telepítéskor az index.html-ből kiolvassuk a helyi fájlokat (script/link/ikon),
 // így egy új modul felvétele után sem kell ezt a listát kézzel karbantartani.
 const BASE = ["./", "index.html", "manifest.webmanifest", "favicon.svg",
-  "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"];
+  "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png",
+  // csak a PDF-mentéskor töltődnek be, de offline is kellenek
+  "js/vendor/jspdf.umd.min.js", "fonts/NotoSans-Regular.ttf", "fonts/NotoSans-Bold.ttf"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
