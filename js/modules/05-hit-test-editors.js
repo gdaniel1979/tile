@@ -40,11 +40,29 @@
   function shiftEdgeData(kind, edge) {
     [state.edgeNames, state.edgeEdgings].forEach((arr) => {
       if (!Array.isArray(arr) || edge >= arr.length) return;
-      if (kind === "insert") arr.splice(edge + 1, 0, arr[edge]);
-      else arr.splice(edge, 1);
+      if (kind !== "insert") { arr.splice(edge, 1); return; }
+      // élnév: a kettévágott él új fele egyedi nevet kap (pl. „É” → „É (2)”),
+      // mert a falak a nevüket az élnévből kapják
+      let v = arr[edge];
+      if (arr === state.edgeNames && typeof v === "string" && v.trim()) {
+        const base = v.trim().replace(/\s*\(\d+\)$/, "");
+        let k = 2;
+        while (arr.some((x) => typeof x === "string" && x.trim() === base + " (" + k + ")")) k++;
+        v = base + " (" + k + ")";
+      }
+      arr.splice(edge + 1, 0, v);
     });
     const cur = project && project.surfaces[project.activeIndex];
     if (!cur || state.mode !== "floor") return;
+    // a törölt falú élek jelölése is az éllel mozog (kettévágásnál mindkét fele fal nélküli marad)
+    if (Array.isArray(cur.noWallEdges) && cur.noWallEdges.length) {
+      const nw = [];
+      cur.noWallEdges.forEach((i) => {
+        if (kind === "insert") { if (i > edge) nw.push(i + 1); else { nw.push(i); if (i === edge) nw.push(edge + 1); } }
+        else if (i !== edge) nw.push(i > edge ? i - 1 : i);
+      });
+      cur.noWallEdges = nw;
+    }
     project.surfaces.forEach((w) => {
       if (w.fromFloorId !== cur.id || typeof w.fromEdgeIndex !== "number") return;
       if (kind === "insert") { if (w.fromEdgeIndex > edge) w.fromEdgeIndex++; }

@@ -35,7 +35,8 @@ Windows 11 / Office-szerű elrendezés, világos és sötét témával (alapból
 - **Alaprajz szerkesztő** – szabálytalan sokszög, rácsra illesztés, csak vízszintes/függőleges él-mód,
   élhossz és szög szerkesztése a rajzon és listában, pontok és élek húzása, beszúrása, törlése.
 - **Több projekt, több felület** – egy projekthez tartozhat padló + falak; a falak egy gombnyomással
-  generálhatók a padlóból, és a padló változásakor helyben frissíthetők (a falakon végzett munka megmarad).
+  generálhatók a padlóból, és automatikusan követik a padló változását (méret, élnév, új/megszűnt él;
+  a falakon végzett munka megmarad, a kilógó kivágások beigazodnak).
   Előtétfal és lépcső generálása; projektek beolvasztása helyiségként.
 - **Kivágások** – ajtó, ablak, nem burkolt terület; nyíláshoz kép is feltölthető; csoportosíthatók.
 

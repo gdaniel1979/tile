@@ -142,6 +142,12 @@
     const extra = ids.size - 1;
     if (!confirm("Töröljük a(z) „" + s.name + "” felületet" + (extra ? " és a hozzá tartozó " + extra + " gyermek-felületet (pl. előtétfal)" : "") + "?")) return;
     saveActiveSurface();
+    // generált fal: a padló megjegyzi, hogy ennek az élnek nem kell fal (az automatikus
+    // igazítás ne hozza vissza; a „Falak generálása” gomb igen)
+    const floor = s.fromFloorId && project.surfaces.find((f) => f.id === s.fromFloorId);
+    if (floor && typeof s.fromEdgeIndex === "number") {
+      floor.noWallEdges = [...new Set([...(floor.noWallEdges || []), s.fromEdgeIndex])];
+    }
     removeSurfaces(ids);
     loadActiveSurface();
     refreshAll();

@@ -24,7 +24,7 @@
     resizeCanvas();
     renderEdgeList();
     updateSummary();
-    checkWallSync();
+    autoSyncWalls(); // régebbi mentésben elavult falak: igazítás a padlóhoz
     updateCanvasTitle();
     fitView();
     restoreRibbonTab(); // a legutóbb használt menüszalag-fül

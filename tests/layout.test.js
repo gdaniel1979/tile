@@ -389,10 +389,33 @@
   test("csúcs beszúrása/törlése: az élnevek és élvédők a helyes élen maradnak", () => {
     withFreshProject(() => {
       insertVertexOnEdge(1, ...Object.values(worldToScreen({ x: 3000, y: 1000 })));
-      eq(state.edgeNames.join(","), "É,K,K,D,NY", "beszúrás után (a kettévált él mindkét fele örököl)");
+      eq(state.edgeNames.join(","), "É,K,K (2),D,NY", "beszúrás után (a kettévált él új fele egyedi nevet örököl)");
       eq(state.edgeEdgings.map(Number).join(""), "01100", "élvédő beszúrás után");
       deleteVertex(3); // a (3000,2000) sarok: a K (2.) és D él összeolvad
-      eq(state.edgeNames.join(","), "É,K,K,NY", "törlés után");
+      eq(state.edgeNames.join(","), "É,K,K (2),NY", "törlés után");
+    });
+  });
+  test("falak automatikusan követik a padlót; kézzel törölt fal nem jön vissza", () => {
+    withFreshProject((p) => {
+      const floor = p.surfaces[0];
+      generateWalls(floor, 2400);
+      const wallOf = (i) => p.surfaces.find((s) => s.fromFloorId === floor.id && s.fromEdgeIndex === i);
+      const lenOf = (s) => Math.max(...s.points.map((q) => q.x));
+      wallOf(1).cutouts.push({ x: 1200, y: 100, w: 700, h: 500, kind: "opening", name: "Ablak", edgeEdgings: [false, false, false, false] });
+      p.activeIndex = 0; loadActiveSurface();
+      state.points[2].y = 1500; state.points[3].y = 1500; afterGeometryChange(); // a K és NY él 1500 lett
+      eq(lenOf(wallOf(1)), 1500, "a K fal hossza követte a padlót");
+      const win = wallOf(1).cutouts[0];
+      eq(win.x + win.w <= 1500 && win.w === 700, true, "a kilógó ablak beigazodott a falba");
+      state.edgeNames[0] = "Észak"; afterGeometryChange();
+      eq(wallOf(0).name, "Észak", "élnév-változás: a fal átnevezve");
+      const nyId = wallOf(3).id;
+      p.activeIndex = p.surfaces.findIndex((s) => s.id === nyId); loadActiveSurface();
+      deleteSurfaceFn();
+      p.activeIndex = 0; loadActiveSurface(); afterGeometryChange();
+      eq(!!wallOf(3), false, "a kézzel törölt fal nem jött vissza");
+      generateWalls(floor, 2400);
+      eq(!!wallOf(3), true, "a Falak generálása gomb újra létrehozza");
     });
   });
   test("falak frissítése: a fal kivágásai és az előtétfal megmaradnak, megszűnt él fala törlődik", () => {

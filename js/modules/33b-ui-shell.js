@@ -269,6 +269,22 @@
     el.sbWaste.textContent = m ? m.wastePct.toFixed(0) + " %" : "–";
   }
 
+  // Rövid, magától eltűnő értesítés a vászon alján (nem felugró ablak)
+  let toastTimer = 0;
+  function showToast(msg, ms) {
+    let t = document.getElementById("toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "toast"; t.className = "toast"; t.setAttribute("role", "status");
+      t.addEventListener("click", () => { t.hidden = true; });
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, ms || 7000);
+  }
+
   // Mentés-visszajelzés a Mentés gombon (a projektfájlba írás után)
   function flashSaved() {
     const lbl = el.saveFileBtn && el.saveFileBtn.querySelector(".lbl");

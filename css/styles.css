@@ -472,15 +472,6 @@ html[data-pane-side="left"] .workspace { flex-direction: row-reverse; }
   background: var(--panel-2); color: var(--text);
   border: 1px solid var(--accent); border-radius: 4px; outline: none; box-shadow: var(--shadow);
 }
-/* Figyelmeztető sáv (InfoBar) */
-.wall-warn {
-  position: absolute; top: 10px; left: 10px; right: 170px; z-index: 6;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  background: var(--warn-bg); color: var(--warn-text);
-  border: 1px solid var(--warn-border); border-radius: 6px;
-  padding: 8px 12px; font-size: 12.5px; box-shadow: var(--shadow);
-}
-.wall-warn .ww-actions { display: flex; gap: 8px; flex: 0 0 auto; }
 
 /* ===== Súgó (párbeszédablak) ===== */
 .modal-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.35); }
@@ -582,3 +573,13 @@ html[data-pane-side="left"] .workspace { flex-direction: row-reverse; }
 }
 .update-bar[hidden] { display: none; }
 @media print { .menu-pop, .update-bar { display: none !important; } }
+
+/* ===== Rövid értesítés (pl. a falak követték a padlót) ===== */
+.toast {
+  position: fixed; z-index: 69; left: 50%; bottom: 84px; transform: translateX(-50%);
+  max-width: min(640px, calc(100vw - 16px)); padding: 9px 14px; font-size: 12.5px; line-height: 1.4;
+  background: var(--card); color: var(--text); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+}
+.toast[hidden] { display: none; }
+@media print { .toast { display: none !important; } }

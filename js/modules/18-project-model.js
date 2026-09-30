@@ -66,7 +66,8 @@
       fromEdgeIndex: typeof d.fromEdgeIndex === "number" ? d.fromEdgeIndex : null,
       wallsSignature: d.wallsSignature || null,
       wallHeightMm: typeof d.wallHeightMm === "number" ? d.wallHeightMm : null,
-      warnDismissedSignature: d.warnDismissedSignature || null,
+      // padló: azok az élek, amelyek falát a felhasználó törölte (az automatikus igazítás nem hozza vissza)
+      noWallEdges: Array.isArray(d.noWallEdges) ? d.noWallEdges.filter((i) => typeof i === "number") : [],
       lastGroutAreaMm2: typeof d.lastGroutAreaMm2 === "number" ? d.lastGroutAreaMm2 : 0,
       lastTileThicknessMm: typeof d.lastTileThicknessMm === "number" ? d.lastTileThicknessMm : 8,
       lastAreaMm2: typeof d.lastAreaMm2 === "number" ? d.lastAreaMm2 : 0,

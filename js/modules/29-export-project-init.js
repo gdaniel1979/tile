@@ -47,15 +47,5 @@
         generateStairs(name, steps, w, d, rise);
       });
     }
-    el.wallWarnRegen.addEventListener("click", () => {
-      if (staleFloorRef) generateWalls(staleFloorRef, staleFloorRef.wallHeightMm || toMm(parseFloat(el.wallHeight.value)) || 2700);
-    });
-    el.wallWarnHide.addEventListener("click", () => {
-      if (staleFloorRef) {
-        staleFloorRef.warnDismissedSignature = floorSignature(staleFloorRef);
-        el.wallWarn.hidden = true;
-        save();
-      }
-    });
   }
 

@@ -8,7 +8,6 @@
     renderProjectTree();
     if (el.projName) el.projName.value = project.name;
     updateCanvasTitle();
-    checkWallSync();
     syncQuoteUI();
     if (opts && opts.keepView) render(); else fitView();
     save();

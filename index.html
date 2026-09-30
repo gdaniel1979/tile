@@ -442,13 +442,6 @@
 
       <!-- Vászon -->
       <div class="canvas-wrap" id="canvasWrap">
-        <div id="wallWarn" class="wall-warn" hidden>
-          <span id="wallWarnText"></span>
-          <span class="ww-actions">
-            <button class="btn" id="wallWarnRegen">Falak frissítése</button>
-            <button class="btn" id="wallWarnHide">Elrejtés</button>
-          </span>
-        </div>
         <div class="canvas-tools">
           <div class="view-toggle" id="viewToggle">
             <button data-view="2d" class="active">2D</button>
@@ -742,7 +735,7 @@
         <p><strong>Kivágások</strong> (ajtó, ablak, nem burkolt sáv): válaszd a típust, kapcsold be a <strong>Kivágás</strong> gombot, és húzz egy téglalapot. Kijelölés: kattints a kivágásra a Tulajdonságok panel listájában vagy a Rétegek között; a vásznon húzással mozgatható, a méretfeliratra kattintva pontosítható. A Tulajdonságok panel kivágás-listájában a méret, az élvédő és (nyílásnál) egy kép is megadható; a ⤧ gomb a felületre illeszti.</p>
 
         <h3>2. Falak, előtétfal, lépcső</h3>
-        <p><strong>Rajzolás → Falak:</strong> a zárt padló minden éléhez egy fal-felület készül (szélesség = élhossz, a megadott magassággal); a falak az élek neveit kapják. Ha a padló később megváltozik, a vászon tetején megjelenő sáv „Falak frissítése” gombja a falak méretét igazítja — a falakon lévő kivágások, kiosztás-beállítások, élvédők és előtétfalak megmaradnak; új élhez új fal készül, a megszűnt él fala törlődik.</p>
+        <p><strong>Rajzolás → Falak:</strong> a zárt padló minden éléhez egy fal-felület készül (szélesség = élhossz, a megadott magassággal); a falak az élek neveit kapják. <strong>A falak automatikusan követik a padlót:</strong> ha a padló egy éle hosszabb/rövidebb lesz vagy átnevezed, a fala azonnal igazodik (a pont húzásánál a húzás végén) — a falakon lévő kivágások, kiosztás-beállítások, élvédők és előtétfalak megmaradnak. Pont beszúrásakor az új élhez új fal készül (a kettévágott él új fele egyedi nevet kap, pl. „É (2)”), pont törlésekor a megszűnt él fala a rajta lévő előtétfallal együtt törlődik. Ha egy fal kisebb lesz, a belőle kilógó kivágás (ajtó, ablak, előtétfal) a falon belülre tolódik, szükség esetén keskenyebb lesz. Minden ilyen változásról rövid üzenet szól a vászon alján, és egy Ctrl+Z a padlót és a falakat együtt állítja vissza. Egy kézzel törölt generált falat az automatikus igazítás nem hoz vissza; a „Falak generálása” gomb viszont minden élhez újra létrehozza a falat.</p>
         <p><strong>Előtétfal</strong> (az aktív fal-felületre) és <strong>Lépcső</strong>: a gomb a Tulajdonságok panel megfelelő részéhez visz, ott add meg a méreteket. Az előtétfal a falon egy „nem burkolt” kivágást és négy gyermek-felületet hoz létre; a lépcső fokonként egy homloklapot és egy lépőlapot. Felület törlésekor a gyermek-felületei is törlődnek.</p>
 
         <h3>3. Burkolat</h3>

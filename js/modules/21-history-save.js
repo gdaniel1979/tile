@@ -73,6 +73,8 @@
     // Húzás közben (csúcs/él/kivágás mozgatása) csak rajzolunk — a mouseup
     // egyetlen save()-vel menti és rögzíti előzménybe a végállapotot.
     if (inDrag) return;
+    // a generált falak követik a padlót (visszavonás/újra közben nem: az a teljes állapotot hozza)
+    if (!suppressHistory) autoSyncWalls();
     pendingFlush = true;
     if (!flushScheduled) {
       flushScheduled = true;

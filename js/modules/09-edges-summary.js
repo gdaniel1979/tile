@@ -114,7 +114,6 @@
     renderCutoutList();
     renderLayersList();
     updateSummary();
-    if (project) checkWallSync(); // padló-változás esetén figyelmeztetés a generált falakra
     save();
   }
 

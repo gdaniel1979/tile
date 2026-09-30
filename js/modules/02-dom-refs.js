@@ -135,10 +135,6 @@
     untiledColor: document.getElementById("untiledColor"),
     histUndo: document.getElementById("histUndo"),
     histRedo: document.getElementById("histRedo"),
-    wallWarn: document.getElementById("wallWarn"),
-    wallWarnText: document.getElementById("wallWarnText"),
-    wallWarnRegen: document.getElementById("wallWarnRegen"),
-    wallWarnHide: document.getElementById("wallWarnHide"),
     projName: document.getElementById("projName"),
     // 18. fázis (3D nézet)
     board3d: document.getElementById("board3d"),
