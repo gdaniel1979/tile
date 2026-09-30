@@ -52,6 +52,8 @@ Windows 11 / Office-szerű elrendezés, világos és sötét témával (alapból
 - **Gyári él szabály** – a szomszédos lap felé mindig gyári él kerül, vágott él csak falhoz/kivágáshoz.
 - Átlós és 45°-os halszálka mintánál a ferdén vágott darabok **valódi alakjukkal** párosulnak
   (pl. két fél-háromszög egy lapból).
+- Ferdén vágott darab **pontos mérete**: a lap-tengely szerinti méret + a levágott sarkok befogói
+  (pl. „30.0×60.0 − sarok 12.4×12.4”, derékszögű háromszög: „Δ 30.0×30.0”); kivágással érintett darabnál „~”.
 - A PDF-ben laponként ábra: darabok, felhasználható maradék, hulladék, gyári élek.
 
 ### Anyag és ajánlat

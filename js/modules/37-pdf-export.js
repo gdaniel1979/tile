@@ -291,7 +291,8 @@
     const caps = tile.pieces.map((pc) => {
       const t = (labels[pc.li] && labels[pc.li].text) || "";
       const pw = rot90(pc) ? pc.h : pc.w, ph = rot90(pc) ? pc.w : pc.h;
-      const dim = t.startsWith("L ") ? t : (t.startsWith("~") ? "~" : "") + fmtDim(pw, ph);
+      const lab = labels[pc.li] || {};
+      const dim = lab.corners || lab.tri ? pieceDimText(lab, rot90(pc) !== !!lab.swap) : t.startsWith("L ") ? t : (t.startsWith("~") ? "~" : "") + fmtDim(pw, ph);
       return { code: String(pc.code), rest: " " + dim + (rot90(pc) ? " (forgatva)" : "") };
     });
     // a felirat-sorok előre tördelve (kód félkövér, a többi normál)

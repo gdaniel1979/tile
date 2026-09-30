@@ -100,17 +100,31 @@
     return f(wmm) + "×" + f(hmm);
   }
 
+  // Méret-felirat; a levágott sarkok („ − sarok …”) külön, második sorba kerülnek
   function drawCutLabel(text, x, y) {
     ctx.font = "10px system-ui, sans-serif";
-    const tw = ctx.measureText(text).width;
-    const bw = tw + 6, bh = 14;
+    const k = text.indexOf(" − ");
+    const lines = k > 0 ? [text.slice(0, k), text.slice(k + 1)] : [text];
+    const tw = Math.max(...lines.map((l) => ctx.measureText(l).width));
+    const bw = tw + 6, bh = 3 + 11 * lines.length;
     ctx.fillStyle = "rgba(15,20,25,0.78)";
     roundRect(x - bw / 2, y - bh / 2, bw, bh, 3);
     ctx.fill();
     ctx.fillStyle = "#ffffff";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(text, x, y);
+    lines.forEach((l, i) => ctx.fillText(l, x, y + (i - (lines.length - 1) / 2) * 11));
+  }
+
+  // Ferdén vágott darab mérete: „30.0×60.0 − sarok 12.4×12.4” / „Δ 30.0×30.0”
+  // (rot: a darab 90°-kal elforgatva szerepel, pl. a vágási tervben). null, ha
+  // nincs sarok-adat (akkor a hívó a sima méretet írja ki).
+  function pieceDimText(c, rot) {
+    const d = (a, b) => (rot ? fmtDim(b, a) : fmtDim(a, b));
+    if (c.tri) return "Δ " + d(c.w, c.h);
+    if (c.corners && c.corners.length) return d(c.w, c.h) + " − sarok " + c.corners.map(([a, b]) => d(a, b)).join(", ");
+    if (c.w != null) return d(c.w, c.h);
+    return null;
   }
 
   // Kétsoros felirat (PDF-rajz): felül a vágási terv kódja, alatta a méret —

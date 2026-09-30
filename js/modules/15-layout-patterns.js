@@ -396,6 +396,58 @@
   function toTileFrame(piece, o, ax, ay, bx, by) {
     return piece.map((q) => { const rx = q.x - o.x, ry = q.y - o.y; return { x: rx * ax + ry * ay, y: rx * bx + ry * by }; });
   }
+  // Pontos felirat ferdén vágott darabhoz (átlós / 45°-os minta). Ha a darab a lap
+  // keretében (poly) pontosan a befoglaló téglalapja mínusz sarokháromszögek, a
+  // levágott sarkok befogói: corners = [[a, b], …] (a: a lap szélessége, b: a
+  // magassága mentén, a saroktól mérve); tri: derékszögű háromszög (egy sarok a
+  // teljes átló mentén); rect: téglalap. Bonyolultabb alaknál null („~” marad).
+  const SHAPE_TOL = 0.6; // mm tűrés a sarok-felismerésnél
+  function cornerCutShape(poly) {
+    if (!poly || poly.length < 3) return null;
+    let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity, area2 = 0;
+    poly.forEach((q, k) => {
+      u0 = Math.min(u0, q.x); u1 = Math.max(u1, q.x); v0 = Math.min(v0, q.y); v1 = Math.max(v1, q.y);
+      const r = poly[(k + 1) % poly.length];
+      area2 += q.x * r.y - r.x * q.y;
+    });
+    const W = u1 - u0, H = v1 - v0, area = Math.abs(area2) / 2;
+    const near = (a, b) => Math.abs(a - b) < SHAPE_TOL;
+    // minden csúcs a befoglaló téglalap szélén (különben pl. belső sarok: nem sarok-vágás)
+    if (!poly.every((q) => near(q.x, u0) || near(q.x, u1) || near(q.y, v0) || near(q.y, v1))) return null;
+    const cuts = [];
+    let cutArea = 0;
+    [[u0, v0], [u1, v0], [u1, v1], [u0, v1]].forEach(([cx, cy]) => {
+      if (poly.some((q) => near(q.x, cx) && near(q.y, cy))) return; // a sarok megvan
+      let a = W, b = H;
+      poly.forEach((q) => {
+        if (near(q.y, cy)) a = Math.min(a, Math.abs(q.x - cx));
+        if (near(q.x, cx)) b = Math.min(b, Math.abs(q.y - cy));
+      });
+      cuts.push([a, b]);
+      cutArea += a * b / 2;
+    });
+    if (Math.abs(W * H - cutArea - area) > Math.max(2, area * 0.002)) return null; // nem csak sarok-vágás
+    if (!cuts.length) return { rect: true };
+    if (cuts.length === 1 && near(cuts[0][0], W) && near(cuts[0][1], H)) return { tri: true };
+    return { corners: cuts };
+  }
+  // Vágott darab felirata a lap keretében mért méretekkel (pw × ph): pontos, ha az
+  // alak felismerhető és kivágás nem érinti; különben „~” (közelítő, befoglaló méret)
+  function slantedCutLabel(x, y, pw, ph, poly, restArea) {
+    const shape = cornerCutShape(poly);
+    let polyArea = 0;
+    poly.forEach((q, k) => { const r = poly[(k + 1) % poly.length]; polyArea += q.x * r.y - r.x * q.y; });
+    polyArea = Math.abs(polyArea) / 2;
+    const cutoutHit = restArea < polyArea - Math.max(2, polyArea * 0.002);
+    const lab = { x, y, w: pw, h: ph };
+    if (shape && !cutoutHit) {
+      if (shape.tri) lab.tri = true;
+      if (shape.corners) lab.corners = shape.corners;
+      lab.text = pieceDimText(lab, false);
+    } else lab.text = "~" + fmtDim(pw, ph);
+    return lab;
+  }
+
   function factoryEdgesOf(u0, u1, v0, v1, tw, th) {
     return { t: v0 < EDGE_TOL, r: u1 > tw - EDGE_TOL, b: v1 > th - EDGE_TOL, l: u0 < EDGE_TOL };
   }
@@ -455,9 +507,9 @@
         } else {
           const pw = rest.w, ph = rest.h;
           acc.cut++;
-          acc.cutLabels.push({ x: rest.cx, y: rest.cy, w: pw, h: ph, text: "~" + fmtDim(pw, ph) });
           const fe = factoryEdgesOf(rest.lu0, rest.lu1, rest.lv0, rest.lv1, tileW, tileH);
           const poly = toTileFrame(piece, c0, ux, uy, vx, vy);
+          acc.cutLabels.push(slantedCutLabel(rest.cx, rest.cy, pw, ph, poly, rest.area));
           acc.needPieces.push({ w: pw, h: ph, typeId: type.id, fe, poly });
           bumpType(acc.byType, type, false, rest.area);
         }
@@ -563,13 +615,15 @@
           } else {
             acc.cut++;
             const pw = rest.w, ph = rest.h;
-            acc.cutLabels.push({ x: rest.cx, y: rest.cy, w: pw, h: ph, text: (tilted ? "~" : "") + fmtDim(pw, ph) });
+            const lab = slantedCutLabel(rest.cx, rest.cy, pw, ph, toTileFrame(piece, quad[0], ax, ay, bx, by), rest.area);
+            acc.cutLabels.push(lab);
             // Az újrahasznosítás-számítás a lapot h × w (hosszú × rövid) tájolásban
             // nézi: az álló (V) lapok darabjait ehhez elforgatva adjuk át.
             // Az álló lap keretét 90°-kal (óramutató szerint) elforgatjuk: a lap
             // saját bal oldala lesz a lent, a jobb a fent, a teteje a bal, az alja a jobb.
             const fe0 = factoryEdgesOf(rest.lu0, rest.lu1, rest.lv0, rest.lv1, t.tw, t.th);
             const upright = t.tw === w;
+            if (upright) lab.swap = true; // a vágási terv fekvő keretben mutatja: a sarkok is felcserélve
             const dims = upright ? { w: ph, h: pw } : { w: pw, h: ph };
             const fe = upright ? { t: fe0.r, r: fe0.b, b: fe0.l, l: fe0.t } : fe0;
             // valódi alak ugyanebben a (fekvő) keretben: álló lapnál (u,v) → (v, w − u)
@@ -637,7 +691,9 @@
       const text = c.text || fmtDim(c.w, c.h);
       // tömör (PDF) feliratban L-darabnál csak a befoglaló méret — a teljes
       // „L a×b / c×d” méret a vágási terv ábrája alatt szerepel
-      if (withCodes && c.code) drawCodeCutLabel(c.code, compact ? text.split(" / ")[0] : text, s.x, s.y);
+      if (withCodes && c.code) drawCodeCutLabel(c.code, compact ? text.split(" / ")[0].split(" − ")[0] : text, s.x, s.y);
+      // kicsinyített nézetben a levágott sarkok nem férnek el: csak a méret + „…” (ránagyítva teljes)
+      else if (text.includes(" − ") && Math.min(c.w, c.h) * state.view.scale < 60) drawCutLabel(text.split(" − ")[0] + " …", s.x, s.y);
       else drawCutLabel(text, s.x, s.y);
     });
   }
@@ -668,7 +724,7 @@
     setLayoutCounts(st);
     updateMaterialReport(st);
     lastStats = { whole: st.whole, cut: st.cut, tilesNeeded: st.tilesNeeded, areaMm2: st.areaMm2, tileAreaMm2: st.tileAreaMm2, groutAreaMm2: st.groutAreaMm2 };
-    lastCutPieces = res.cutLabels.map((c) => ({ w: c.w, h: c.h }));
+    lastCutPieces = res.cutLabels.map((c) => ({ w: c.w, h: c.h, text: c.corners || c.tri ? c.text : null }));
   }
 
   // Festő-paletta (egyedi lapok): „Alap" (radír) + a könyvtár típusai

@@ -71,7 +71,7 @@
   function groupedCutList() {
     const map = new Map();
     lastCutPieces.forEach((c) => {
-      const k = fmtDim(c.w, c.h);
+      const k = c.text || fmtDim(c.w, c.h); // ferdén vágott darabnál a sarkokkal együtt
       map.set(k, (map.get(k) || 0) + 1);
     });
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
@@ -328,7 +328,8 @@
     const cap = tile.pieces.map((pc) => {
       const t = (labels[pc.li] && labels[pc.li].text) || "";
       const w = rot90(pc) ? pc.h : pc.w, h = rot90(pc) ? pc.w : pc.h;
-      const dim = t.startsWith("L ") ? t : (t.startsWith("~") ? "~" : "") + fmtDim(w, h);
+      const lab = labels[pc.li] || {};
+      const dim = lab.corners || lab.tri ? pieceDimText(lab, rot90(pc) !== !!lab.swap) : t.startsWith("L ") ? t : (t.startsWith("~") ? "~" : "") + fmtDim(w, h);
       return `<strong>${pc.code}</strong> ${escapeHtml(dim)}${rot90(pc) ? " ↻ (forgatva)" : ""}`;
     }).join("<br>");
     // fekvő lapnál alacsonyabb ábra, hogy ne maradjon üres sáv alatta-felette
